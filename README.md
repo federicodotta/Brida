@@ -1,4 +1,6 @@
-![Brida Logo](https://raw.githubusercontent.com/federicodotta/Brida/master/BridaLogo.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/federicodotta/Brida/master/BridaLogo.png" alt="Brida Logo"/>
+</p>
 
 # Brida
 Brida is a Burp Suite Extension that, working as a bridge between [Burp Suite](https://portswigger.net/burp/) and [Frida](https://www.frida.re/), lets you use and manipulate applications’ own methods while tampering the traffic exchanged between the applications and their back-end services/servers.
