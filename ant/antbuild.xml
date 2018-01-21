@@ -1,8 +1,0 @@
-<project default="jar">
-	<target name="jar">
-		<jar destfile="../output/BridaJava_dev.jar" basedir="../bin">
-			<zipgroupfileset dir="../libs" includes="*.jar"/>
-			<fileset dir="../" includes="res/bridaServicePyro.py"/>
-		</jar>
-	</target>
-</project>

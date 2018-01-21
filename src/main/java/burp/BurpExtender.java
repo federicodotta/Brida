@@ -98,12 +98,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	
 	private IContextMenuInvocation currentInvocation;
 		
-	@Override
-	public void registerExtenderCallbacks(IBurpExtenderCallbacks callbacks) {
+	public void registerExtenderCallbacks(IBurpExtenderCallbacks c) {
 			
 		
         // Keep a reference to our callbacks object
-        this.callbacks = callbacks;
+        this.callbacks = c;
         
         // Obtain an extension helpers object
         helpers = callbacks.getHelpers();
@@ -500,7 +499,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			pyroServerProcess = rt.exec(startServerCommand);
 			InputStream stdInput = pyroServerProcess.getInputStream();
 			
-			BufferedReader stdOutput = new BufferedReader(new InputStreamReader(pyroServerProcess.getInputStream()));
+			final BufferedReader stdOutput = new BufferedReader(new InputStreamReader(pyroServerProcess.getInputStream()));
 			
 			ExecutorService executor = Executors.newFixedThreadPool(1);
 
@@ -709,18 +708,15 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		}
 	}
 
-	@Override
 	public String getTabCaption() {
 
 		return "Brida";
 	}
 
-	@Override
 	public Component getUiComponent() {
 		return mainPanel;
 	}
 
-	@Override
 	public void actionPerformed(ActionEvent event) {
 
 		String command = event.getActionCommand();
@@ -910,7 +906,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 					arguments[i] = (String)(executeMethodInsertedArgumentList.getElementAt(i));
 				}
 				
-				String s = (String)(pyroBridaService.call("callexportfunction",executeMethodName.getText().trim(),arguments));
+				final String s = (String)(pyroBridaService.call("callexportfunction",executeMethodName.getText().trim(),arguments));
 				
 				SwingUtilities.invokeLater(new Runnable() {
 					
@@ -1008,7 +1004,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				byte[] selectedPortion = Arrays.copyOfRange(selectedRequestOrResponse, selectedBounds[0], selectedBounds[1]);
 				
-				String s = (String)(pyroBridaService.call("callexportfunction",command,new String[]{byteArrayToHexString(selectedPortion)}));
+				final String s = (String)(pyroBridaService.call("callexportfunction",command,new String[]{byteArrayToHexString(selectedPortion)}));
 				
 				SwingUtilities.invokeLater(new Runnable() {
 					
@@ -1045,7 +1041,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 			if(userSelection == JFileChooser.APPROVE_OPTION) {
 				
-				File pythonPathFile = fileChooser.getSelectedFile();
+				final File pythonPathFile = fileChooser.getSelectedFile();
 				
 				SwingUtilities.invokeLater(new Runnable() {
 					
@@ -1068,7 +1064,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 			if(userSelection == JFileChooser.APPROVE_OPTION) {
 				
-				File fridaPathFile = fileChooser.getSelectedFile();
+				final File fridaPathFile = fileChooser.getSelectedFile();
 				
 				SwingUtilities.invokeLater(new Runnable() {
 					
@@ -1085,7 +1081,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 
 	}
 
-	@Override
 	public List<JMenuItem> createMenuItems(IContextMenuInvocation invocation) {
 		
 		if(invocation.getInvocationContext() == IContextMenuInvocation.CONTEXT_MESSAGE_EDITOR_REQUEST ||
