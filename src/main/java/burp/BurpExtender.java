@@ -91,6 +91,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	DefaultStyledDocument documentServerStatus;
 	DefaultStyledDocument documentApplicationStatus;
 	
+	DefaultStyledDocument documentServerStatusButtons;
+	DefaultStyledDocument documentApplicationStatusButtons;
+    private JTextPane serverStatusButtons;
+    private JTextPane applicationStatusButtons;
+	
 	private JTextField executeMethodName;
 	private JTextField executeMethodArgument;
 	private DefaultListModel executeMethodInsertedArgumentList;
@@ -480,6 +485,24 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 gbc.gridwidth = GridBagConstraints.REMAINDER;
                 gbc.fill = GridBagConstraints.HORIZONTAL;
                 
+                documentServerStatusButtons = new DefaultStyledDocument();
+                serverStatusButtons = new JTextPane(documentServerStatusButtons);                
+                try {
+                	documentServerStatusButtons.insertString(0, "Server stopped", redStyle);
+				} catch (BadLocationException e) {
+					stderr.println(e.toString());
+				}
+                serverStatusButtons.setMaximumSize( serverStatusButtons.getPreferredSize() );
+                
+                documentApplicationStatusButtons = new DefaultStyledDocument();
+                applicationStatusButtons = new JTextPane(documentApplicationStatusButtons);                
+                try {
+                	documentApplicationStatusButtons.insertString(0, "App stopped", redStyle);
+				} catch (BadLocationException e) {
+					stderr.println(e.toString());
+				}
+                applicationStatusButtons.setMaximumSize( applicationStatusButtons.getPreferredSize() );
+                                
             	JButton startServer = new JButton("Start server");
                 startServer.setActionCommand("startServer");
                 startServer.addActionListener(BurpExtender.this); 
@@ -523,6 +546,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
                 separator.setBorder(BorderFactory.createMatteBorder(3, 0, 3, 0, Color.ORANGE));
 
+                rightSplitPane.add(serverStatusButtons,gbc);
+                rightSplitPane.add(applicationStatusButtons,gbc);
                 rightSplitPane.add(startServer,gbc);
                 rightSplitPane.add(killServer,gbc);
                 rightSplitPane.add(spawnApplication,gbc);
@@ -967,8 +992,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		            public void run() {
 		            	
 		            	applicationStatus.setText("");
+		            	applicationStatusButtons.setText("");
 		            	try {
 		                	documentApplicationStatus.insertString(0, "spawned", greenStyle);
+		                	documentApplicationStatusButtons.insertString(0, "App running", greenStyle);
 		                	configurationConsoleTextArea.append("[I] Application " + applicationId.getText().trim() + " spawned correctly\n");
 						} catch (BadLocationException e) {
 							configurationConsoleTextArea.append("[E] Exception with spawn application\n");
@@ -1044,9 +1071,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		            public void run() {
 		            	
 		            	applicationStatus.setText("");
+		            	applicationStatusButtons.setText("");
 		            	try {
 		                	documentApplicationStatus.insertString(0, "NOT spawned", redStyle);
-		                	configurationConsoleTextArea.append("[I] Killing applplication executed\n");
+		                	documentApplicationStatusButtons.insertString(0, "App stopped", redStyle);
+		                	configurationConsoleTextArea.append("[I] Killing application executed\n");
 						} catch (BadLocationException e) {
 							configurationConsoleTextArea.append("[E] Exception killing application\n");
 							StackTraceElement[] exceptionElements = e.getStackTrace();
@@ -1090,8 +1119,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		            public void run() {
 		            	
 		            	serverStatus.setText("");
+		            	serverStatusButtons.setText("");
 		            	try {
 		                	documentServerStatus.insertString(0, "NOT running", redStyle);
+		                	documentServerStatusButtons.insertString(0, "Server stopped", redStyle);
 		                	configurationConsoleTextArea.append("[I] Pyro server shutted down\n");
 						} catch (BadLocationException e) {
 							configurationConsoleTextArea.append("[E] Exception shutting down Pyro server\n");
@@ -1142,8 +1173,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			            public void run() {
 			            	
 			            	serverStatus.setText("");
+			            	serverStatusButtons.setText("");
 			            	try {
 			                	documentServerStatus.insertString(0, "running", greenStyle);
+			                	documentServerStatusButtons.insertString(0, "Server running", greenStyle);
 			                	configurationConsoleTextArea.append("[I] Pyro Server started correctly\n");
 							} catch (BadLocationException e) {
 						      	configurationConsoleTextArea.append("[E] Exception starting Pyro Server\n");
