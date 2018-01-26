@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -57,7 +59,9 @@ import javax.swing.text.StyleConstants;
 import javax.swing.text.StyleContext;
 
 import org.apache.commons.lang3.ArrayUtils;
-
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
+import org.fife.ui.rtextarea.RTextScrollPane;
 
 import net.razorvine.pyro.*;
 
@@ -115,8 +119,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     private JButton loadSettingsFromFileButton;
     private JButton generateJavaStubButton;
     private JButton generatePythonStubButton;    
+    private JButton loadJSFileButton;
+    private JButton saveJSFileButton;    
     
     private JTextArea configurationConsoleTextArea;
+    
+	private RSyntaxTextArea jsEditorTextArea;
+	private JTextArea consoleTextArea;
 		
 	public void registerExtenderCallbacks(IBurpExtenderCallbacks c) {
 			
@@ -374,6 +383,51 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 
                 // **** END CONFIGURATION PANEL
                 
+            	// **** JS EDITOR PANEL / CONSOLE
+                
+                JSplitPane editorConsoleSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+                                
+                //jsEditor = callbacks.createTextEditor();
+                
+                // https://github.com/bobbylight/RSyntaxTextArea
+                // TODO Aggiungere le altre componenti: spellcheck, lingue, etc.
+                                
+                jsEditorTextArea = new RSyntaxTextArea();
+                jsEditorTextArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT);
+                jsEditorTextArea.setCodeFoldingEnabled(false);                
+                //jsEditorTextArea.setEditable(true);
+                //jsEditorTextArea.setEnabled(true);
+                RTextScrollPane sp = new RTextScrollPane(jsEditorTextArea);
+                //sp.setEnabled(true);
+                
+                jsEditorTextArea.setFocusable(true);
+                
+                /*
+                // Autocomplete
+                CompletionProvider provider = createCompletionProvider();
+                AutoCompletion ac = new AutoCompletion(provider);
+                ac.install(jsEditorTextArea);
+                */
+	
+        		// Console text
+                consoleTextArea = new JTextArea();
+                JScrollPane scrollConsoleTextArea = new JScrollPane(consoleTextArea);
+                scrollConsoleTextArea.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+                consoleTextArea.setLineWrap(true);
+                consoleTextArea.setEditable(false);
+                //stubGeneratorPanel.add(consoleTextArea);
+                                
+                //jsEditorPanel.add(sp);
+                
+                //editorConsoleSplitPane.setTopComponent(jsEditor.getComponent());
+                editorConsoleSplitPane.setTopComponent(sp);
+                editorConsoleSplitPane.setBottomComponent(scrollConsoleTextArea);                
+
+                editorConsoleSplitPane.setResizeWeight(.7d);
+                
+                
+            	// **** END JS EDITOR PANEL / CONSOLE                
+                
             	// **** STUB GENERATION     
                 
                 JSplitPane stubGenerationSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
@@ -473,6 +527,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 // **** END EXECUTE METHOD TAB
                 
             	tabbedPanel.add("Configurations",configurationPanel);
+            	tabbedPanel.add("JS Editor",editorConsoleSplitPane);  
             	tabbedPanel.add("Generate stubs",stubGenerationSplitPane);            	
             	tabbedPanel.add("Execute method",executeMethodPanel);
                 
@@ -543,6 +598,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 loadSettingsFromFileButton = new JButton("Load settings from file");
                 loadSettingsFromFileButton.setActionCommand("loadSettingsFromFile");
                 loadSettingsFromFileButton.addActionListener(BurpExtender.this);
+                
+                loadJSFileButton = new JButton("Load JS file");
+                loadJSFileButton.setActionCommand("loadJsFile");
+                loadJSFileButton.addActionListener(BurpExtender.this);  
+                
+                saveJSFileButton = new JButton("Save JS file");
+                saveJSFileButton.setActionCommand("saveJsFile");
+                saveJSFileButton.addActionListener(BurpExtender.this);                
                            
                 JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
                 separator.setBorder(BorderFactory.createMatteBorder(3, 0, 3, 0, Color.ORANGE));
@@ -560,6 +623,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 // TAB CONFIGURATIONS
                 rightSplitPane.add(saveSettingsToFileButton,gbc);
                 rightSplitPane.add(loadSettingsFromFileButton,gbc);
+                
+                // TAB JS EDITOR
+                rightSplitPane.add(loadJSFileButton,gbc);
+                rightSplitPane.add(saveJSFileButton,gbc);
                 
                 // TAB EXECUTE METHOD
                 rightSplitPane.add(executeMethodButton,gbc);
@@ -602,6 +669,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						loadSettingsFromFileButton.setVisible(true);
 						generateJavaStubButton.setVisible(false);
 						generatePythonStubButton.setVisible(false);
+						loadJSFileButton.setVisible(false);
+						saveJSFileButton.setVisible(false);
 						
 		            }
 		            
@@ -609,8 +678,31 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				break;
 			
-			// GENERATE STUBS	
+			// JS editor	
 			case 1:
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+
+		            	executeMethodButton.setVisible(false);
+						saveSettingsToFileButton.setVisible(false);
+						loadSettingsFromFileButton.setVisible(false);
+						generateJavaStubButton.setVisible(false);
+						generatePythonStubButton.setVisible(false);
+						loadJSFileButton.setVisible(true);
+						saveJSFileButton.setVisible(true);
+						
+		            }
+		            
+				});
+				
+				break;	
+				
+				
+			// GENERATE STUBS	
+			case 2:
 				
 				SwingUtilities.invokeLater(new Runnable() {
 					
@@ -622,6 +714,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						loadSettingsFromFileButton.setVisible(false);
 						generateJavaStubButton.setVisible(true);
 						generatePythonStubButton.setVisible(true);
+						loadJSFileButton.setVisible(false);
+						saveJSFileButton.setVisible(false);
 						
 		            }
 		            
@@ -630,7 +724,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				break;
 			
 			// EXECUTE METHODS	
-			case 2:
+			case 3:
 				
 				SwingUtilities.invokeLater(new Runnable() {
 					
@@ -642,6 +736,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						loadSettingsFromFileButton.setVisible(false);
 						generateJavaStubButton.setVisible(false);
 						generatePythonStubButton.setVisible(false);
+						loadJSFileButton.setVisible(false);
+						saveJSFileButton.setVisible(false);
 						
 		            }
 		            
@@ -1285,6 +1381,46 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 			loadConfigurationsFromFile();			
 			
+		} else if(command.equals("loadJsFile")) {
+			
+			File jsFile = new File(fridaPath.getText().trim());
+			byte[] jsFileContent = null;
+			try {
+				jsFileContent = Files.readAllBytes(jsFile.toPath());
+			} catch (IOException e) {
+				stderr.println("ERROR OPENING JS FILE");
+				stderr.println(e.toString());
+			}
+			
+			final byte[] test = jsFileContent;
+			
+			if(jsFileContent != null) {
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+		            			            	
+		            	//jsEditor.setText(test);
+		            	jsEditorTextArea.setText(new String(test));
+
+		            }
+				});
+				
+			}
+			
+			
+		} else if(command.equals("saveJsFile")) {
+		
+			File jsFile = new File(fridaPath.getText().trim());
+			try {
+				//Files.write(jsFile.toPath(), jsEditor.getText(), StandardOpenOption.WRITE);
+				Files.write(jsFile.toPath(), jsEditorTextArea.getText().getBytes(), StandardOpenOption.WRITE);
+			} catch (IOException e) {
+				stderr.println("ERROR WRITING TO JS FILE");
+				stderr.println(e.toString());
+			}
+		
 		} else if(command.equals("contextcustom1") || command.equals("contextcustom2")) {
 			
 			IHttpRequestResponse[] selectedItems = currentInvocation.getSelectedMessages();
