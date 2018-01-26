@@ -126,6 +126,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     
 	private RSyntaxTextArea jsEditorTextArea;
 	private JTextArea consoleTextArea;
+	
+    private Thread stdoutThread;
+    private Thread stderrThread;
 		
 	public void registerExtenderCallbacks(IBurpExtenderCallbacks c) {
 			
@@ -765,6 +768,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			InputStream stdInput = pyroServerProcess.getInputStream();
 			
 			final BufferedReader stdOutput = new BufferedReader(new InputStreamReader(pyroServerProcess.getInputStream()));
+			final BufferedReader stdError = new BufferedReader(new InputStreamReader(pyroServerProcess.getErrorStream()));
 			
 			ExecutorService executor = Executors.newFixedThreadPool(1);
 
@@ -777,6 +781,69 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		    
 		    Future<String> future = executor.submit(readTask);
 		    String result = future.get(5000, TimeUnit.MILLISECONDS);
+		    
+			// Initialize thread that will read stdout
+			stdoutThread = new Thread() {
+				
+				public void run() {
+					
+						while(true) {
+					
+							try {
+								
+								final String line = stdOutput.readLine();
+								SwingUtilities.invokeLater(new Runnable() {
+									
+						            @Override
+						            public void run() {
+						            	
+						            	consoleTextArea.append(line + "\n");
+										
+						            }
+								});
+								
+							} catch (Exception e) {
+								stderr.println(e.toString());
+							}
+							
+						}
+				}
+				
+			};			
+			stdoutThread.start();
+			
+			// Initialize thread that will read stderr
+			stderrThread = new Thread() {
+				
+				public void run() {
+					
+						while(true) {
+												
+							try {
+								
+								final String line = stdError.readLine();
+								SwingUtilities.invokeLater(new Runnable() {
+									
+						            @Override
+						            public void run() {
+						            	
+						            	consoleTextArea.append(line + "\n");
+										
+						            }
+								});
+								
+								
+							} catch (Exception e) {
+								
+								stderr.println(e.toString());
+								
+							}
+							
+						}
+				}
+				
+			};			
+			stderrThread.start();
 		    
 		    return result;
 		    
@@ -1124,6 +1191,18 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		} else if(command.equals("reloadScript") && serverStarted && applicationSpawned) {
 				
 			try {
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+				
+		            	consoleTextArea.setText("");
+		            	
+		            }
+		            
+				});
+				
 				pyroBridaService.call("reload_script");
 				
 				SwingUtilities.invokeLater(new Runnable() {
@@ -1167,6 +1246,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		            @Override
 		            public void run() {
 		            	
+		            	consoleTextArea.setText("");
 		            	applicationStatus.setText("");
 		            	applicationStatusButtons.setText("");
 		            	try {
@@ -1203,6 +1283,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			}
 			
 		} else if(command.equals("killServer") && serverStarted) {
+			
+			stdoutThread.stop();
+			stderrThread.stop();
 			
 			try {
 				pyroBridaService.call("shutdown");
