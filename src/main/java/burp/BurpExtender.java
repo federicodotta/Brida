@@ -24,6 +24,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.DefaultListModel;
@@ -38,13 +39,17 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.LineBorder;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultStyledDocument;
 import javax.swing.text.Style;
@@ -91,12 +96,20 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	private DefaultListModel executeMethodInsertedArgumentList;
 	private JList executeMethodInsertedArgument;
 	private JTextArea executeMethodOutput; 
-	private JTextArea stubGeneratorOutput;
 	
 	private boolean serverStarted;
 	private boolean applicationSpawned;
 	
 	private IContextMenuInvocation currentInvocation;
+	
+	private ITextEditor javaStubTextEditor;
+    private ITextEditor pythonStubTextEditor;
+    
+    private JButton executeMethodButton;
+    private JButton saveSettingsToFileButton;
+    private JButton loadSettingsFromFileButton;
+    private JButton generateJavaStubButton;
+    private JButton generatePythonStubButton;    
 		
 	public void registerExtenderCallbacks(IBurpExtenderCallbacks c) {
 			
@@ -161,11 +174,28 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
             	
             	JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
             	
-            	// LEFT
-            	JSplitPane leftSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
-            	    	
-                JPanel leftUpperPane = new JPanel();
-                leftUpperPane.setLayout(new BoxLayout(leftUpperPane, BoxLayout.Y_AXIS));
+            	// Tabbed Pabel
+            	
+            	final JTabbedPane tabbedPanel = new JTabbedPane();
+            	tabbedPanel.addChangeListener(new ChangeListener() {
+                    public void stateChanged(ChangeEvent e) {
+                       
+                        SwingUtilities.invokeLater(new Runnable() {
+            				
+            	            @Override
+            	            public void run() {
+            	            	
+            	            	showHideButtons(tabbedPanel.getSelectedIndex());
+            					
+            	            }
+            			});	
+                        
+                    }
+                });
+            	
+            	// **** CONFIGURATION PANEL
+            	JPanel configurationPanel = new JPanel();
+                configurationPanel.setLayout(new BoxLayout(configurationPanel, BoxLayout.Y_AXIS));
                                 
                 // RED STYLE
                 StyleContext styleContext = new StyleContext();
@@ -306,28 +336,36 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 localRemoteButtonGroup.add(localRadioButton);
                 localRemotePanel.add(remoteRadioButton);
                 localRemotePanel.add(localRadioButton);
-            	                
-                leftUpperPane.add(serverStatusPanel);
-                leftUpperPane.add(applicationStatusPanel);
-                leftUpperPane.add(pythonPathPanel);
-                leftUpperPane.add(pyroHostPanel);
-                leftUpperPane.add(pyroPortPanel);
-                leftUpperPane.add(fridaPathPanel);
-                leftUpperPane.add(applicationIdPanel);  
-                leftUpperPane.add(localRemotePanel);
+            	  
+                configurationPanel.add(serverStatusPanel);
+                configurationPanel.add(applicationStatusPanel);
+                configurationPanel.add(pythonPathPanel);
+                configurationPanel.add(pyroHostPanel);
+                configurationPanel.add(pyroPortPanel);
+                configurationPanel.add(fridaPathPanel);
+                configurationPanel.add(applicationIdPanel);  
+                configurationPanel.add(localRemotePanel);
                 
-                // Left Bottom
-                JTabbedPane leftBottomPane = new JTabbedPane(); 
+                // **** END CONFIGURATION PANEL
                 
-                // Stub generator
-                JPanel stubGeneratorPanel = new JPanel();
-                stubGeneratorPanel.setLayout(new BoxLayout(stubGeneratorPanel, BoxLayout.Y_AXIS));
-                stubGeneratorOutput = new JTextArea();
-                JScrollPane scrollStubGeneratorOutput = new JScrollPane(stubGeneratorOutput);
-                scrollStubGeneratorOutput.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-                stubGeneratorOutput.setLineWrap(true);
-                stubGeneratorOutput.setEditable(false);
-                stubGeneratorPanel.add(stubGeneratorOutput);
+            	// **** STUB GENERATION     
+                
+                JSplitPane stubGenerationSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+                
+                javaStubTextEditor = callbacks.createTextEditor();
+                pythonStubTextEditor = callbacks.createTextEditor();
+                
+                javaStubTextEditor.setEditable(false);
+                pythonStubTextEditor.setEditable(false);
+                
+                stubGenerationSplitPane.setTopComponent(javaStubTextEditor.getComponent());
+                stubGenerationSplitPane.setBottomComponent(pythonStubTextEditor.getComponent());                
+
+                stubGenerationSplitPane.setResizeWeight(.5d);
+                
+            	// **** END STUB GENERATION     
+                
+                // **** EXECUTE METHOD TAB
                 
                 // Execute method
                 JPanel executeMethodPanel = new JPanel();
@@ -406,15 +444,16 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 executeMethodPanel.add(executeMethodInsertedArgumentPanel);
                 executeMethodPanel.add(executeMethodOutputPanel);
                 
-                leftBottomPane.add("Stub generator", stubGeneratorPanel);
-                leftBottomPane.add("Execute method", executeMethodPanel);
-          
-                leftSplitPane.setTopComponent(leftUpperPane);
-                leftSplitPane.setBottomComponent(leftBottomPane);                
-
-                leftSplitPane.setResizeWeight(.7d);
-           
-                // RIGHT
+                // **** END EXECUTE METHOD TAB
+                
+            	tabbedPanel.add("Configurations",configurationPanel);
+            	tabbedPanel.add("Generate stubs",stubGenerationSplitPane);            	
+            	tabbedPanel.add("Execute method",executeMethodPanel);
+                
+            	
+                // *** RIGHT - BUTTONS
+            	
+            	// RIGHT
                 JPanel rightSplitPane = new JPanel();
                 rightSplitPane.setLayout(new GridBagLayout());
                 GridBagConstraints gbc = new GridBagConstraints();
@@ -441,38 +480,49 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 reloadScript.setActionCommand("reloadScript");
                 reloadScript.addActionListener(BurpExtender.this); 
                                 
-                JButton executeMethodButton = new JButton("Execute Method");
+                executeMethodButton = new JButton("Execute Method");
                 executeMethodButton.setActionCommand("executeMethod");
                 executeMethodButton.addActionListener(BurpExtender.this); 
                 
-                JButton generateJavaStubButton = new JButton("Java Stub");
+                generateJavaStubButton = new JButton("Java Stub");
                 generateJavaStubButton.setActionCommand("generateJavaStub");
                 generateJavaStubButton.addActionListener(BurpExtender.this);    
                 
-                JButton generatePythonStubButton = new JButton("Python Stub");
+                generatePythonStubButton = new JButton("Python Stub");
                 generatePythonStubButton.setActionCommand("generatePythonStub");
                 generatePythonStubButton.addActionListener(BurpExtender.this);
-                                
-                JButton saveSettingsToFileButton = new JButton("Save settings to file");
-                saveSettingsToFileButton.setActionCommand("saveSettingsToFile");
-                saveSettingsToFileButton.addActionListener(BurpExtender.this);
                 
-                JButton loadSettingsFromFileButton = new JButton("Load settings from file");
+                saveSettingsToFileButton = new JButton("Save settings to file");
+                saveSettingsToFileButton.setActionCommand("saveSettingsToFile");
+                saveSettingsToFileButton.addActionListener(BurpExtender.this);  
+                
+                loadSettingsFromFileButton = new JButton("Load settings from file");
                 loadSettingsFromFileButton.setActionCommand("loadSettingsFromFile");
                 loadSettingsFromFileButton.addActionListener(BurpExtender.this);
-                
+                           
+                JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
+                separator.setBorder(BorderFactory.createMatteBorder(3, 0, 3, 0, Color.ORANGE));
+
                 rightSplitPane.add(startServer,gbc);
                 rightSplitPane.add(killServer,gbc);
                 rightSplitPane.add(spawnApplication,gbc);
                 rightSplitPane.add(killApplication,gbc);
                 rightSplitPane.add(reloadScript,gbc);
-                rightSplitPane.add(generateJavaStubButton,gbc);
-                rightSplitPane.add(generatePythonStubButton,gbc);
+
+                rightSplitPane.add(separator,gbc);
+                
+                // TAB CONFIGURATIONS
                 rightSplitPane.add(saveSettingsToFileButton,gbc);
                 rightSplitPane.add(loadSettingsFromFileButton,gbc);
+                
+                // TAB EXECUTE METHOD
                 rightSplitPane.add(executeMethodButton,gbc);
                 
-                splitPane.setLeftComponent(leftSplitPane);
+                // TAB GENERATE STUBS
+                rightSplitPane.add(generateJavaStubButton,gbc);
+                rightSplitPane.add(generatePythonStubButton,gbc);
+                
+                splitPane.setLeftComponent(tabbedPanel);
                 splitPane.setRightComponent(rightSplitPane);
                 
                 splitPane.setResizeWeight(.9d);
@@ -488,6 +538,79 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
         });
 		
 	}
+	
+	private void showHideButtons(int indexTabbedPanel) {
+		
+		switch(indexTabbedPanel) {
+		
+			// CONFIGURATIONS
+			case 0:
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+				
+						executeMethodButton.setVisible(false);
+						saveSettingsToFileButton.setVisible(true);
+						loadSettingsFromFileButton.setVisible(true);
+						generateJavaStubButton.setVisible(false);
+						generatePythonStubButton.setVisible(false);
+						
+		            }
+		            
+				});
+				
+				break;
+			
+			// GENERATE STUBS	
+			case 1:
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+
+		            	executeMethodButton.setVisible(false);
+						saveSettingsToFileButton.setVisible(false);
+						loadSettingsFromFileButton.setVisible(false);
+						generateJavaStubButton.setVisible(true);
+						generatePythonStubButton.setVisible(true);
+						
+		            }
+		            
+				});
+				
+				break;
+			
+			// EXECUTE METHODS	
+			case 2:
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+				
+						executeMethodButton.setVisible(true);
+						saveSettingsToFileButton.setVisible(false);
+						loadSettingsFromFileButton.setVisible(false);
+						generateJavaStubButton.setVisible(false);
+						generatePythonStubButton.setVisible(false);
+						
+		            }
+		            
+				});
+				
+				break;
+				
+			default:
+				
+				stderr.println("ShowHideButtons: index not found");				
+				break;	
+		
+		}
+		
+	}	
 	
 	private boolean launchPyroServer(String pythonPath, String pyroServicePath) {
 		
@@ -928,8 +1051,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	            @Override
 	            public void run() {
 	            	
-	            	stubGeneratorOutput.setText(generateJavaStub());
-
+	            	javaStubTextEditor.setText(generateJavaStub().getBytes());
+	                
 	            }
 			});
 			
@@ -941,7 +1064,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	            @Override
 	            public void run() {
 	            	
-	            	stubGeneratorOutput.setText(generatePythonStub());
+	            	pythonStubTextEditor.setText(generatePythonStub().getBytes());
 
 	            }
 			});
