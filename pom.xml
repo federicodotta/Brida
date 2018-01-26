@@ -103,7 +103,14 @@
 	    <groupId>net.razorvine</groupId>
 	    <artifactId>serpent</artifactId>
 	    <version>1.23</version>
-	</dependency>    
+	</dependency> 
+	
+	<!-- https://mvnrepository.com/artifact/com.fifesoft/rsyntaxtextarea -->
+	<dependency>
+	    <groupId>com.fifesoft</groupId>
+	    <artifactId>rsyntaxtextarea</artifactId>
+	    <version>2.6.1</version>
+	</dependency>   
     
   </dependencies>
 </project>
