@@ -110,6 +110,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     private JButton loadSettingsFromFileButton;
     private JButton generateJavaStubButton;
     private JButton generatePythonStubButton;    
+    
+    private JTextArea configurationConsoleTextArea;
 		
 	public void registerExtenderCallbacks(IBurpExtenderCallbacks c) {
 			
@@ -194,8 +196,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 });
             	
             	// **** CONFIGURATION PANEL
-            	JPanel configurationPanel = new JPanel();
-                configurationPanel.setLayout(new BoxLayout(configurationPanel, BoxLayout.Y_AXIS));
+            	
+            	JSplitPane configurationPanel = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+            	
+            	
+            	// CONFIGURATIONS
+            	
+            	JPanel configurationConfPanel = new JPanel();
+                configurationConfPanel.setLayout(new BoxLayout(configurationConfPanel, BoxLayout.Y_AXIS));
                                 
                 // RED STYLE
                 StyleContext styleContext = new StyleContext();
@@ -337,14 +345,26 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 localRemotePanel.add(remoteRadioButton);
                 localRemotePanel.add(localRadioButton);
             	  
-                configurationPanel.add(serverStatusPanel);
-                configurationPanel.add(applicationStatusPanel);
-                configurationPanel.add(pythonPathPanel);
-                configurationPanel.add(pyroHostPanel);
-                configurationPanel.add(pyroPortPanel);
-                configurationPanel.add(fridaPathPanel);
-                configurationPanel.add(applicationIdPanel);  
-                configurationPanel.add(localRemotePanel);
+                configurationConfPanel.add(serverStatusPanel);
+                configurationConfPanel.add(applicationStatusPanel);
+                configurationConfPanel.add(pythonPathPanel);
+                configurationConfPanel.add(pyroHostPanel);
+                configurationConfPanel.add(pyroPortPanel);
+                configurationConfPanel.add(fridaPathPanel);
+                configurationConfPanel.add(applicationIdPanel);  
+                configurationConfPanel.add(localRemotePanel);
+                
+                // 	CONSOLE
+                
+                configurationConsoleTextArea = new JTextArea();
+                JScrollPane scrollConfigurationConsoleTextArea = new JScrollPane(configurationConsoleTextArea);
+                scrollConfigurationConsoleTextArea.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+                configurationConsoleTextArea.setLineWrap(true);
+                configurationConsoleTextArea.setEditable(false);
+                
+                configurationPanel.setTopComponent(configurationConfPanel);
+                configurationPanel.setBottomComponent(scrollConfigurationConsoleTextArea);
+                configurationPanel.setResizeWeight(.7d);
                 
                 // **** END CONFIGURATION PANEL
                 
@@ -612,7 +632,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
 	}	
 	
-	private boolean launchPyroServer(String pythonPath, String pyroServicePath) {
+	private String launchPyroServer(String pythonPath, String pyroServicePath) {
 		
 		Runtime rt = Runtime.getRuntime();
 		
@@ -636,16 +656,23 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		    Future<String> future = executor.submit(readTask);
 		    String result = future.get(5000, TimeUnit.MILLISECONDS);
 		    
-			stdout.println(result);
-			if(result.trim().equals("Ready.")) {
-				return true;
-			} else {
-				return false;
-			}
+		    return result;
+		    
+
 			
-		} catch (Exception e1) {
-			e1.printStackTrace();
-			return false;
+		} catch (final Exception e1) {
+			SwingUtilities.invokeLater(new Runnable() {				
+	            @Override
+	            public void run() {
+			
+	            	configurationConsoleTextArea.append("[E] Exception starting Pyro server\n");
+					StackTraceElement[] exceptionElements = e1.getStackTrace();
+					for(int i=0; i< exceptionElements.length; i++) {
+						configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
+					}					
+	            }	            
+			});
+			return "";
 		}
 		
 		
@@ -742,9 +769,28 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				}				
 				
 				fw.close();
-			} catch (IOException e) {
-				stderr.println("ERROR");
-				stderr.println(e.toString());
+				
+				SwingUtilities.invokeLater(new Runnable() {				
+		            @Override
+		            public void run() {
+				
+		            	configurationConsoleTextArea.append("[I] Saving configurations to file executed correctly\n");
+		            	
+		            }
+		            
+				});
+			} catch (final IOException e) {
+				SwingUtilities.invokeLater(new Runnable() {				
+		            @Override
+		            public void run() {
+				
+		            	configurationConsoleTextArea.append("[E] Exception exporting configurations to file\n");
+						StackTraceElement[] exceptionElements = e.getStackTrace();
+						for(int i=0; i< exceptionElements.length; i++) {
+							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
+						}					
+		            }	            
+				});
 				return;
 			}			
 				
@@ -821,9 +867,28 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 							 				
 				br.close();
 				
-			} catch (Exception e) {
-				stderr.println("ERROR");
-				stderr.println(e.toString());
+				SwingUtilities.invokeLater(new Runnable() {				
+		            @Override
+		            public void run() {
+				
+		            	configurationConsoleTextArea.append("[I] Loading configurations executed correctly\n");
+		            	
+		            }
+		            
+				});
+				
+			} catch (final Exception e) {
+				SwingUtilities.invokeLater(new Runnable() {				
+		            @Override
+		            public void run() {
+				
+		            	configurationConsoleTextArea.append("[E] Error loading configurations from file\n");
+						StackTraceElement[] exceptionElements = e.getStackTrace();
+						for(int i=0; i< exceptionElements.length; i++) {
+							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
+						}					
+		            }	            
+				});
 				return;
 			}
 			
@@ -904,16 +969,31 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		            	applicationStatus.setText("");
 		            	try {
 		                	documentApplicationStatus.insertString(0, "spawned", greenStyle);
+		                	configurationConsoleTextArea.append("[I] Application " + applicationId.getText().trim() + " spawned correctly\n");
 						} catch (BadLocationException e) {
-							stderr.println(e.toString());
+							configurationConsoleTextArea.append("[E] Exception with spawn application\n");
+							StackTraceElement[] exceptionElements = e.getStackTrace();
+							for(int i=0; i< exceptionElements.length; i++) {
+								configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
+							}
 						}
 						
 		            }
 				});
 				
-			} catch (Exception e) {
-				stderr.println("Exception with spawn application");
-				stderr.println(e.toString());
+			} catch (final Exception e) {
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+						configurationConsoleTextArea.append("[E] Exception with spawn application\n");
+						StackTraceElement[] exceptionElements = e.getStackTrace();
+						for(int i=0; i< exceptionElements.length; i++) {
+							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
+						}
+		            }
+				});
 			}
 		
 			
@@ -921,9 +1001,34 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 			try {
 				pyroBridaService.call("reload_script");
-			} catch (Exception e) {
-				stderr.println("Exception with reload script");
-				stderr.println(e.toString());
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+				
+		            	configurationConsoleTextArea.append("[I] Reloading script executed\n");
+		            	
+		            }
+		            
+				});
+				
+			} catch (final Exception e) {
+					
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+				
+		            	configurationConsoleTextArea.append("[E] Exception reloading script\n");
+						StackTraceElement[] exceptionElements = e.getStackTrace();
+						for(int i=0; i< exceptionElements.length; i++) {
+							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
+						}
+						
+		            }
+		            
+				});
 			}
 	
 						
@@ -941,16 +1046,34 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		            	applicationStatus.setText("");
 		            	try {
 		                	documentApplicationStatus.insertString(0, "NOT spawned", redStyle);
+		                	configurationConsoleTextArea.append("[I] Killing applplication executed\n");
 						} catch (BadLocationException e) {
-							stderr.println(e.toString());
+							configurationConsoleTextArea.append("[E] Exception killing application\n");
+							StackTraceElement[] exceptionElements = e.getStackTrace();
+							for(int i=0; i< exceptionElements.length; i++) {
+								configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
+							}
 						}
 						
 		            }
 				});
 				
-			} catch (Exception e) {
-				stderr.println("Exception with disconnect application");
-				stderr.println(e.toString());
+			} catch (final Exception e) {
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+				
+		            	configurationConsoleTextArea.append("[E] Exception killing application\n");
+						StackTraceElement[] exceptionElements = e.getStackTrace();
+						for(int i=0; i< exceptionElements.length; i++) {
+							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
+						}
+						
+		            }
+		            
+				});
 			}
 			
 		} else if(command.equals("killServer") && serverStarted) {
@@ -969,16 +1092,34 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		            	serverStatus.setText("");
 		            	try {
 		                	documentServerStatus.insertString(0, "NOT running", redStyle);
+		                	configurationConsoleTextArea.append("[I] Pyro server shutted down\n");
 						} catch (BadLocationException e) {
-							stderr.println(e.toString());
+							configurationConsoleTextArea.append("[E] Exception shutting down Pyro server\n");
+							StackTraceElement[] exceptionElements = e.getStackTrace();
+							for(int i=0; i< exceptionElements.length; i++) {
+								configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
+							}
 						}
 						
 		            }
 				});
 				
-			} catch (Exception e) {
-				stderr.println("Exception shutting down pyro server");
-				stderr.println(e.toString());
+			} catch (final Exception e) {
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+				
+		            	configurationConsoleTextArea.append("[E] Exception shutting down Pyro server\n");
+						StackTraceElement[] exceptionElements = e.getStackTrace();
+						for(int i=0; i< exceptionElements.length; i++) {
+							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
+						}
+						
+		            }
+		            
+				});
 			}
 		
 			
@@ -988,9 +1129,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 			try {
 				
-				boolean startPyroServerResult = launchPyroServer(pythonPath.getText().trim(),pythonScript);
-		        if(startPyroServerResult) {		        	
-		        	stdout.println("Server started");
+				final String startPyroServerResult = launchPyroServer(pythonPath.getText().trim(),pythonScript);
+				
+				if(startPyroServerResult.trim().equals("Ready.")) {
+						        	
 		        	pyroBridaService = new PyroProxy(new PyroURI("PYRO:BridaServicePyro@" + pyroHost.getText().trim() + ":" + pyroPort.getText().trim()));
 		        	serverStarted = true;	 
 		        	
@@ -1002,20 +1144,51 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			            	serverStatus.setText("");
 			            	try {
 			                	documentServerStatus.insertString(0, "running", greenStyle);
+			                	configurationConsoleTextArea.append("[I] Pyro Server started correctly\n");
 							} catch (BadLocationException e) {
-								stderr.println(e.toString());
+						      	configurationConsoleTextArea.append("[E] Exception starting Pyro Server\n");
+								StackTraceElement[] exceptionElements = e.getStackTrace();
+								for(int i=0; i< exceptionElements.length; i++) {
+									configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
+								}		
+
 							}
 							
 			            }
 					});
 		        	
-		        } else {		        	
-		        	stderr.println("ERROR STARTING PYRO SERVER");
+		        } else {	
+		        	
+		        	if(!(startPyroServerResult.trim().equals(""))) {
+		        		
+			        	SwingUtilities.invokeLater(new Runnable() {
+							
+				            @Override
+				            public void run() {
+					        	configurationConsoleTextArea.append("[E] Exception starting Pyro Server\n");
+					        	configurationConsoleTextArea.append(startPyroServerResult.trim() + "\n");
+					        	
+				            }
+				            
+			        	});
+		        	}
 		        	return;		        	
 		        }
-			} catch (Exception e) {
-				stderr.println("Exception starting pyro server");
-				stderr.println(e.toString());
+			} catch (final Exception e) {
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+				
+		            	configurationConsoleTextArea.append("[E] Exception starting Pyro server\n");
+						StackTraceElement[] exceptionElements = e.getStackTrace();
+						for(int i=0; i< exceptionElements.length; i++) {
+							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
+						}
+						
+		            }
+		            
+				});
 			}
 			
 		} else if(command.equals("executeMethod")) {
