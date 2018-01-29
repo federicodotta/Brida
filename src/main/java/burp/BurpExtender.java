@@ -2,10 +2,13 @@ package burp;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -19,7 +22,12 @@ import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -47,6 +55,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
+import javax.swing.JTree;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.LineBorder;
@@ -57,6 +66,10 @@ import javax.swing.text.DefaultStyledDocument;
 import javax.swing.text.Style;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyleContext;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreeNode;
+import javax.swing.tree.TreePath;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
@@ -65,7 +78,7 @@ import org.fife.ui.rtextarea.RTextScrollPane;
 
 import net.razorvine.pyro.*;
 
-public class BurpExtender implements IBurpExtender, ITab, ActionListener, IContextMenuFactory {
+public class BurpExtender implements IBurpExtender, ITab, ActionListener, IContextMenuFactory, MouseListener {
 
     private IBurpExtenderCallbacks callbacks;
     private IExtensionHelpers helpers;
@@ -120,7 +133,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     private JButton generateJavaStubButton;
     private JButton generatePythonStubButton;    
     private JButton loadJSFileButton;
-    private JButton saveJSFileButton;    
+    private JButton saveJSFileButton; 
+    private JButton loadTreeButton;
     
     private JTextArea configurationConsoleTextArea;
     
@@ -129,7 +143,19 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	
     private Thread stdoutThread;
     private Thread stderrThread;
+    
+    private JTextField findTextField;
+    private ITextEditor searchResultEditor;
+    
+    private JTree tree;
 		
+    /*
+     * TODO
+     * - Android
+     * - Add addresses to tree view
+     * - Autotrap
+     */
+    
 	public void registerExtenderCallbacks(IBurpExtenderCallbacks c) {
 			
 		
@@ -429,7 +455,55 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 editorConsoleSplitPane.setResizeWeight(.7d);
                 
                 
-            	// **** END JS EDITOR PANEL / CONSOLE                
+            	// **** END JS EDITOR PANEL / CONSOLE    
+                
+                // 	*** TREE WITH CLASSES AND METHODS
+                
+                JSplitPane analyzeSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+                
+                JPanel treePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                JScrollPane scrollTreeJPanel = new JScrollPane(treePanel);
+                scrollTreeJPanel.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+                
+                DefaultMutableTreeNode top = new DefaultMutableTreeNode("Binary");
+                
+                tree = new JTree(top);
+                
+                // Add mouse listener
+                tree.addMouseListener(BurpExtender.this);
+                
+                treePanel.add(tree);
+                
+                
+                JPanel searchPanel = new JPanel();
+                searchPanel.setLayout(new BoxLayout(searchPanel, BoxLayout.Y_AXIS));
+                
+                JPanel searchPanelBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                //searchPanel.setLayout(new BoxLayout(searchPanel, BoxLayout.X_AXIS));
+                
+                JLabel findLabel = new JLabel("Search:");
+                findTextField = new JTextField(60);       
+                JButton searchButton = new JButton("Search");
+                searchButton.setActionCommand("searchAnalysis");
+                searchButton.addActionListener(BurpExtender.this); 
+                
+                searchPanelBar.add(findLabel);
+                searchPanelBar.add(findTextField);
+                searchPanelBar.add(searchButton);
+                
+                searchResultEditor = callbacks.createTextEditor();
+                searchResultEditor.setEditable(false);
+                
+                
+                searchPanel.add(searchPanelBar);
+                searchPanel.add(searchResultEditor.getComponent());            
+                
+                analyzeSplitPane.setTopComponent(scrollTreeJPanel);
+                analyzeSplitPane.setBottomComponent(searchPanel);
+                
+                analyzeSplitPane.setResizeWeight(.7d);
+                                
+                // *** TREE WITH CLASSES AND METHODS                
                 
             	// **** STUB GENERATION     
                 
@@ -446,7 +520,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 
                 stubGenerationSplitPane.setResizeWeight(.5d);
                 
-            	// **** END STUB GENERATION     
+            	// **** END STUB GENERATION  
                 
                 // **** EXECUTE METHOD TAB
                 
@@ -530,7 +604,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 // **** END EXECUTE METHOD TAB
                 
             	tabbedPanel.add("Configurations",configurationPanel);
-            	tabbedPanel.add("JS Editor",editorConsoleSplitPane);  
+            	tabbedPanel.add("JS Editor",editorConsoleSplitPane); 
+            	tabbedPanel.add("Analyze binary",analyzeSplitPane);
             	tabbedPanel.add("Generate stubs",stubGenerationSplitPane);            	
             	tabbedPanel.add("Execute method",executeMethodPanel);
                 
@@ -608,7 +683,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 
                 saveJSFileButton = new JButton("Save JS file");
                 saveJSFileButton.setActionCommand("saveJsFile");
-                saveJSFileButton.addActionListener(BurpExtender.this);                
+                saveJSFileButton.addActionListener(BurpExtender.this); 
+                
+                loadTreeButton = new JButton("Load tree");
+                loadTreeButton.setActionCommand("loadTree");
+                loadTreeButton.addActionListener(BurpExtender.this);                
                            
                 JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
                 separator.setBorder(BorderFactory.createMatteBorder(3, 0, 3, 0, Color.ORANGE));
@@ -637,6 +716,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 // TAB GENERATE STUBS
                 rightSplitPane.add(generateJavaStubButton,gbc);
                 rightSplitPane.add(generatePythonStubButton,gbc);
+                
+                // TREE ANALYSIS                
+                rightSplitPane.add(loadTreeButton,gbc);                
                 
                 splitPane.setLeftComponent(tabbedPanel);
                 splitPane.setRightComponent(rightSplitPane);
@@ -674,6 +756,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						generatePythonStubButton.setVisible(false);
 						loadJSFileButton.setVisible(false);
 						saveJSFileButton.setVisible(false);
+						loadTreeButton.setVisible(false);
 						
 		            }
 		            
@@ -696,6 +779,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						generatePythonStubButton.setVisible(false);
 						loadJSFileButton.setVisible(true);
 						saveJSFileButton.setVisible(true);
+						loadTreeButton.setVisible(false);
 						
 		            }
 		            
@@ -703,9 +787,32 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				break;	
 				
+			// Tree view	
+			case 2:
+								
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+
+		            	executeMethodButton.setVisible(false);
+						saveSettingsToFileButton.setVisible(false);
+						loadSettingsFromFileButton.setVisible(false);
+						generateJavaStubButton.setVisible(false);
+						generatePythonStubButton.setVisible(false);
+						loadJSFileButton.setVisible(false);
+						saveJSFileButton.setVisible(false);
+						loadTreeButton.setVisible(true);
+						
+		            }
+		            
+				});
+				
+				break;					
+				
 				
 			// GENERATE STUBS	
-			case 2:
+			case 3:
 				
 				SwingUtilities.invokeLater(new Runnable() {
 					
@@ -719,6 +826,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						generatePythonStubButton.setVisible(true);
 						loadJSFileButton.setVisible(false);
 						saveJSFileButton.setVisible(false);
+						loadTreeButton.setVisible(false);
 						
 		            }
 		            
@@ -727,7 +835,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				break;
 			
 			// EXECUTE METHODS	
-			case 3:
+			case 4:
 				
 				SwingUtilities.invokeLater(new Runnable() {
 					
@@ -741,6 +849,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						generatePythonStubButton.setVisible(false);
 						loadJSFileButton.setVisible(false);
 						saveJSFileButton.setVisible(false);
+						loadTreeButton.setVisible(false);
 						
 		            }
 		            
@@ -1536,6 +1645,200 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			}
 				
 
+		} else if(command.equals("loadTree")) {
+			
+			try {
+				
+				ArrayList<String> allClasses = (ArrayList<String>)(pyroBridaService.call("callexportfunction","getallclasses",new String[0]));
+				HashMap<String, Integer> allModules = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getallmodules",new String[0]));
+				
+				// Sort classes
+				Collections.sort(allClasses, new Comparator<String>() {
+			        @Override
+			        public int compare(String class1, String class2)
+			        {
+
+			            return  class1.compareToIgnoreCase(class2);
+			        }
+			    });	
+				
+				
+				ArrayList<String> moduleNames = new ArrayList<String>(allModules.keySet());
+				
+				// Sort module names
+				Collections.sort(moduleNames, new Comparator<String>() {
+			        @Override
+			        public int compare(String class1, String class2)
+			        {
+
+			            return  class1.compareToIgnoreCase(class2);
+			        }
+			    });	
+								
+				DefaultTreeModel model = (DefaultTreeModel)tree.getModel();
+				
+				DefaultMutableTreeNode newRoot = new DefaultMutableTreeNode("Binary");
+				
+				DefaultMutableTreeNode objNode = new DefaultMutableTreeNode("Objective-C");
+				
+				HashMap<String,Integer> currentClassMethods;
+				DefaultMutableTreeNode currentNode;
+				
+				for(int i=0; i<allClasses.size(); i++) {
+
+					currentNode = new DefaultMutableTreeNode(allClasses.get(i));
+
+					objNode.add(currentNode);
+					
+				}
+
+				newRoot.add(objNode);
+				
+				DefaultMutableTreeNode modulesNode = new DefaultMutableTreeNode("Modules");
+			
+				for(int i=0; i<moduleNames.size(); i++) {
+
+					currentNode = new DefaultMutableTreeNode(moduleNames.get(i));
+
+					modulesNode.add(currentNode);
+					
+				}
+
+				newRoot.add(modulesNode);				
+				
+				model.setRoot(newRoot);
+
+			} catch (Exception e) {
+				
+				stderr.println("Exception with load tree");
+				stderr.println(e.toString());
+				stderr.println(e.getMessage());
+				StackTraceElement[] exceptionElements = e.getStackTrace();
+				for(int i=0; i< exceptionElements.length; i++) {
+					stderr.println(exceptionElements[i].toString());
+				}
+				
+			}
+
+		} else if(command.equals("searchAnalysis")) {
+		
+			String toSearch = findTextField.getText().trim();
+			
+			HashMap<String, Integer> foundObjcMethods;
+			try {
+				foundObjcMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findobjcmethods",new String[] {toSearch}));
+			} catch (Exception e) {
+				stderr.println(e.toString());
+				return;
+			} 
+			
+			HashMap<String, Integer> foundImports;
+			try {
+				foundImports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findimports",new String[] {toSearch}));
+			} catch (Exception e) {
+				stderr.println(e.toString());
+				return;
+			} 
+			
+			HashMap<String, Integer> foundExports;
+			try {
+				foundExports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findexports",new String[] {toSearch}));
+			} catch (Exception e) {
+				stderr.println(e.toString());
+				return;
+			} 
+				
+			String result = "Results:\n";
+			
+			if(foundObjcMethods != null) {
+				
+				ArrayList<String> objcMethodNames = new ArrayList<String>(foundObjcMethods.keySet());
+				
+				// Sort objc method names
+				Collections.sort(objcMethodNames, new Comparator<String>() {
+			        @Override
+			        public int compare(String class1, String class2)
+			        {
+
+			            return  class1.compareToIgnoreCase(class2);
+			        }
+			    });	
+			
+				Iterator<String> currentClassMethodsIterator = objcMethodNames.iterator(); 
+				
+				String currentMethodName;
+				
+				while(currentClassMethodsIterator.hasNext()) {
+					
+					currentMethodName = currentClassMethodsIterator.next();
+					
+					result = result + "OBJC: " + currentMethodName + "\n";
+					
+				}
+				
+			}
+			
+			if(foundImports != null) {
+				
+				ArrayList<String> importNames = new ArrayList<String>(foundImports.keySet());
+				
+				// Sort import names
+				Collections.sort(importNames, new Comparator<String>() {
+			        @Override
+			        public int compare(String class1, String class2)
+			        {
+
+			            return  class1.compareToIgnoreCase(class2);
+			        }
+			    });	
+				
+				Iterator<String> currentImportIterator = importNames.iterator(); 
+				
+				
+				
+				String currentImportName;
+				
+				while(currentImportIterator.hasNext()) {
+					
+					currentImportName = currentImportIterator.next();
+					
+					result = result + "IMPORT: " + currentImportName + "\n";
+					
+				}
+				
+			}
+			
+			if(foundExports != null) {
+				
+				ArrayList<String> exportNames = new ArrayList<String>(foundExports.keySet());
+				
+				// Sort export names
+				Collections.sort(exportNames, new Comparator<String>() {
+			        @Override
+			        public int compare(String class1, String class2)
+			        {
+
+			            return  class1.compareToIgnoreCase(class2);
+			        }
+			    });	
+				
+				Iterator<String> exportIterator = exportNames.iterator(); 
+				
+				
+				String currentExportName;
+				
+				while(exportIterator.hasNext()) {
+					
+					currentExportName = exportIterator.next();
+					
+					result = result + "EXPORT: " + currentExportName + "\n";
+					
+				}
+				
+			}
+			
+			searchResultEditor.setText(result.getBytes());
+		
 		} else if(command.equals("contextcustom3") || command.equals("contextcustom4")) {
 			
 			IHttpRequestResponse[] selectedItems = currentInvocation.getSelectedMessages();
@@ -1698,5 +2001,199 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
         }
         return b;
    }
+	
+	private void retrieveClassMethods(DefaultMutableTreeNode clickedNode) {
+		
+		DefaultMutableTreeNode parent = (DefaultMutableTreeNode)clickedNode.getParent();
+		
+		if(parent != null) {
+			
+			String nodeContentParent = (String)parent.getUserObject();
+			String nodeContent = (String)clickedNode.getUserObject();
+			
+			if(nodeContentParent.equals("Modules")) {
+								
+				HashMap<String, Integer> currentImports;
+				try {
+					currentImports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getmoduleimports",new String[] {nodeContent}));
+				} catch (Exception e) {
+					stderr.println(e.toString());
+					return;
+				} 
+				
+				if(currentImports != null) {
+					
+					ArrayList<String> importNames = new ArrayList<String>(currentImports.keySet());
+					
+					// Sort import names
+					Collections.sort(importNames, new Comparator<String>() {
+				        @Override
+				        public int compare(String class1, String class2)
+				        {
+
+				            return  class1.compareToIgnoreCase(class2);
+				        }
+				    });	
+										
+					DefaultMutableTreeNode importNode = new DefaultMutableTreeNode("Imports");
+					
+					Iterator<String> currentImportsIterator = importNames.iterator(); 
+					
+					String currentImportName;
+					DefaultMutableTreeNode currentNodeImport;
+					while(currentImportsIterator.hasNext()) {
+						
+						currentImportName = currentImportsIterator.next();
+																
+						currentNodeImport = new DefaultMutableTreeNode(currentImportName);
+						
+						importNode.add(currentNodeImport);
+						
+					}
+					
+					clickedNode.add(importNode);
+					
+				}
+				
+				HashMap<String, Integer> currentExports;
+				try {
+					currentExports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getmoduleexports",new String[] {nodeContent}));
+				} catch (Exception e) {
+					stderr.println(e.toString());
+					return;
+				} 
+				
+				if(currentExports != null) {
+					
+					ArrayList<String> exportNames = new ArrayList<String>(currentExports.keySet());
+					
+					// Sort export names
+					Collections.sort(exportNames, new Comparator<String>() {
+				        @Override
+				        public int compare(String class1, String class2)
+				        {
+
+				            return  class1.compareToIgnoreCase(class2);
+				        }
+				    });	
+					
+					DefaultMutableTreeNode exportNode = new DefaultMutableTreeNode("Exports");
+					
+					Iterator<String> currentExportsIterator = exportNames.iterator(); 
+					
+					String currentExportName;
+					DefaultMutableTreeNode currentNodeExport;
+					while(currentExportsIterator.hasNext()) {
+						
+						currentExportName = currentExportsIterator.next();
+																
+						currentNodeExport = new DefaultMutableTreeNode(currentExportName);
+						
+						exportNode.add(currentNodeExport);
+						
+					}
+					
+					clickedNode.add(exportNode);
+					
+				}
+				
+				
+				
+			} else if (nodeContentParent.equals("Objective-C")) {
+				
+				
+				
+				HashMap<String, Integer> currentClassMethods;
+				try {
+					currentClassMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getclassmethods",new String[] {nodeContent}));
+				} catch (Exception e) {
+					stderr.println(e.toString());
+					return;
+				} 
+
+				if(currentClassMethods != null) {
+					
+					ArrayList<String> methodNames = new ArrayList<String>(currentClassMethods.keySet());
+					
+					// Sort method names
+					Collections.sort(methodNames, new Comparator<String>() {
+				        @Override
+				        public int compare(String class1, String class2)
+				        {
+
+				            return  class1.compareToIgnoreCase(class2);
+				        }
+				    });	
+				
+					Iterator<String> currentClassMethodsIterator = methodNames.iterator(); 
+					
+					String currentMethodName;
+					DefaultMutableTreeNode currentNodeMethod;
+					while(currentClassMethodsIterator.hasNext()) {
+						
+						currentMethodName = currentClassMethodsIterator.next();
+										
+						currentNodeMethod = new DefaultMutableTreeNode(currentMethodName);
+						
+						clickedNode.add(currentNodeMethod);
+						
+					}
+					
+				}
+								
+
+				
+				
+			}
+			
+			
+			DefaultTreeModel model = (DefaultTreeModel)tree.getModel();
+			model.reload(clickedNode);
+			
+			tree.expandPath(new TreePath(clickedNode.getPath()));
+						
+		}
+		
+	}
+	
+	@Override
+	public void mouseClicked(MouseEvent e) {
+		
+		if (e.getClickCount() == 2) {
+								
+			//stdout.println("CLICK: " + tree.getSelectionPath().getLastPathComponent().getClass());
+			
+			
+			DefaultMutableTreeNode clickedNode = (DefaultMutableTreeNode)(tree.getSelectionPath().getLastPathComponent());
+			
+			retrieveClassMethods(clickedNode);
+			
+        }
+		
+	}
+
+	@Override
+	public void mousePressed(MouseEvent e) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void mouseReleased(MouseEvent e) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void mouseEntered(MouseEvent e) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void mouseExited(MouseEvent e) {
+		// TODO Auto-generated method stub
+		
+	}
 
 }

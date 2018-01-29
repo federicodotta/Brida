@@ -39,6 +39,130 @@ rpc.exports = {
 	// from ASCII HEX). Use auxiliary functions for the conversions.
 	contextcustom4: function(message) {
 		return "6768";
+	},
+
+	// **** BE CAREFULL ****
+	// Do not remove these functions. They are used by Brida plugin in the "Analyze binary" tab!
+	// *********************
+	getallclasses: function() {
+		var result = []
+		if (ObjC.available) {
+			for (var className in ObjC.classes) {
+				if (ObjC.classes.hasOwnProperty(className)) {
+					result.push(className);
+				}
+			}
+		}
+		return result;
+	},
+
+	getallmodules: function() {
+		var results = {}
+		var matches = Process.enumerateModules( {
+			onMatch: function (module) {
+				results[module['name']] = module['base'];
+			},
+			onComplete: function () {
+			}
+		});
+		return results;
+	},
+
+	getmoduleimports: function(importname) {
+		var results = {}
+		var matches = Module.enumerateImports(importname, {
+			onMatch: function (module) {
+				results[module['type'] + ": " + module['name']] = module['address'];
+			},
+			onComplete: function () {
+			}
+		});
+		return results;
+	},
+
+	getmoduleexports: function(exportname) {
+		var results = {}
+		var matches = Module.enumerateExports(exportname, {
+			onMatch: function (module) {
+				results[module['type'] + ": " + module['name']] = module['address'];
+			},
+			onComplete: function () {
+			}
+		});
+		return results;
+	},
+
+	getclassmethods: function(classname) {
+		var results = {}
+		var resolver = new ApiResolver("objc");
+		var matches = resolver.enumerateMatches("*[" + classname + " *]", {
+			onMatch: function (match) {
+				results[match['name']] = match['address'];
+			},
+			onComplete: function () {
+			}
+		});
+		return results;
+	},
+
+	findobjcmethods: function(searchstring) {
+		var results = {}
+		var resolver = new ApiResolver("objc");
+		var matches = resolver.enumerateMatches("*[*" + searchstring + "* *]", {
+			onMatch: function (match) {
+				results[match['name']] = match['address'];
+			},
+			onComplete: function () {
+			}
+		});
+		matches = resolver.enumerateMatches("*[* *" + searchstring + "*]", {
+			onMatch: function (match) {
+				results[match['name']] = match['address'];
+			},
+			onComplete: function () {
+			}
+		});
+		return results;
+	},
+
+	findimports: function(searchstring) {
+		var results = {}
+		var resolver = new ApiResolver("module");
+		var matches = resolver.enumerateMatches("imports:*" + searchstring + "*!*", {
+			onMatch: function (match) {
+				results[match['name']] = match['address'];
+			},
+			onComplete: function () {
+			}
+		});
+		matches = resolver.enumerateMatches("imports:*!*" + searchstring + "*", {
+			onMatch: function (match) {
+				results[match['name']] = match['address'];
+			},
+			onComplete: function () {
+			}
+		});
+		return results;
+	},
+
+	findexports: function(searchstring) {
+		var results = {}
+		var resolver = new ApiResolver("module");
+		var matches = resolver.enumerateMatches("exports:*" + searchstring + "*!*", {
+			onMatch: function (match) {
+				results[match['name']] = match['address'];
+			},
+			onComplete: function () {
+			}
+		});
+		matches = resolver.enumerateMatches("exports:*!*" + searchstring + "*", {
+			onMatch: function (match) {
+				results[match['name']] = match['address'];
+			},
+			onComplete: function () {
+			}
+		});
+		return results;
 	}
 
 }
