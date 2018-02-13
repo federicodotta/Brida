@@ -52,6 +52,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
+import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
@@ -76,6 +77,7 @@ import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
+import net.razorvine.pickle.PickleException;
 import net.razorvine.pyro.*;
 
 public class BurpExtender implements IBurpExtender, ITab, ActionListener, IContextMenuFactory, MouseListener {
@@ -135,6 +137,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     private JButton loadJSFileButton;
     private JButton saveJSFileButton; 
     private JButton loadTreeButton;
+    private JButton detachAllButton;
     
     private JTextArea configurationConsoleTextArea;
     
@@ -148,12 +151,15 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     private ITextEditor searchResultEditor;
     
     private JTree tree;
+    
+    private JTable trapTable;
 		
     /*
      * TODO
      * - Android
      * - Add addresses to tree view
      * - Autotrap
+     * - Organize better JS file
      */
     
 	public void registerExtenderCallbacks(IBurpExtenderCallbacks c) {
@@ -603,11 +609,27 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 
                 // **** END EXECUTE METHOD TAB
                 
+                
+                
+                // **** BEGIN TRAPPING TAB
+                
+                trapTable = new JTable(new TrapTableModel());
+                JScrollPane trapTableScrollPane = new JScrollPane(trapTable);
+                trapTableScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+                trapTableScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+                trapTable.setAutoCreateRowSorter(true);
+                
+                // **** END TRAPPING TAB
+                
+                
+                
+                
             	tabbedPanel.add("Configurations",configurationPanel);
             	tabbedPanel.add("JS Editor",editorConsoleSplitPane); 
             	tabbedPanel.add("Analyze binary",analyzeSplitPane);
             	tabbedPanel.add("Generate stubs",stubGenerationSplitPane);            	
             	tabbedPanel.add("Execute method",executeMethodPanel);
+            	tabbedPanel.add("Trap methods",trapTableScrollPane);
                 
             	
                 // *** RIGHT - BUTTONS
@@ -687,7 +709,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 
                 loadTreeButton = new JButton("Load tree");
                 loadTreeButton.setActionCommand("loadTree");
-                loadTreeButton.addActionListener(BurpExtender.this);                
+                loadTreeButton.addActionListener(BurpExtender.this);
+                                
+                detachAllButton = new JButton("Detach all");
+                detachAllButton.setActionCommand("detachAll");
+                detachAllButton.addActionListener(BurpExtender.this); 
                            
                 JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
                 separator.setBorder(BorderFactory.createMatteBorder(3, 0, 3, 0, Color.ORANGE));
@@ -718,7 +744,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 rightSplitPane.add(generatePythonStubButton,gbc);
                 
                 // TREE ANALYSIS                
-                rightSplitPane.add(loadTreeButton,gbc);                
+                rightSplitPane.add(loadTreeButton,gbc);     
+                
+                // TRAP METHODS
+                rightSplitPane.add(detachAllButton,gbc);
                 
                 splitPane.setLeftComponent(tabbedPanel);
                 splitPane.setRightComponent(rightSplitPane);
@@ -757,6 +786,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						loadJSFileButton.setVisible(false);
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(false);
+						detachAllButton.setVisible(false);
 						
 		            }
 		            
@@ -780,6 +810,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						loadJSFileButton.setVisible(true);
 						saveJSFileButton.setVisible(true);
 						loadTreeButton.setVisible(false);
+						detachAllButton.setVisible(false);
 						
 		            }
 		            
@@ -803,6 +834,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						loadJSFileButton.setVisible(false);
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(true);
+						detachAllButton.setVisible(false);
 						
 		            }
 		            
@@ -827,6 +859,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						loadJSFileButton.setVisible(false);
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(false);
+						detachAllButton.setVisible(false);
 						
 		            }
 		            
@@ -850,6 +883,31 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						loadJSFileButton.setVisible(false);
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(false);
+						detachAllButton.setVisible(false);
+						
+		            }
+		            
+				});
+				
+				break;
+				
+			//TRAP METHODS	
+			case 5:
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+				
+						executeMethodButton.setVisible(false);
+						saveSettingsToFileButton.setVisible(false);
+						loadSettingsFromFileButton.setVisible(false);
+						generateJavaStubButton.setVisible(false);
+						generatePythonStubButton.setVisible(false);
+						loadJSFileButton.setVisible(false);
+						saveJSFileButton.setVisible(false);
+						loadTreeButton.setVisible(false);
+						detachAllButton.setVisible(true);
 						
 		            }
 		            
@@ -1264,6 +1322,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		            @Override
 		            public void run() {
 		            	
+		            	consoleTextArea.setText("");
 		            	applicationStatus.setText("");
 		            	applicationStatusButtons.setText("");
 		            	try {
@@ -1355,7 +1414,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		            @Override
 		            public void run() {
 		            	
-		            	consoleTextArea.setText("");
+		            	//consoleTextArea.setText("");
 		            	applicationStatus.setText("");
 		            	applicationStatusButtons.setText("");
 		            	try {
@@ -1839,6 +1898,28 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 			searchResultEditor.setText(result.getBytes());
 		
+		} else if(command.equals("trap")) {	
+			
+			trap(false);
+			
+		} else if(command.equals("detachAll")) {	
+			
+			int dialogButton = JOptionPane.YES_NO_OPTION;
+			int dialogResult = JOptionPane.showConfirmDialog(mainPanel, "Detach all will detach also custom interception methods defined in your JS file. Are you sure?", "Confirm detach all", dialogButton);
+			if(dialogResult == 0) {
+				try {
+					pyroBridaService.call("callexportfunction","detachAll",new String[] {});
+				} catch (Exception e) {
+					stderr.println(e.toString());
+					return;
+				} 	
+				
+			}			
+			
+		} else if(command.equals("trapBacktrace")) {	
+			
+			trap(true);	
+			
 		} else if(command.equals("contextcustom3") || command.equals("contextcustom4")) {
 			
 			IHttpRequestResponse[] selectedItems = currentInvocation.getSelectedMessages();
@@ -2155,32 +2236,162 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		}
 		
 	}
+
+	/*
+	 * You can only autotrap iOS class, iOS method and single exports.
+	 */	
+	public void trap(boolean withBacktrace) {
+		
+
+		DefaultMutableTreeNode clickedNode = (DefaultMutableTreeNode)(tree.getSelectionPath().getLastPathComponent());
+		stdout.println((String)clickedNode.getUserObject());
+		
+		DefaultMutableTreeNode parentNode = (DefaultMutableTreeNode)clickedNode.getParent();
+		
+		String type = null;	
+		String pattern = null;
+		
+		// ROOT
+		if(parentNode != null) {
+		
+			String parentNodeContent = (String)parentNode.getUserObject();			
+			
+			DefaultMutableTreeNode grandparentNode = null;
+	
+			switch(parentNodeContent) {
+			
+				// Clicked a iOS class
+				case "Objective-C":
+					
+					type = "objc_class";
+					pattern = (String)clickedNode.getUserObject();
+					
+					break;
+					
+				// Clicked a iOS export
+				case "Exports":
+					
+					// Only functions can be trapped
+					if(((String)clickedNode.getUserObject()).startsWith("function")) {
+						
+						type = "ios_export";						
+						grandparentNode = (DefaultMutableTreeNode)parentNode.getParent();
+						pattern = (String)grandparentNode.getUserObject() + "!" + ((String)clickedNode.getUserObject()).replace("function: ", "");
+												
+					}
+					
+					break;
+					
+				default:
+					
+					grandparentNode = (DefaultMutableTreeNode)parentNode.getParent();
+					
+					if(grandparentNode != null) {
+						
+						String grandparentNodeContent = (String)grandparentNode.getUserObject();
+						
+						// Clicked a iOS method
+						if(grandparentNodeContent.equals("Objective-C")) {
+							
+							type = "objc_method";
+							pattern = (String)clickedNode.getUserObject();
+							
+						}						
+						
+					}				
+					
+					break;
+			
+			
+			}
+			
+		}
+				
+		try {
+			pyroBridaService.call("callexportfunction","trace",new String[] {pattern,type,(withBacktrace ? "true" : "false")});
+			
+			List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
+
+			HashMap<String,Integer> currentClassMethods = null;
+			
+			// Better outside synchronized block
+			if(type.equals("objc_class")) {
+        		currentClassMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getclassmethods",new String[] {pattern}));
+			}
+			
+            synchronized(trapEntries) {
+            	int trapEntryOldSize = trapEntries.size();
+            	if(type.equals("objc_class")) {
+            		if(currentClassMethods != null) {    					
+    					ArrayList<String> methodNames = new ArrayList<String>(currentClassMethods.keySet());
+    					Iterator<String> currentClassMethodsIterator = methodNames.iterator();     					
+    					String currentMethodName;
+    					while(currentClassMethodsIterator.hasNext()) {    						
+    						currentMethodName = currentClassMethodsIterator.next();    										
+    						trapEntries.add(new TrapTableItem("OBJ-C",currentMethodName, withBacktrace));    						
+    					}    					
+    				}            		
+            	} else if(type.equals("objc_method")) {
+            		trapEntries.add(new TrapTableItem("OBJ-C",pattern, withBacktrace));
+            	} else {
+            		trapEntries.add(new TrapTableItem("IOS Exports",pattern, withBacktrace));
+            	}
+            	((TrapTableModel)(trapTable.getModel())).fireTableRowsInserted(trapEntryOldSize, trapEntries.size() - 1);
+            } 
+			
+			
+		} catch (Exception e) {
+			stderr.println("Exception with trap");
+			stderr.println(e.toString());
+			stderr.println(e.getMessage());
+			StackTraceElement[] exceptionElements = e.getStackTrace();
+			for(int i=0; i< exceptionElements.length; i++) {
+				stderr.println(exceptionElements[i].toString());
+			}
+		}
+		
+	}
+	
+	private void generatePopup(MouseEvent e){
+		TreePopup menu = new TreePopup(this);
+		menu.show(e.getComponent(), e.getX(), e.getY());
+    }
 	
 	@Override
 	public void mouseClicked(MouseEvent e) {
 		
+		// Double click -> EXPAND
 		if (e.getClickCount() == 2) {
 								
 			//stdout.println("CLICK: " + tree.getSelectionPath().getLastPathComponent().getClass());
 			
-			
 			DefaultMutableTreeNode clickedNode = (DefaultMutableTreeNode)(tree.getSelectionPath().getLastPathComponent());
 			
 			retrieveClassMethods(clickedNode);
-			
+
         }
-		
+			
 	}
 
 	@Override
 	public void mousePressed(MouseEvent e) {
-		// TODO Auto-generated method stub
+
+		if(e.isPopupTrigger()) {
+			int row = tree.getClosestRowForLocation(e.getX(), e.getY());
+            tree.setSelectionRow(row);
+			generatePopup(e);
+		}
 		
 	}
 
 	@Override
 	public void mouseReleased(MouseEvent e) {
-		// TODO Auto-generated method stub
+
+		if(e.isPopupTrigger()) {
+			int row = tree.getClosestRowForLocation(e.getX(), e.getY());
+            tree.setSelectionRow(row);
+			generatePopup(e);
+		}
 		
 	}
 

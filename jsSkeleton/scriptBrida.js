@@ -163,6 +163,47 @@ rpc.exports = {
 			}
 		});
 		return results;
+	},
+
+	detachall: function() {
+
+		Interceptor.detachAll();
+
+	},
+
+	// generic trace
+	trace: function (pattern,type,backtrace)	{
+
+		var res;
+		if(type === "objc_class") {
+
+			res = new ApiResolver("objc");
+			pattern = "*[" + pattern + " *]";
+
+		} else if(type === "objc_method") {
+
+			res = new ApiResolver("objc");
+
+		} else {
+			// SINGLE EXPORT
+			res = new ApiResolver("module");
+			pattern = "exports:" + pattern;
+
+		}
+
+		//var type = (pattern.indexOf(" ") === -1) ? "module" : "objc";
+		console.log(pattern);
+		
+		//var res = new ApiResolver("objc");
+		var matches = res.enumerateMatchesSync(pattern);
+		var targets = uniqBy(matches, JSON.stringify);
+
+		targets.forEach(function(target) {
+			if (type.startsWith("objc"))
+				traceObjC(target.address, target.name,backtrace);
+			else if (type === "ios_export")
+				traceModule(target.address, target.name,backtrace);
+		});
 	}
 
 }
@@ -199,6 +240,100 @@ function bytesToHex(bytes) {
         hex.push((bytes[i] & 0xF).toString(16));
     }
     return hex.join("");
+}
+
+// remove duplicates from array
+function uniqBy(array, key) 
+{
+	var seen = {};
+	return array.filter(function(item) {
+		var k = key(item);
+		return seen.hasOwnProperty(k) ? false : (seen[k] = true);
+	});
+}
+
+// trace ObjC methods
+function traceObjC(impl, name, backtrace)
+{
+	console.log("Tracing " + name);
+
+	Interceptor.attach(impl, {
+
+		onEnter: function(args) {
+
+			console.log("*** entered " + name);
+			console.log("Caller: " + DebugSymbol.fromAddress(this.returnAddress));
+
+			// print args
+			if (name.indexOf(":") !== -1) {
+				console.log("Parameters:");
+				var par = name.split(":");
+				par[0] = par[0].split(" ")[1];
+				for (var i = 0; i < par.length - 1; i++) {
+					printArg(par[i] + ": ", args[i + 2]);
+				}
+			}
+
+			if(backtrace === "true") {
+				console.log("Backtrace:\n\t" + Thread.backtrace(this.context, Backtracer.ACCURATE)
+						.map(DebugSymbol.fromAddress).join("\n\t"));
+			}
+			
+		},
+
+		onLeave: function(retval) {
+			console.log("Return value:");
+			printArg("retval:" + retval);
+			console.log("*** exiting " + name + "\n");
+
+		}
+
+	});
+}
+
+// trace Module functions
+function traceModule(impl, name, backtrace)
+{
+	console.log("Tracing " + name);
+
+	Interceptor.attach(impl, {
+
+		onEnter: function(args) {
+
+			console.log("*** entered " + name);
+
+			if(backtrace === "true") {
+				console.log("Backtrace:\n\t" + Thread.backtrace(this.context, Backtracer.ACCURATE).map(DebugSymbol.fromAddress).join("\n\t"));
+			}
+			
+		},
+
+		onLeave: function(retval) {
+
+			console.log("Return value:");
+			printArg("retval:" + retval);
+			console.log("*** exiting " + name + "\n");
+			
+		}
+
+	});
+}
+
+// print helper
+function printArg(desc, arg) {
+	try {
+
+		console.log("\t" + desc + ObjC.Object(arg).toString());
+	
+	} catch(err) {
+
+		try {
+			console.log("\t" + desc + ObjC.Object(arg));
+		} catch(err2) {
+			console.log("\t" + desc + arg);
+		}
+
+	}
 }
 
 // 3 - FRIDA HOOKS (if needed)
