@@ -1,5 +1,6 @@
 package burp;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.FlowLayout;
@@ -27,19 +28,20 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
-import javax.swing.JDialog;
+import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -69,7 +71,6 @@ import javax.swing.text.StyleConstants;
 import javax.swing.text.StyleContext;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
 
 import org.apache.commons.lang3.ArrayUtils;
@@ -77,7 +78,6 @@ import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
-import net.razorvine.pickle.PickleException;
 import net.razorvine.pyro.*;
 
 public class BurpExtender implements IBurpExtender, ITab, ActionListener, IContextMenuFactory, MouseListener {
@@ -119,15 +119,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	private JTextField executeMethodArgument;
 	private DefaultListModel executeMethodInsertedArgumentList;
 	private JList executeMethodInsertedArgument;
-	private JTextArea executeMethodOutput; 
 	
 	private boolean serverStarted;
 	private boolean applicationSpawned;
 	
 	private IContextMenuInvocation currentInvocation;
 	
-	private ITextEditor javaStubTextEditor;
-    private ITextEditor pythonStubTextEditor;
+	private ITextEditor stubTextEditor;
     
     private JButton executeMethodButton;
     private JButton saveSettingsToFileButton;
@@ -139,27 +137,28 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     private JButton loadTreeButton;
     private JButton detachAllButton;
     
-    private JTextArea configurationConsoleTextArea;
+    private JEditorPane pluginConsoleTextArea;
     
 	private RSyntaxTextArea jsEditorTextArea;
-	private JTextArea consoleTextArea;
 	
     private Thread stdoutThread;
     private Thread stderrThread;
     
     private JTextField findTextField;
-    private ITextEditor searchResultEditor;
     
     private JTree tree;
     
     private JTable trapTable;
+    
+    private boolean lastPrintIsJS;
 		
     /*
      * TODO
      * - Android
      * - Add addresses to tree view
-     * - Autotrap
+     * - Trap custom method
      * - Organize better JS file
+     * - Change return value
      */
     
 	public void registerExtenderCallbacks(IBurpExtenderCallbacks c) {
@@ -191,6 +190,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 
         serverStarted = false;
     	applicationSpawned = false;
+    	
+    	lastPrintIsJS = false;
     			
 		try {
 			InputStream inputStream = getClass().getClassLoader().getResourceAsStream("res/bridaServicePyro.py");
@@ -211,9 +212,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			br.close();
 			
 			pythonScript = outputFile.getAbsolutePath();
+			
 		} catch(Exception e) {
-			stderr.println("Error copying Pyro Server file");
-	    	stderr.println(e.toString());
+			
+			printException(e,"Error copying Pyro Server file");
+			
 		}
 		       
         SwingUtilities.invokeLater(new Runnable()  {
@@ -226,8 +229,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
             	
             	JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
             	
-            	// Tabbed Pabel
+            	// **** Left panel (tabbed plus console)            	
+            	JSplitPane consoleTabbedSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);            	
             	
+            	// Tabbed Pabel            	
             	final JTabbedPane tabbedPanel = new JTabbedPane();
             	tabbedPanel.addChangeListener(new ChangeListener() {
                     public void stateChanged(ChangeEvent e) {
@@ -245,12 +250,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                     }
                 });
             	
+            	// **** TABS
+
             	// **** CONFIGURATION PANEL
-            	
-            	JSplitPane configurationPanel = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
-            	
-            	
-            	// CONFIGURATIONS
             	
             	JPanel configurationConfPanel = new JPanel();
                 configurationConfPanel.setLayout(new BoxLayout(configurationConfPanel, BoxLayout.Y_AXIS));
@@ -272,7 +274,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 try {
                 	documentServerStatus.insertString(0, "NOT running", redStyle);
 				} catch (BadLocationException e) {
-					stderr.println(e.toString());
+					printException(e,"Error setting labels");
 				}
                 serverStatus.setMaximumSize( serverStatus.getPreferredSize() );
                 serverStatusPanel.add(labelServerStatus);
@@ -287,7 +289,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 try {
                 	documentApplicationStatus.insertString(0, "NOT spawned", redStyle);
 				} catch (BadLocationException e) {
-					stderr.println(e.toString());
+					printException(e,"Error setting labels");
 				}
                 applicationStatus.setMaximumSize( applicationStatus.getPreferredSize() );
                 applicationStatusPanel.add(labelApplicationStatus);
@@ -404,28 +406,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 configurationConfPanel.add(applicationIdPanel);  
                 configurationConfPanel.add(localRemotePanel);
                 
-                // 	CONSOLE
-                
-                configurationConsoleTextArea = new JTextArea();
-                JScrollPane scrollConfigurationConsoleTextArea = new JScrollPane(configurationConsoleTextArea);
-                scrollConfigurationConsoleTextArea.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-                configurationConsoleTextArea.setLineWrap(true);
-                configurationConsoleTextArea.setEditable(false);
-                
-                configurationPanel.setTopComponent(configurationConfPanel);
-                configurationPanel.setBottomComponent(scrollConfigurationConsoleTextArea);
-                configurationPanel.setResizeWeight(.7d);
-                
                 // **** END CONFIGURATION PANEL
                 
             	// **** JS EDITOR PANEL / CONSOLE
                 
-                JSplitPane editorConsoleSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
-                                
-                //jsEditor = callbacks.createTextEditor();
-                
                 // https://github.com/bobbylight/RSyntaxTextArea
-                // TODO Aggiungere le altre componenti: spellcheck, lingue, etc.
+                // TODO Add other components
                                 
                 jsEditorTextArea = new RSyntaxTextArea();
                 jsEditorTextArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT);
@@ -443,30 +429,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 AutoCompletion ac = new AutoCompletion(provider);
                 ac.install(jsEditorTextArea);
                 */
-	
-        		// Console text
-                consoleTextArea = new JTextArea();
-                JScrollPane scrollConsoleTextArea = new JScrollPane(consoleTextArea);
-                scrollConsoleTextArea.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-                consoleTextArea.setLineWrap(true);
-                consoleTextArea.setEditable(false);
-                //stubGeneratorPanel.add(consoleTextArea);
-                                
-                //jsEditorPanel.add(sp);
-                
-                //editorConsoleSplitPane.setTopComponent(jsEditor.getComponent());
-                editorConsoleSplitPane.setTopComponent(sp);
-                editorConsoleSplitPane.setBottomComponent(scrollConsoleTextArea);                
 
-                editorConsoleSplitPane.setResizeWeight(.7d);
-                
-                
-            	// **** END JS EDITOR PANEL / CONSOLE    
+                // **** END JS EDITOR PANEL / CONSOLE    
                 
                 // 	*** TREE WITH CLASSES AND METHODS
                 
-                JSplitPane analyzeSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
-                
+                JPanel treeSearchPanel = new JPanel();
+                treeSearchPanel.setLayout(new BorderLayout());  
+                                
                 JPanel treePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
                 JScrollPane scrollTreeJPanel = new JScrollPane(treePanel);
                 scrollTreeJPanel.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
@@ -479,14 +449,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 tree.addMouseListener(BurpExtender.this);
                 
                 treePanel.add(tree);
-                
-                
-                JPanel searchPanel = new JPanel();
-                searchPanel.setLayout(new BoxLayout(searchPanel, BoxLayout.Y_AXIS));
-                
+                                
                 JPanel searchPanelBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
-                //searchPanel.setLayout(new BoxLayout(searchPanel, BoxLayout.X_AXIS));
-                
+                                
                 JLabel findLabel = new JLabel("Search:");
                 findTextField = new JTextField(60);       
                 JButton searchButton = new JButton("Search");
@@ -496,35 +461,16 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 searchPanelBar.add(findLabel);
                 searchPanelBar.add(findTextField);
                 searchPanelBar.add(searchButton);
-                
-                searchResultEditor = callbacks.createTextEditor();
-                searchResultEditor.setEditable(false);
-                
-                
-                searchPanel.add(searchPanelBar);
-                searchPanel.add(searchResultEditor.getComponent());            
-                
-                analyzeSplitPane.setTopComponent(scrollTreeJPanel);
-                analyzeSplitPane.setBottomComponent(searchPanel);
-                
-                analyzeSplitPane.setResizeWeight(.7d);
+             
+                treeSearchPanel.add(scrollTreeJPanel);
+                treeSearchPanel.add(searchPanelBar,BorderLayout.SOUTH);
                                 
                 // *** TREE WITH CLASSES AND METHODS                
                 
             	// **** STUB GENERATION     
-                
-                JSplitPane stubGenerationSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
-                
-                javaStubTextEditor = callbacks.createTextEditor();
-                pythonStubTextEditor = callbacks.createTextEditor();
-                
-                javaStubTextEditor.setEditable(false);
-                pythonStubTextEditor.setEditable(false);
-                
-                stubGenerationSplitPane.setTopComponent(javaStubTextEditor.getComponent());
-                stubGenerationSplitPane.setBottomComponent(pythonStubTextEditor.getComponent());                
-
-                stubGenerationSplitPane.setResizeWeight(.5d);
+                                
+                stubTextEditor = callbacks.createTextEditor();                
+                stubTextEditor.setEditable(false);
                 
             	// **** END STUB GENERATION  
                 
@@ -589,27 +535,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 executeMethodInsertedArgumentPanel.add(executeMethodInsertedArgumentScrollPane);
                 executeMethodInsertedArgumentPanel.add(executeMethodInsertedArgumentButtonPanel);
                 
-                JPanel executeMethodOutputPanel = new JPanel();
-                executeMethodOutputPanel.setLayout(new BoxLayout(executeMethodOutputPanel, BoxLayout.X_AXIS));
-                executeMethodOutputPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelExecuteMethodOutput = new JLabel("Output: ");
-                executeMethodOutput = new JTextArea();
-                JScrollPane scrollExecuteMethodOutput = new JScrollPane(executeMethodOutput);
-                scrollExecuteMethodOutput.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-                executeMethodOutput.setLineWrap(true);
-                executeMethodOutput.setEditable(false);
-                scrollExecuteMethodOutput.setMaximumSize( scrollExecuteMethodOutput.getPreferredSize() );
-                executeMethodOutputPanel.add(labelExecuteMethodOutput);
-                executeMethodOutputPanel.add(executeMethodOutput);
-                
                 executeMethodPanel.add(executeMethodNamePanel);
                 executeMethodPanel.add(executeMethodArgumentPanel);
                 executeMethodPanel.add(executeMethodInsertedArgumentPanel);
-                executeMethodPanel.add(executeMethodOutputPanel);
                 
                 // **** END EXECUTE METHOD TAB
-                
-                
                 
                 // **** BEGIN TRAPPING TAB
                 
@@ -621,17 +551,23 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 
                 // **** END TRAPPING TAB
                 
-                
-                
-                
-            	tabbedPanel.add("Configurations",configurationPanel);
-            	tabbedPanel.add("JS Editor",editorConsoleSplitPane); 
-            	tabbedPanel.add("Analyze binary",analyzeSplitPane);
-            	tabbedPanel.add("Generate stubs",stubGenerationSplitPane);            	
+            	tabbedPanel.add("Configurations",configurationConfPanel);
+            	tabbedPanel.add("JS Editor",sp); 
+            	tabbedPanel.add("Analyze binary",treeSearchPanel);
+            	tabbedPanel.add("Generate stubs",stubTextEditor.getComponent());            	
             	tabbedPanel.add("Execute method",executeMethodPanel);
             	tabbedPanel.add("Trap methods",trapTableScrollPane);
-                
-            	
+            	            	
+            	// *** CONSOLE            	
+            	pluginConsoleTextArea = new JEditorPane("text/html", "<font color=\"green\"><b>*** Brida Console ***</b></font><br/><br/>");
+                JScrollPane scrollPluginConsoleTextArea = new JScrollPane(pluginConsoleTextArea);
+                scrollPluginConsoleTextArea.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+                pluginConsoleTextArea.setEditable(false);
+                                
+                consoleTabbedSplitPane.setTopComponent(tabbedPanel);
+                consoleTabbedSplitPane.setBottomComponent(scrollPluginConsoleTextArea);
+                consoleTabbedSplitPane.setResizeWeight(.7d);
+                            	
                 // *** RIGHT - BUTTONS
             	
             	// RIGHT
@@ -646,7 +582,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 try {
                 	documentServerStatusButtons.insertString(0, "Server stopped", redStyle);
 				} catch (BadLocationException e) {
-					stderr.println(e.toString());
+					printException(e,"Error setting labels");
 				}
                 serverStatusButtons.setMaximumSize( serverStatusButtons.getPreferredSize() );
                 
@@ -655,7 +591,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 try {
                 	documentApplicationStatusButtons.insertString(0, "App stopped", redStyle);
 				} catch (BadLocationException e) {
-					stderr.println(e.toString());
+					printException(e,"Error setting labels");
 				}
                 applicationStatusButtons.setMaximumSize( applicationStatusButtons.getPreferredSize() );
                                 
@@ -749,7 +685,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 // TRAP METHODS
                 rightSplitPane.add(detachAllButton,gbc);
                 
-                splitPane.setLeftComponent(tabbedPanel);
+                splitPane.setLeftComponent(consoleTabbedSplitPane);
                 splitPane.setRightComponent(rightSplitPane);
                 
                 splitPane.setResizeWeight(.9d);
@@ -915,9 +851,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				break;
 				
-			default:
-				
-				stderr.println("ShowHideButtons: index not found");				
+			default:			
+				printException(null,"ShowHideButtons: index not found");				
 				break;	
 		
 		}
@@ -932,7 +867,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 		try {
 			pyroServerProcess = rt.exec(startServerCommand);
-			InputStream stdInput = pyroServerProcess.getInputStream();
 			
 			final BufferedReader stdOutput = new BufferedReader(new InputStreamReader(pyroServerProcess.getInputStream()));
 			final BufferedReader stdError = new BufferedReader(new InputStreamReader(pyroServerProcess.getErrorStream()));
@@ -959,18 +893,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 							try {
 								
 								final String line = stdOutput.readLine();
-								SwingUtilities.invokeLater(new Runnable() {
-									
-						            @Override
-						            public void run() {
-						            	
-						            	consoleTextArea.append(line + "\n");
-										
-						            }
-								});
+								printJSMessage(line);
 								
-							} catch (Exception e) {
-								stderr.println(e.toString());
+							} catch (IOException e) {
+								printException(e,"Error reading Pyro stdout");
 							}
 							
 						}
@@ -988,21 +914,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 												
 							try {
 								
-								final String line = stdError.readLine();
-								SwingUtilities.invokeLater(new Runnable() {
-									
-						            @Override
-						            public void run() {
-						            	
-						            	consoleTextArea.append(line + "\n");
-										
-						            }
-								});
+								final String line = stdError.readLine();								
+								printException(null,line);								
 								
+							} catch (IOException e) {
 								
-							} catch (Exception e) {
-								
-								stderr.println(e.toString());
+								printException(e,"Error reading Pyro stderr");
 								
 							}
 							
@@ -1017,17 +934,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 
 			
 		} catch (final Exception e1) {
-			SwingUtilities.invokeLater(new Runnable() {				
-	            @Override
-	            public void run() {
 			
-	            	configurationConsoleTextArea.append("[E] Exception starting Pyro server\n");
-					StackTraceElement[] exceptionElements = e1.getStackTrace();
-					for(int i=0; i< exceptionElements.length; i++) {
-						configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
-					}					
-	            }	            
-			});
+			printException(e1,"Exception starting Pyro server");
 			return "";
 		}
 		
@@ -1126,27 +1034,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				fw.close();
 				
-				SwingUtilities.invokeLater(new Runnable() {				
-		            @Override
-		            public void run() {
+				printSuccessMessage("Saving configurations to file executed correctly");
 				
-		            	configurationConsoleTextArea.append("[I] Saving configurations to file executed correctly\n");
-		            	
-		            }
-		            
-				});
 			} catch (final IOException e) {
-				SwingUtilities.invokeLater(new Runnable() {				
-		            @Override
-		            public void run() {
 				
-		            	configurationConsoleTextArea.append("[E] Exception exporting configurations to file\n");
-						StackTraceElement[] exceptionElements = e.getStackTrace();
-						for(int i=0; i< exceptionElements.length; i++) {
-							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
-						}					
-		            }	            
-				});
+				printException(e,"Exception exporting configurations to file");
+				
 				return;
 			}			
 				
@@ -1209,13 +1102,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 							if(lineParts[0].startsWith("executeMethodArgument")) {
 								executeMethodInsertedArgumentList.addElement(lineParts[1]);
 							} else {
-								stderr.println("Invalid option " + lineParts[0]);
+								printException(null,"Invalid option " + lineParts[0]);
 							}							
 						}
 						
 					} else {
 						
-						stderr.println("The line does not contain a valid option");
+						printException(null,"The line does not contain a valid option");
 						
 					}
 					
@@ -1223,29 +1116,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 							 				
 				br.close();
 				
-				SwingUtilities.invokeLater(new Runnable() {				
-		            @Override
-		            public void run() {
-				
-		            	configurationConsoleTextArea.append("[I] Loading configurations executed correctly\n");
-		            	
-		            }
-		            
-				});
+				printSuccessMessage("Loading configurations executed correctly");
 				
 			} catch (final Exception e) {
-				SwingUtilities.invokeLater(new Runnable() {				
-		            @Override
-		            public void run() {
 				
-		            	configurationConsoleTextArea.append("[E] Error loading configurations from file\n");
-						StackTraceElement[] exceptionElements = e.getStackTrace();
-						for(int i=0; i< exceptionElements.length; i++) {
-							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
-						}					
-		            }	            
-				});
+				printException(e,"Error loading configurations from file");
 				return;
+				
 			}
 			
 			
@@ -1322,37 +1199,35 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		            @Override
 		            public void run() {
 		            	
-		            	consoleTextArea.setText("");
 		            	applicationStatus.setText("");
 		            	applicationStatusButtons.setText("");
+		            			            	
+		            	// Empty trapping table
+		            	List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
+		            	synchronized(trapEntries) {
+		            		int trapEntryOldSize = trapEntries.size();
+		            		if(trapEntryOldSize > 0) {
+		            			trapEntries.clear();
+		            			((TrapTableModel)(trapTable.getModel())).fireTableRowsDeleted(0, trapEntryOldSize - 1);
+		            		}
+		                }
+		            	
 		            	try {
 		                	documentApplicationStatus.insertString(0, "spawned", greenStyle);
 		                	documentApplicationStatusButtons.insertString(0, "App running", greenStyle);
-		                	configurationConsoleTextArea.append("[I] Application " + applicationId.getText().trim() + " spawned correctly\n");
 						} catch (BadLocationException e) {
-							configurationConsoleTextArea.append("[E] Exception with spawn application\n");
-							StackTraceElement[] exceptionElements = e.getStackTrace();
-							for(int i=0; i< exceptionElements.length; i++) {
-								configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
-							}
+							printException(e,"Exception with labels");
 						}
 						
 		            }
 				});
 				
+				printSuccessMessage("Application " + applicationId.getText().trim() + " spawned correctly");
+				
 			} catch (final Exception e) {
 				
-				SwingUtilities.invokeLater(new Runnable() {
-					
-		            @Override
-		            public void run() {
-						configurationConsoleTextArea.append("[E] Exception with spawn application\n");
-						StackTraceElement[] exceptionElements = e.getStackTrace();
-						for(int i=0; i< exceptionElements.length; i++) {
-							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
-						}
-		            }
-				});
+				printException(e,"Exception with spawn application");
+				
 			}
 		
 			
@@ -1360,46 +1235,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 			try {
 				
-				SwingUtilities.invokeLater(new Runnable() {
-					
-		            @Override
-		            public void run() {
-				
-		            	consoleTextArea.setText("");
-		            	
-		            }
-		            
-				});
-				
 				pyroBridaService.call("reload_script");
 				
-				SwingUtilities.invokeLater(new Runnable() {
-					
-		            @Override
-		            public void run() {
-				
-		            	configurationConsoleTextArea.append("[I] Reloading script executed\n");
-		            	
-		            }
-		            
-				});
+				printSuccessMessage("Reloading script executed");
 				
 			} catch (final Exception e) {
-					
-				SwingUtilities.invokeLater(new Runnable() {
-					
-		            @Override
-		            public void run() {
+								
+				printException(e,"Exception reloading script");
 				
-		            	configurationConsoleTextArea.append("[E] Exception reloading script\n");
-						StackTraceElement[] exceptionElements = e.getStackTrace();
-						for(int i=0; i< exceptionElements.length; i++) {
-							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
-						}
-						
-		            }
-		            
-				});
 			}
 	
 						
@@ -1414,40 +1257,24 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		            @Override
 		            public void run() {
 		            	
-		            	//consoleTextArea.setText("");
 		            	applicationStatus.setText("");
 		            	applicationStatusButtons.setText("");
 		            	try {
 		                	documentApplicationStatus.insertString(0, "NOT spawned", redStyle);
 		                	documentApplicationStatusButtons.insertString(0, "App stopped", redStyle);
-		                	configurationConsoleTextArea.append("[I] Killing application executed\n");
 						} catch (BadLocationException e) {
-							configurationConsoleTextArea.append("[E] Exception killing application\n");
-							StackTraceElement[] exceptionElements = e.getStackTrace();
-							for(int i=0; i< exceptionElements.length; i++) {
-								configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
-							}
+							printException(e,"Exception setting labels");
 						}
 						
 		            }
 				});
+				
+				printSuccessMessage("Killing application executed");
 				
 			} catch (final Exception e) {
 				
-				SwingUtilities.invokeLater(new Runnable() {
-					
-		            @Override
-		            public void run() {
+				printException(e,"Exception killing application");
 				
-		            	configurationConsoleTextArea.append("[E] Exception killing application\n");
-						StackTraceElement[] exceptionElements = e.getStackTrace();
-						for(int i=0; i< exceptionElements.length; i++) {
-							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
-						}
-						
-		            }
-		            
-				});
 			}
 			
 		} else if(command.equals("killServer") && serverStarted) {
@@ -1471,34 +1298,19 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		            	try {
 		                	documentServerStatus.insertString(0, "NOT running", redStyle);
 		                	documentServerStatusButtons.insertString(0, "Server stopped", redStyle);
-		                	configurationConsoleTextArea.append("[I] Pyro server shutted down\n");
 						} catch (BadLocationException e) {
-							configurationConsoleTextArea.append("[E] Exception shutting down Pyro server\n");
-							StackTraceElement[] exceptionElements = e.getStackTrace();
-							for(int i=0; i< exceptionElements.length; i++) {
-								configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
-							}
+							printException(e,"Exception setting labels");
 						}
 						
 		            }
 				});
+				
+				printSuccessMessage("Pyro server shutted down");
 				
 			} catch (final Exception e) {
 				
-				SwingUtilities.invokeLater(new Runnable() {
-					
-		            @Override
-		            public void run() {
+				printException(e,"Exception shutting down Pyro server");
 				
-		            	configurationConsoleTextArea.append("[E] Exception shutting down Pyro server\n");
-						StackTraceElement[] exceptionElements = e.getStackTrace();
-						for(int i=0; i< exceptionElements.length; i++) {
-							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
-						}
-						
-		            }
-		            
-				});
 			}
 		
 			
@@ -1525,51 +1337,31 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			            	try {
 			                	documentServerStatus.insertString(0, "running", greenStyle);
 			                	documentServerStatusButtons.insertString(0, "Server running", greenStyle);
-			                	configurationConsoleTextArea.append("[I] Pyro Server started correctly\n");
 							} catch (BadLocationException e) {
-						      	configurationConsoleTextArea.append("[E] Exception starting Pyro Server\n");
-								StackTraceElement[] exceptionElements = e.getStackTrace();
-								for(int i=0; i< exceptionElements.length; i++) {
-									configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
-								}		
+								
+								printException(e,"Exception setting labels");
 
 							}
 							
 			            }
 					});
 		        	
+		        	printSuccessMessage("Pyro server started correctly");
+		        	
 		        } else {	
 		        	
 		        	if(!(startPyroServerResult.trim().equals(""))) {
+		        				        		
+		        		printException(null,"Exception starting Pyro Server");
+		        		printException(null,startPyroServerResult.trim());
 		        		
-			        	SwingUtilities.invokeLater(new Runnable() {
-							
-				            @Override
-				            public void run() {
-					        	configurationConsoleTextArea.append("[E] Exception starting Pyro Server\n");
-					        	configurationConsoleTextArea.append(startPyroServerResult.trim() + "\n");
-					        	
-				            }
-				            
-			        	});
 		        	}
 		        	return;		        	
 		        }
 			} catch (final Exception e) {
-				SwingUtilities.invokeLater(new Runnable() {
-					
-		            @Override
-		            public void run() {
-				
-		            	configurationConsoleTextArea.append("[E] Exception starting Pyro server\n");
-						StackTraceElement[] exceptionElements = e.getStackTrace();
-						for(int i=0; i< exceptionElements.length; i++) {
-							configurationConsoleTextArea.append(exceptionElements[i].toString() + "\n");
-						}
-						
-		            }
-		            
-				});
+								
+				printException(null,"Exception starting Pyro server");
+								
 			}
 			
 		} else if(command.equals("executeMethod")) {
@@ -1584,18 +1376,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				}
 				
 				final String s = (String)(pyroBridaService.call("callexportfunction",executeMethodName.getText().trim(),arguments));
-				
-				SwingUtilities.invokeLater(new Runnable() {
-					
-		            @Override
-		            public void run() {
-		            	executeMethodOutput.setText(s);
-		            }
-				});
+								
+				printJSMessage("*** Output " + executeMethodName.getText().trim() + ":");
+				printJSMessage(s);
 				
 			} catch (Exception e) {
-				stderr.println("Exception with execute method");
-				stderr.println(e.toString());
+				
+				printException(e,"Exception with execute method");
+				
 			}
 			
 		} else if(command.equals("generateJavaStub")) {
@@ -1605,12 +1393,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	            @Override
 	            public void run() {
 	            	
-	            	javaStubTextEditor.setText(generateJavaStub().getBytes());
+	            	stubTextEditor.setText(generateJavaStub().getBytes());
 	                
 	            }
 			});
-			
-			
+	
 		} else if(command.equals("generatePythonStub")) {
 			
 			SwingUtilities.invokeLater(new Runnable() {
@@ -1618,11 +1405,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	            @Override
 	            public void run() {
 	            	
-	            	pythonStubTextEditor.setText(generatePythonStub().getBytes());
+	            	stubTextEditor.setText(generatePythonStub().getBytes());
 
 	            }
 			});
-			
 			
 		} else if(command.equals("saveSettingsToFile")) {
 			
@@ -1639,8 +1425,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			try {
 				jsFileContent = Files.readAllBytes(jsFile.toPath());
 			} catch (IOException e) {
-				stderr.println("ERROR OPENING JS FILE");
-				stderr.println(e.toString());
+				printException(e,"Error opening JS file");
 			}
 			
 			final byte[] test = jsFileContent;
@@ -1652,7 +1437,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		            @Override
 		            public void run() {
 		            			            	
-		            	//jsEditor.setText(test);
 		            	jsEditorTextArea.setText(new String(test));
 
 		            }
@@ -1665,11 +1449,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
 			File jsFile = new File(fridaPath.getText().trim());
 			try {
-				//Files.write(jsFile.toPath(), jsEditor.getText(), StandardOpenOption.WRITE);
 				Files.write(jsFile.toPath(), jsEditorTextArea.getText().getBytes(), StandardOpenOption.WRITE);
 			} catch (IOException e) {
-				stderr.println("ERROR WRITING TO JS FILE");
-				stderr.println(e.toString());
+				printException(e,"Error writing to JS file");
 			}
 		
 		} else if(command.equals("contextcustom1") || command.equals("contextcustom2")) {
@@ -1699,8 +1481,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				selectedItems[0].setRequest(newRequest);
 			
 			} catch (Exception e) {
-				stderr.println("Exception with custom context application");
-				stderr.println(e.toString());
+				
+				printException(e,"Exception with custom context application");
+				
 			}
 				
 
@@ -1740,7 +1523,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				DefaultMutableTreeNode objNode = new DefaultMutableTreeNode("Objective-C");
 				
-				HashMap<String,Integer> currentClassMethods;
 				DefaultMutableTreeNode currentNode;
 				
 				for(int i=0; i<allClasses.size(); i++) {
@@ -1768,14 +1550,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				model.setRoot(newRoot);
 
 			} catch (Exception e) {
-				
-				stderr.println("Exception with load tree");
-				stderr.println(e.toString());
-				stderr.println(e.getMessage());
-				StackTraceElement[] exceptionElements = e.getStackTrace();
-				for(int i=0; i< exceptionElements.length; i++) {
-					stderr.println(exceptionElements[i].toString());
-				}
+								
+				printException(e,"Exception with load tree");
 				
 			}
 
@@ -1787,7 +1563,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			try {
 				foundObjcMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findobjcmethods",new String[] {toSearch}));
 			} catch (Exception e) {
-				stderr.println(e.toString());
+				printException(e,"Exception searching OBJC methods");
 				return;
 			} 
 			
@@ -1795,7 +1571,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			try {
 				foundImports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findimports",new String[] {toSearch}));
 			} catch (Exception e) {
-				stderr.println(e.toString());
+				printException(e,"Exception searching imports");
 				return;
 			} 
 			
@@ -1803,11 +1579,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			try {
 				foundExports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findexports",new String[] {toSearch}));
 			} catch (Exception e) {
-				stderr.println(e.toString());
+				printException(e,"Exception searching exports");
 				return;
 			} 
 				
-			String result = "Results:\n";
+			printJSMessage("**** Result of the search of " + findTextField.getText().trim());
 			
 			if(foundObjcMethods != null) {
 				
@@ -1830,8 +1606,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				while(currentClassMethodsIterator.hasNext()) {
 					
 					currentMethodName = currentClassMethodsIterator.next();
-					
-					result = result + "OBJC: " + currentMethodName + "\n";
+					printJSMessage("OBJC: " + currentMethodName);
 					
 				}
 				
@@ -1860,8 +1635,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				while(currentImportIterator.hasNext()) {
 					
 					currentImportName = currentImportIterator.next();
-					
-					result = result + "IMPORT: " + currentImportName + "\n";
+					printJSMessage("IMPORT: " + currentImportName);
 					
 				}
 				
@@ -1889,15 +1663,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				while(exportIterator.hasNext()) {
 					
 					currentExportName = exportIterator.next();
-					
-					result = result + "EXPORT: " + currentExportName + "\n";
+					printJSMessage("EXPORT: " + currentExportName);
 					
 				}
 				
 			}
-			
-			searchResultEditor.setText(result.getBytes());
-		
+					
 		} else if(command.equals("trap")) {	
 			
 			trap(false);
@@ -1909,11 +1680,25 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			if(dialogResult == 0) {
 				try {
 					pyroBridaService.call("callexportfunction","detachAll",new String[] {});
-				} catch (Exception e) {
-					stderr.println(e.toString());
+				} catch (Exception e) {					
+					printException(e,"Exception detaching all");
 					return;
-				} 	
+				}
 				
+				// Empty trapping table
+            	List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
+            	synchronized(trapEntries) {
+            		int trapEntryOldSize = trapEntries.size();
+            		if(trapEntryOldSize > 0) {
+            			trapEntries.clear();
+            			((TrapTableModel)(trapTable.getModel())).fireTableRowsDeleted(0, trapEntryOldSize - 1);
+            		}
+                }
+				
+				printSuccessMessage("Detaching all successfully executed");
+				
+			} else {
+				printSuccessMessage("Detaching all CANCELED as requested by the user");
 			}			
 			
 		} else if(command.equals("trapBacktrace")) {	
@@ -1959,8 +1744,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 			
 			} catch (Exception e) {
-				stderr.println("Exception with custom context application");
-				stderr.println(e.toString());
+
+				printException(e,"Exception with custom context application");
+				
 			}
 		
 
@@ -2098,7 +1884,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				try {
 					currentImports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getmoduleimports",new String[] {nodeContent}));
 				} catch (Exception e) {
-					stderr.println(e.toString());
+					printException(e,"Exception retrieving module imports");
 					return;
 				} 
 				
@@ -2140,7 +1926,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				try {
 					currentExports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getmoduleexports",new String[] {nodeContent}));
 				} catch (Exception e) {
-					stderr.println(e.toString());
+					printException(e,"Exception retrieving module exports");
 					return;
 				} 
 				
@@ -2188,7 +1974,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				try {
 					currentClassMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getclassmethods",new String[] {nodeContent}));
 				} catch (Exception e) {
-					stderr.println(e.toString());
+					printException(e,"Exception retrieving class methods");
 					return;
 				} 
 
@@ -2221,12 +2007,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 					}
 					
 				}
-								
-
-				
-				
-			}
-			
+					
+			}			
 			
 			DefaultTreeModel model = (DefaultTreeModel)tree.getModel();
 			model.reload(clickedNode);
@@ -2238,13 +2020,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	}
 
 	/*
-	 * You can only autotrap iOS class, iOS method and single exports.
+	 * You can only autotrap iOS class, iOS method and single exports for the moment.
 	 */	
-	public void trap(boolean withBacktrace) {
-		
+	public void trap(boolean withBacktrace) {		
 
 		DefaultMutableTreeNode clickedNode = (DefaultMutableTreeNode)(tree.getSelectionPath().getLastPathComponent());
-		stdout.println((String)clickedNode.getUserObject());
 		
 		DefaultMutableTreeNode parentNode = (DefaultMutableTreeNode)clickedNode.getParent();
 		
@@ -2302,7 +2082,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 					
 					break;
 			
-			
 			}
 			
 		}
@@ -2338,16 +2117,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
             	}
             	((TrapTableModel)(trapTable.getModel())).fireTableRowsInserted(trapEntryOldSize, trapEntries.size() - 1);
             } 
-			
-			
+						
 		} catch (Exception e) {
-			stderr.println("Exception with trap");
-			stderr.println(e.toString());
-			stderr.println(e.getMessage());
-			StackTraceElement[] exceptionElements = e.getStackTrace();
-			for(int i=0; i< exceptionElements.length; i++) {
-				stderr.println(exceptionElements[i].toString());
-			}
+			
+			printException(e,"Exception with trap");
+			
 		}
 		
 	}
@@ -2397,14 +2171,123 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 
 	@Override
 	public void mouseEntered(MouseEvent e) {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public void mouseExited(MouseEvent e) {
-		// TODO Auto-generated method stub
+	}
+	
+	public void printSuccessMessage(final String message) {
+		
+		SwingUtilities.invokeLater(new Runnable() {
+			
+            @Override
+            public void run() {
+            	
+            	String oldConsoleText = pluginConsoleTextArea.getText();
+            	
+        		Pattern p = Pattern.compile("^.*<body>(.*)</body>.*$", Pattern.DOTALL);
+        		Matcher m = p.matcher(oldConsoleText);
+        		
+        		String newConsoleText = "";
+        		if(m.find()) {
+        			newConsoleText = m.group(1);
+        		}        		
+        		        		
+        		if(lastPrintIsJS) {
+        			newConsoleText = newConsoleText + "<br/>";
+        		}
+        		
+        		newConsoleText = newConsoleText + "<font color=\"green\">";
+        		newConsoleText = newConsoleText + "<b>" + message + "</b><br/>";
+        		newConsoleText = newConsoleText + "</font><br/>";
+        		
+        		pluginConsoleTextArea.setText(newConsoleText);
+            	
+        		lastPrintIsJS = false;
+            	
+            }
+		
+		});
 		
 	}
-
+	
+	
+	public void printJSMessage(final String message) {
+		
+		SwingUtilities.invokeLater(new Runnable() {
+			
+            @Override
+            public void run() {
+        		
+            	String oldConsoleText = pluginConsoleTextArea.getText();
+            	Pattern p = Pattern.compile("^.*<body>(.*)</body>.*$", Pattern.DOTALL);
+        		Matcher m = p.matcher(oldConsoleText);
+        		
+        		String newConsoleText = "";
+        		if(m.find()) {
+        			newConsoleText = m.group(1);
+        		}           	
+        		
+        		newConsoleText = newConsoleText + "<font color=\"black\"><pre>";
+        		//newConsoleText = newConsoleText + message + "<br/>";
+        		newConsoleText = newConsoleText + message;
+        		newConsoleText = newConsoleText + "</pre></font>";
+        		
+        		pluginConsoleTextArea.setText(newConsoleText);
+        		
+        		lastPrintIsJS = true;            	
+            	
+            }
+		
+		});
+		
+	}
+	
+	
+	public void printException(final Exception e, final String message) {
+		
+		SwingUtilities.invokeLater(new Runnable() {
+			
+            @Override
+            public void run() {
+        		
+        		
+            	String oldConsoleText = pluginConsoleTextArea.getText();
+            	Pattern p = Pattern.compile("^.*<body>(.*)</body>.*$", Pattern.DOTALL);
+        		Matcher m = p.matcher(oldConsoleText);
+        		
+        		String newConsoleText = "";
+        		if(m.find()) {
+        			newConsoleText = m.group(1);
+        		}
+        		        		
+        		if(lastPrintIsJS) {
+        			newConsoleText = newConsoleText + "<br/>";
+        		}
+        		
+        		newConsoleText = newConsoleText + "<font color=\"red\">";
+        		newConsoleText = newConsoleText + "<b>" + message + "</b><br/>";
+        		
+        		if(e != null) {        		
+	        		newConsoleText = newConsoleText + e.toString() + "<br/>";
+	        		//consoleText = consoleText + e.getMessage() + "<br/>";
+	        		StackTraceElement[] exceptionElements = e.getStackTrace();
+	        		for(int i=0; i< exceptionElements.length; i++) {
+	        			newConsoleText = newConsoleText + exceptionElements[i].toString() + "<br/>";
+	        		}		
+        		}
+        		
+        		newConsoleText = newConsoleText + "</font><br/>";
+        		
+        		pluginConsoleTextArea.setText(newConsoleText);
+        		
+        		lastPrintIsJS = false;            	
+            	
+            }
+		
+		});
+		
+	}
+	
 }

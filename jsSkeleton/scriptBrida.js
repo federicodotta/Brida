@@ -191,10 +191,6 @@ rpc.exports = {
 
 		}
 
-		//var type = (pattern.indexOf(" ") === -1) ? "module" : "objc";
-		console.log(pattern);
-		
-		//var res = new ApiResolver("objc");
 		var matches = res.enumerateMatchesSync(pattern);
 		var targets = uniqBy(matches, JSON.stringify);
 
@@ -204,6 +200,7 @@ rpc.exports = {
 			else if (type === "ios_export")
 				traceModule(target.address, target.name,backtrace);
 		});
+		
 	}
 
 }
@@ -255,7 +252,7 @@ function uniqBy(array, key)
 // trace ObjC methods
 function traceObjC(impl, name, backtrace)
 {
-	console.log("Tracing " + name);
+	console.log("*** Tracing " + name);
 
 	Interceptor.attach(impl, {
 
@@ -294,7 +291,7 @@ function traceObjC(impl, name, backtrace)
 // trace Module functions
 function traceModule(impl, name, backtrace)
 {
-	console.log("Tracing " + name);
+	console.log("*** Tracing " + name);
 
 	Interceptor.attach(impl, {
 
@@ -321,19 +318,26 @@ function traceModule(impl, name, backtrace)
 
 // print helper
 function printArg(desc, arg) {
-	try {
 
-		console.log("\t" + desc + ObjC.Object(arg).toString());
-	
-	} catch(err) {
+	if(arg != 0x0) {
 
 		try {
-			console.log("\t" + desc + ObjC.Object(arg));
+
+			var objectArg = ObjC.Object(arg);				
+			console.log("\t(" + objectArg.$className + ") " + desc + objectArg.toString());
+
 		} catch(err2) {
+
 			console.log("\t" + desc + arg);
+
 		}
 
+	} else {
+
+		console.log("\t" + desc + "0x0");
+
 	}
+
 }
 
 // 3 - FRIDA HOOKS (if needed)
