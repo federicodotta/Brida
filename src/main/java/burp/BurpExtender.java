@@ -64,6 +64,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.LineBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultStyledDocument;
 import javax.swing.text.Style;
@@ -548,6 +549,15 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 trapTableScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
                 trapTableScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
                 trapTable.setAutoCreateRowSorter(true);
+                
+                // Center header
+                ((DefaultTableCellRenderer)trapTable.getTableHeader().getDefaultRenderer()).setHorizontalAlignment(JLabel.CENTER);
+                
+                // Center columns 4 and 5
+                DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+                centerRenderer.setHorizontalAlignment( JLabel.CENTER );
+                trapTable.getColumnModel().getColumn(4).setCellRenderer( centerRenderer );
+                trapTable.getColumnModel().getColumn(5).setCellRenderer( centerRenderer );
                 
                 // **** END TRAPPING TAB
                 
@@ -1796,8 +1806,28 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 			}				
 			
-		}
+		} else if(command.startsWith("changeReturnValue")) {
+			
+        	Pattern p = Pattern.compile("^changeReturnValue(.*)$", Pattern.DOTALL);
+    		Matcher m = p.matcher(command);
+    		
+    		String changeType = null;
+    		if(m.find()) {
+    			changeType = m.group(1);
+    		}
 
+    		if(changeType != null) {
+    			
+    			stdout.println(changeType);
+    			
+    			String dialogResult = JOptionPane.showInputDialog(mainPanel, "Insert the new " + changeType + " return value","Return value",JOptionPane.QUESTION_MESSAGE);
+    			changeReturnValue(changeType,dialogResult);
+    			
+    		}
+			
+			
+		}
+		
 	}
 
 	public List<JMenuItem> createMenuItems(IContextMenuInvocation invocation) {
@@ -2085,42 +2115,133 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			}
 			
 		}
+		
+		if(type != null) {
 				
-		try {
-			pyroBridaService.call("callexportfunction","trace",new String[] {pattern,type,(withBacktrace ? "true" : "false")});
-			
-			List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
-
-			HashMap<String,Integer> currentClassMethods = null;
-			
-			// Better outside synchronized block
-			if(type.equals("objc_class")) {
-        		currentClassMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getclassmethods",new String[] {pattern}));
+			try {
+				pyroBridaService.call("callexportfunction","trace",new String[] {pattern,type,(withBacktrace ? "true" : "false")});
+				
+				List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
+	
+				HashMap<String,Integer> currentClassMethods = null;
+				
+				// Better outside synchronized block
+				if(type.equals("objc_class")) {
+	        		currentClassMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getclassmethods",new String[] {pattern}));
+				}
+				
+	            synchronized(trapEntries) {
+	            	int trapEntryOldSize = trapEntries.size();
+	            	if(type.equals("objc_class")) {
+	            		if(currentClassMethods != null) {    					
+	    					ArrayList<String> methodNames = new ArrayList<String>(currentClassMethods.keySet());
+	    					Iterator<String> currentClassMethodsIterator = methodNames.iterator();     					
+	    					String currentMethodName;
+	    					while(currentClassMethodsIterator.hasNext()) {    						
+	    						currentMethodName = currentClassMethodsIterator.next();    										
+	    						trapEntries.add(new TrapTableItem("Inspect","OBJ-C",currentMethodName, withBacktrace,"-","-"));    						
+	    					}    					
+	    				}            		
+	            	} else if(type.equals("objc_method")) {
+	            		trapEntries.add(new TrapTableItem("Inspect","OBJ-C",pattern, withBacktrace,"-","-"));
+	            	} else {
+	            		trapEntries.add(new TrapTableItem("Inspect","IOS Exports",pattern, withBacktrace,"-","-"));
+	            	}
+	            	((TrapTableModel)(trapTable.getModel())).fireTableRowsInserted(trapEntryOldSize, trapEntries.size() - 1);
+	            } 
+							
+			} catch (Exception e) {
+				
+				printException(e,"Exception with trap");
+				
 			}
 			
-            synchronized(trapEntries) {
-            	int trapEntryOldSize = trapEntries.size();
-            	if(type.equals("objc_class")) {
-            		if(currentClassMethods != null) {    					
-    					ArrayList<String> methodNames = new ArrayList<String>(currentClassMethods.keySet());
-    					Iterator<String> currentClassMethodsIterator = methodNames.iterator();     					
-    					String currentMethodName;
-    					while(currentClassMethodsIterator.hasNext()) {    						
-    						currentMethodName = currentClassMethodsIterator.next();    										
-    						trapEntries.add(new TrapTableItem("OBJ-C",currentMethodName, withBacktrace));    						
-    					}    					
-    				}            		
-            	} else if(type.equals("objc_method")) {
-            		trapEntries.add(new TrapTableItem("OBJ-C",pattern, withBacktrace));
-            	} else {
-            		trapEntries.add(new TrapTableItem("IOS Exports",pattern, withBacktrace));
-            	}
-            	((TrapTableModel)(trapTable.getModel())).fireTableRowsInserted(trapEntryOldSize, trapEntries.size() - 1);
-            } 
-						
-		} catch (Exception e) {
+		}
+		
+	}
+	
+	public void changeReturnValue(String returnValueType, String dialogResult) {
+		
+		//changeReturnValue("ptr",dialogResult)
+
+		DefaultMutableTreeNode clickedNode = (DefaultMutableTreeNode)(tree.getSelectionPath().getLastPathComponent());
+		
+		DefaultMutableTreeNode parentNode = (DefaultMutableTreeNode)clickedNode.getParent();
+		
+		String type = null;	
+		String pattern = null;
+		
+		// ROOT
+		if(parentNode != null) {
+		
+			String parentNodeContent = (String)parentNode.getUserObject();			
 			
-			printException(e,"Exception with trap");
+			DefaultMutableTreeNode grandparentNode = null;
+	
+			switch(parentNodeContent) {
+					
+				// Clicked a iOS export
+				case "Exports":
+					
+					// Only functions can be trapped
+					if(((String)clickedNode.getUserObject()).startsWith("function")) {
+						
+						type = "ios_export";						
+						grandparentNode = (DefaultMutableTreeNode)parentNode.getParent();
+						pattern = (String)grandparentNode.getUserObject() + "!" + ((String)clickedNode.getUserObject()).replace("function: ", "");
+												
+					}
+					
+					break;
+					
+				default:
+					
+					grandparentNode = (DefaultMutableTreeNode)parentNode.getParent();
+					
+					if(grandparentNode != null) {
+						
+						String grandparentNodeContent = (String)grandparentNode.getUserObject();
+						
+						// Clicked a iOS method
+						if(grandparentNodeContent.equals("Objective-C")) {
+							
+							type = "objc_method";
+							pattern = (String)clickedNode.getUserObject();
+							
+						}						
+						
+					}				
+					
+					break;
+			
+			}
+			
+		}
+		
+		if(type != null) {
+				
+			try {
+				
+				pyroBridaService.call("callexportfunction","changereturnvalue",new String[] {pattern,type,returnValueType,dialogResult});
+								
+				List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
+					
+	            synchronized(trapEntries) {
+	            	int trapEntryOldSize = trapEntries.size();
+	            	if(type.equals("objc_method")) {
+	            		trapEntries.add(new TrapTableItem("Edit return","OBJ-C",pattern, false,returnValueType,dialogResult));
+	            	} else {
+	            		trapEntries.add(new TrapTableItem("Edit return","IOS Exports",pattern, false,returnValueType,dialogResult));
+	            	}
+	            	((TrapTableModel)(trapTable.getModel())).fireTableRowsInserted(trapEntryOldSize, trapEntries.size() - 1);
+	            } 
+					
+				
+			} catch (Exception e) {
+				
+				printException(e,"Exception with replace return value");
+				
+			}
 			
 		}
 		

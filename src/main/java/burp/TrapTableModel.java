@@ -2,11 +2,11 @@ package burp;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import javax.swing.JButton;
 import javax.swing.table.AbstractTableModel;
 
 public class TrapTableModel extends AbstractTableModel {
+
+	private static final long serialVersionUID = 1L;
 	
 	List<TrapTableItem> trappedMethods;
 	
@@ -26,7 +26,7 @@ public class TrapTableModel extends AbstractTableModel {
 
 	@Override
 	public int getColumnCount() {
-		return 3;
+		return 6;
 	}
 
 	@Override
@@ -37,28 +37,39 @@ public class TrapTableModel extends AbstractTableModel {
 		switch (columnIndex) {
 		
 			case 0:
-				return currentItem.getType();
+				return currentItem.getHook();
 			case 1:
-				return currentItem.getName();
+				return currentItem.getType();
 			case 2:
-				return currentItem.isEnabled();
+				return currentItem.getName();
+			case 3:
+				return currentItem.hasBacktrace();
+			case 4:
+				return currentItem.getReturnValueType();
+			case 5:
+				return currentItem.getNewReturnValue();	
 			default:
 				return "";
 		
 		}
-		
-		
-	}
 	
+	}
+		
 	@Override
     public String getColumnName(int columnIndex) {
 		switch (columnIndex)  {
-            case 0:
+			case 0:
+	            return "Hook";    
+			case 1:
                 return "Type";
-            case 1:
-                return "Name";
             case 2:
-            	return "Backtrace";
+                return "Name";
+            case 3:
+            	return "Backtrace";            	
+            case 4:
+                return "Return value type";
+            case 5:
+                return "New return value";       	
             default:
                 return "";
         }
@@ -72,7 +83,13 @@ public class TrapTableModel extends AbstractTableModel {
             case 1:
                 return String.class;
             case 2:
-            	return Boolean.class;
+            	return String.class;
+            case 3:
+                return Boolean.class;
+            case 4:
+                return String.class;
+            case 5:
+            	return String.class;
             default:
                 return String.class;
         }

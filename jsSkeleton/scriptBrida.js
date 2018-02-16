@@ -200,8 +200,69 @@ rpc.exports = {
 			else if (type === "ios_export")
 				traceModule(target.address, target.name,backtrace);
 		});
-		
-	}
+
+	},
+
+	changereturnvalue: function(pattern, type, typeret, newret)	{
+
+		var res;
+		if(type === "objc_method") {
+
+			res = new ApiResolver("objc");
+
+		} else {
+			// SINGLE EXPORT
+			res = new ApiResolver("module");
+			pattern = "exports:" + pattern;
+
+		}
+
+		var matches = res.enumerateMatchesSync(pattern);
+		var targets = uniqBy(matches, JSON.stringify);
+
+		targets.forEach(function(target) {
+
+			Interceptor.attach(target.address, {
+
+				onEnter: function(args) {
+				},
+
+				onLeave: function(retval) {
+
+					if(typeret === "String") {
+
+						var a1 = ObjC.classes.NSString.stringWithString_(newret);
+
+						try {
+
+							console.log("*** " + pattern + " Replacing " + ObjC.Object(retval) + " with " + a1);
+							
+						} catch(err) {
+
+							console.log("*** " + pattern + " Replacing " + retval + " with " + a1);
+
+						}
+
+						retval.replace(a1);
+
+					} else if(typeret === "Ptr") {
+
+						console.log("*** " + pattern + " Replacing " + ptr(retval) + " with " + ptr(newret));
+						retval.replace(ptr(newret));
+
+					} else {
+
+						console.log("*** " + pattern + " Replacing " + retval + " with " + newret);
+						retval.replace(newret);
+
+					}
+
+				}
+
+			});
+
+		});			
+	}	
 
 }
 
