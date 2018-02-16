@@ -137,6 +137,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     private JButton saveJSFileButton; 
     private JButton loadTreeButton;
     private JButton detachAllButton;
+    private JButton clearConsoleButton;
     
     private JEditorPane pluginConsoleTextArea;
     
@@ -156,10 +157,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     /*
      * TODO
      * - Android
+     * - Fix JS editor
      * - Add addresses to tree view
-     * - Trap custom method
+     * - Trap/edit return value of custom methods
      * - Organize better JS file
-     * - Change return value
      */
     
 	public void registerExtenderCallbacks(IBurpExtenderCallbacks c) {
@@ -624,7 +625,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 JButton reloadScript = new JButton("Reload JS");
                 reloadScript.setActionCommand("reloadScript");
                 reloadScript.addActionListener(BurpExtender.this); 
-                                
+                
+                clearConsoleButton = new JButton("Clear console");
+                clearConsoleButton.setActionCommand("clearConsole");
+                clearConsoleButton.addActionListener(BurpExtender.this);
+                
                 executeMethodButton = new JButton("Execute Method");
                 executeMethodButton.setActionCommand("executeMethod");
                 executeMethodButton.addActionListener(BurpExtender.this); 
@@ -671,6 +676,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 rightSplitPane.add(spawnApplication,gbc);
                 rightSplitPane.add(killApplication,gbc);
                 rightSplitPane.add(reloadScript,gbc);
+                rightSplitPane.add(clearConsoleButton,gbc);
 
                 rightSplitPane.add(separator,gbc);
                 
@@ -1825,6 +1831,21 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     			
     		}
 			
+		} else if(command.startsWith("clearConsole")) {
+		
+			SwingUtilities.invokeLater(new Runnable() {
+				
+	            @Override
+	            public void run() {
+	            	String newConsoleText = "<font color=\"green\">";
+	        		newConsoleText = newConsoleText + "<b>**** Console cleared successfully ****</b><br/>";
+	        		newConsoleText = newConsoleText + "</font><br/>";		
+	        		
+	        		pluginConsoleTextArea.setText(newConsoleText);	        		 	
+	            	
+	            }
+			
+			});
 			
 		}
 		
