@@ -41,9 +41,14 @@ public class TreePopup extends JPopupMenu {
         changeReturnValueInt.setActionCommand("changeReturnValueInt");
         changeReturnValueInt.addActionListener(ex);
         
+        JMenuItem changeReturnValueBoolean = new JMenuItem("boolean");        
+        changeReturnValueBoolean.setActionCommand("changeReturnValueBoolean");
+        changeReturnValueBoolean.addActionListener(ex);
+        
         changeReturnValue.add(changeReturnValuePtr);
         changeReturnValue.add(changeReturnValueString);
         changeReturnValue.add(changeReturnValueInt);
+        changeReturnValue.add(changeReturnValueBoolean);
         
         add(changeReturnValue);
         

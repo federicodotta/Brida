@@ -28,6 +28,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.StringTokenizer;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -79,9 +80,14 @@ import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
+import net.razorvine.pickle.PickleException;
 import net.razorvine.pyro.*;
 
 public class BurpExtender implements IBurpExtender, ITab, ActionListener, IContextMenuFactory, MouseListener {
+	
+	private static final int PLATFORM_ANDROID = 0;
+	private static final int PLATFORM_IOS = 1;
+	private static final int PLATFORM_GENERIC = 2;
 
     private IBurpExtenderCallbacks callbacks;
     private IExtensionHelpers helpers;
@@ -153,6 +159,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     private JTable trapTable;
     
     private boolean lastPrintIsJS;
+    
+    private int platform;
 		
     /*
      * TODO
@@ -160,7 +168,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
      * - Fix JS editor
      * - Add addresses to tree view
      * - Trap/edit return value of custom methods
-     * - Organize better JS file
+     * - Organize better JS file (maybe divide custom one from Brida one)
+     * - Handle generic case (like Windows)
      */
     
 	public void registerExtenderCallbacks(IBurpExtenderCallbacks c) {
@@ -1245,6 +1254,20 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				printException(e,"Exception with spawn application");
 				
 			}
+			
+			// GETTING PLAFORM INFO (ANDROID/IOS/GENERIC)			
+			try {
+				platform = (int)(pyroBridaService.call("callexportfunction","getplatform",new String[] {}));
+				if(platform == BurpExtender.PLATFORM_ANDROID) {
+					printSuccessMessage("Platform: Android");					
+				} else if(platform == BurpExtender.PLATFORM_IOS) {
+					printSuccessMessage("Platform: iOS");
+				} else {
+					printSuccessMessage("Platform: Generic");
+				}
+			} catch (Exception e) {				
+				printException(e,"Exception with getting info Android/iOS");				
+			}
 		
 			
 		} else if(command.equals("reloadScript") && serverStarted && applicationSpawned) {
@@ -1537,7 +1560,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				DefaultMutableTreeNode newRoot = new DefaultMutableTreeNode("Binary");
 				
-				DefaultMutableTreeNode objNode = new DefaultMutableTreeNode("Objective-C");
+				DefaultMutableTreeNode objNode = (platform == BurpExtender.PLATFORM_ANDROID ? new DefaultMutableTreeNode("Java") : new DefaultMutableTreeNode("Objective-C"));
 				
 				DefaultMutableTreeNode currentNode;
 				
@@ -1575,15 +1598,17 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
 			String toSearch = findTextField.getText().trim();
 			
-			HashMap<String, Integer> foundObjcMethods;
-			try {
-				foundObjcMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findobjcmethods",new String[] {toSearch}));
-			} catch (Exception e) {
-				printException(e,"Exception searching OBJC methods");
-				return;
-			} 
+			HashMap<String, Integer> foundObjcMethods = null;
+			if(platform == BurpExtender.PLATFORM_IOS) {
+				try {
+					foundObjcMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findobjcmethods",new String[] {toSearch}));
+				} catch (Exception e) {
+					printException(e,"Exception searching OBJC methods");
+					return;
+				} 
+			}
 			
-			HashMap<String, Integer> foundImports;
+			HashMap<String, Integer> foundImports = null;
 			try {
 				foundImports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findimports",new String[] {toSearch}));
 			} catch (Exception e) {
@@ -1591,7 +1616,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				return;
 			} 
 			
-			HashMap<String, Integer> foundExports;
+			HashMap<String, Integer> foundExports = null;
 			try {
 				foundExports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findexports",new String[] {toSearch}));
 			} catch (Exception e) {
@@ -2017,21 +2042,21 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				
 				
-			} else if (nodeContentParent.equals("Objective-C")) {
-				
-				
-				
-				HashMap<String, Integer> currentClassMethods;
+			} else if (nodeContentParent.equals("Objective-C") || nodeContentParent.equals("Java")) {
+								
+				HashMap<String, Integer> currentClassMethods = null;
+				ArrayList<String> methodNames = null;
+
 				try {
 					currentClassMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getclassmethods",new String[] {nodeContent}));
 				} catch (Exception e) {
 					printException(e,"Exception retrieving class methods");
 					return;
-				} 
-
+				}
+				
 				if(currentClassMethods != null) {
 					
-					ArrayList<String> methodNames = new ArrayList<String>(currentClassMethods.keySet());
+					methodNames = new ArrayList<String>(currentClassMethods.keySet());
 					
 					// Sort method names
 					Collections.sort(methodNames, new Comparator<String>() {
@@ -2041,14 +2066,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 
 				            return  class1.compareToIgnoreCase(class2);
 				        }
-				    });	
+				    });
 				
 					Iterator<String> currentClassMethodsIterator = methodNames.iterator(); 
 					
 					String currentMethodName;
 					DefaultMutableTreeNode currentNodeMethod;
 					while(currentClassMethodsIterator.hasNext()) {
-						
+												
 						currentMethodName = currentClassMethodsIterator.next();
 										
 						currentNodeMethod = new DefaultMutableTreeNode(currentMethodName);
@@ -2057,7 +2082,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						
 					}
 					
-				}
+				} 				
 					
 			}			
 			
@@ -2070,9 +2095,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
 	}
 
-	/*
-	 * You can only autotrap iOS class, iOS method and single exports for the moment.
-	 */	
 	public void trap(boolean withBacktrace) {		
 
 		DefaultMutableTreeNode clickedNode = (DefaultMutableTreeNode)(tree.getSelectionPath().getLastPathComponent());
@@ -2091,21 +2113,25 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	
 			switch(parentNodeContent) {
 			
-				// Clicked a iOS class
-				case "Objective-C":
-					
-					type = "objc_class";
+				// Clicked Java class
+				case "Java":
+					type = "java_class";
 					pattern = (String)clickedNode.getUserObject();
-					
 					break;
 					
-				// Clicked a iOS export
+				// Clicked a iOS class	
+				case "Objective-C":
+					type = "objc_class";
+					pattern = (String)clickedNode.getUserObject();
+					break;
+					
+				// Clicked an export (the same for iOS and Android)
 				case "Exports":
 					
 					// Only functions can be trapped
 					if(((String)clickedNode.getUserObject()).startsWith("function")) {
 						
-						type = "ios_export";						
+						type = "export";						
 						grandparentNode = (DefaultMutableTreeNode)parentNode.getParent();
 						pattern = (String)grandparentNode.getUserObject() + "!" + ((String)clickedNode.getUserObject()).replace("function: ", "");
 												
@@ -2123,11 +2149,19 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						
 						// Clicked a iOS method
 						if(grandparentNodeContent.equals("Objective-C")) {
-							
+														
 							type = "objc_method";
-							pattern = (String)clickedNode.getUserObject();
 							
-						}						
+							pattern = (String)clickedNode.getUserObject();
+						
+						// Clicked a Java method 
+						} else if(grandparentNodeContent.equals("Java")) {
+							
+							type = "java_method";						
+							
+							pattern = (String)clickedNode.getUserObject();
+														
+						}
 						
 					}				
 					
@@ -2140,33 +2174,34 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		if(type != null) {
 				
 			try {
-				pyroBridaService.call("callexportfunction","trace",new String[] {pattern,type,(withBacktrace ? "true" : "false")});
 				
+				pyroBridaService.call("callexportfunction","trace",new String[] {pattern,type,(withBacktrace ? "true" : "false")});
+								
 				List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
 	
 				HashMap<String,Integer> currentClassMethods = null;
 				
 				// Better outside synchronized block
-				if(type.equals("objc_class")) {
+				if(type.equals("objc_class") || type.equals("java_class")) {
 	        		currentClassMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getclassmethods",new String[] {pattern}));
 				}
 				
 	            synchronized(trapEntries) {
 	            	int trapEntryOldSize = trapEntries.size();
-	            	if(type.equals("objc_class")) {
+	            	if(type.equals("objc_class")  || type.equals("java_class")) {
 	            		if(currentClassMethods != null) {    					
 	    					ArrayList<String> methodNames = new ArrayList<String>(currentClassMethods.keySet());
 	    					Iterator<String> currentClassMethodsIterator = methodNames.iterator();     					
 	    					String currentMethodName;
 	    					while(currentClassMethodsIterator.hasNext()) {    						
 	    						currentMethodName = currentClassMethodsIterator.next();    										
-	    						trapEntries.add(new TrapTableItem("Inspect","OBJ-C",currentMethodName, withBacktrace,"-","-"));    						
+	    						trapEntries.add(new TrapTableItem("Inspect",(platform == BurpExtender.PLATFORM_ANDROID ? "Java" : "OBJ-C"),currentMethodName, withBacktrace,"-","-"));    						
 	    					}    					
 	    				}            		
-	            	} else if(type.equals("objc_method")) {
-	            		trapEntries.add(new TrapTableItem("Inspect","OBJ-C",pattern, withBacktrace,"-","-"));
+	            	} else if(type.equals("objc_method") || type.equals("java_method")) {
+	            		trapEntries.add(new TrapTableItem("Inspect",(platform == BurpExtender.PLATFORM_ANDROID ? "Java" : "OBJ-C"),pattern, withBacktrace,"-","-"));
 	            	} else {
-	            		trapEntries.add(new TrapTableItem("Inspect","IOS Exports",pattern, withBacktrace,"-","-"));
+	            		trapEntries.add(new TrapTableItem("Inspect","Export",pattern, withBacktrace,"-","-"));
 	            	}
 	            	((TrapTableModel)(trapTable.getModel())).fireTableRowsInserted(trapEntryOldSize, trapEntries.size() - 1);
 	            } 
@@ -2201,13 +2236,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	
 			switch(parentNodeContent) {
 					
-				// Clicked a iOS export
+				// Clicked a export
 				case "Exports":
 					
 					// Only functions can be trapped
 					if(((String)clickedNode.getUserObject()).startsWith("function")) {
 						
-						type = "ios_export";						
+						type = "export";						
 						grandparentNode = (DefaultMutableTreeNode)parentNode.getParent();
 						pattern = (String)grandparentNode.getUserObject() + "!" + ((String)clickedNode.getUserObject()).replace("function: ", "");
 												
@@ -2227,6 +2262,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						if(grandparentNodeContent.equals("Objective-C")) {
 							
 							type = "objc_method";
+							pattern = (String)clickedNode.getUserObject();
+						
+						// Clicked a Java method
+						} else if(grandparentNodeContent.equals("Java")) {
+							
+							type = "java_method";
 							pattern = (String)clickedNode.getUserObject();
 							
 						}						
@@ -2251,8 +2292,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	            	int trapEntryOldSize = trapEntries.size();
 	            	if(type.equals("objc_method")) {
 	            		trapEntries.add(new TrapTableItem("Edit return","OBJ-C",pattern, false,returnValueType,dialogResult));
+	            	} else if(type.equals("java_method")) {
+	            		trapEntries.add(new TrapTableItem("Edit return","Java",pattern, false,returnValueType,dialogResult));
 	            	} else {
-	            		trapEntries.add(new TrapTableItem("Edit return","IOS Exports",pattern, false,returnValueType,dialogResult));
+	            		trapEntries.add(new TrapTableItem("Edit return","Export",pattern, false,returnValueType,dialogResult));
 	            	}
 	            	((TrapTableModel)(trapTable.getModel())).fireTableRowsInserted(trapEntryOldSize, trapEntries.size() - 1);
 	            } 
