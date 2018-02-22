@@ -2057,15 +2057,34 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 					
 					methodNames = new ArrayList<String>(currentClassMethods.keySet());
 					
-					// Sort method names
-					Collections.sort(methodNames, new Comparator<String>() {
-				        @Override
-				        public int compare(String class1, String class2)
-				        {
+					if(platform == BurpExtender.PLATFORM_ANDROID) {
+					
+						// Sort Android method names
+						Collections.sort(methodNames, new Comparator<String>() {
+					        @Override
+					        public int compare(String method1, String method2) {
+	
+					        	String[] splitMethod1 = method1.split("\\(")[0].split(" ");
+					        	String[] splitMethod2 = method2.split("\\(")[0].split(" ");
+					        	
+					            return  splitMethod1[splitMethod1.length-1].compareToIgnoreCase(splitMethod2[splitMethod1.length-1]);
+					            
+					        }
+					    });
+						
+					} else {
+						
+						// Sort iOS method names
+						Collections.sort(methodNames, new Comparator<String>() {
+					        @Override
+					        public int compare(String class1, String class2)
+					        {
 
-				            return  class1.compareToIgnoreCase(class2);
-				        }
-				    });
+					            return  class1.compareToIgnoreCase(class2);
+					        }
+					    });
+						
+					}
 				
 					Iterator<String> currentClassMethodsIterator = methodNames.iterator(); 
 					
