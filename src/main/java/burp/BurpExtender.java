@@ -85,9 +85,9 @@ import net.razorvine.pyro.*;
 
 public class BurpExtender implements IBurpExtender, ITab, ActionListener, IContextMenuFactory, MouseListener {
 	
-	private static final int PLATFORM_ANDROID = 0;
-	private static final int PLATFORM_IOS = 1;
-	private static final int PLATFORM_GENERIC = 2;
+	public static final int PLATFORM_ANDROID = 0;
+	public static final int PLATFORM_IOS = 1;
+	public static final int PLATFORM_GENERIC = 2;
 
     private IBurpExtenderCallbacks callbacks;
     private IExtensionHelpers helpers;
@@ -164,12 +164,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
     /*
      * TODO
-     * - Android
      * - Fix JS editor
-     * - Add addresses to tree view
+     * - Add addresses to tree view (export and iOS)
      * - Trap/edit return value of custom methods
      * - Organize better JS file (maybe divide custom one from Brida one)
-     * - Handle generic case (like Windows)
      */
     
 	public void registerExtenderCallbacks(IBurpExtenderCallbacks c) {
@@ -1560,19 +1558,24 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				DefaultMutableTreeNode newRoot = new DefaultMutableTreeNode("Binary");
 				
-				DefaultMutableTreeNode objNode = (platform == BurpExtender.PLATFORM_ANDROID ? new DefaultMutableTreeNode("Java") : new DefaultMutableTreeNode("Objective-C"));
-				
 				DefaultMutableTreeNode currentNode;
 				
-				for(int i=0; i<allClasses.size(); i++) {
-
-					currentNode = new DefaultMutableTreeNode(allClasses.get(i));
-
-					objNode.add(currentNode);
+				// ONLY FOR IOS AND ANDROID
+				if(platform == BurpExtender.PLATFORM_ANDROID || platform == BurpExtender.PLATFORM_IOS) {
+				
+					DefaultMutableTreeNode objNode = (platform == BurpExtender.PLATFORM_ANDROID ? new DefaultMutableTreeNode("Java") : new DefaultMutableTreeNode("Objective-C"));
+				
+					for(int i=0; i<allClasses.size(); i++) {
+	
+						currentNode = new DefaultMutableTreeNode(allClasses.get(i));
+	
+						objNode.add(currentNode);
+						
+					}
+	
+					newRoot.add(objNode);
 					
 				}
-
-				newRoot.add(objNode);
 				
 				DefaultMutableTreeNode modulesNode = new DefaultMutableTreeNode("Modules");
 			
@@ -1849,8 +1852,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 
     		if(changeType != null) {
     			
-    			stdout.println(changeType);
-    			
     			String dialogResult = JOptionPane.showInputDialog(mainPanel, "Insert the new " + changeType + " return value","Return value",JOptionPane.QUESTION_MESSAGE);
     			changeReturnValue(changeType,dialogResult);
     			
@@ -2040,8 +2041,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 					
 				}
 				
-				
-				
 			} else if (nodeContentParent.equals("Objective-C") || nodeContentParent.equals("Java")) {
 								
 				HashMap<String, Integer> currentClassMethods = null;
@@ -2217,8 +2216,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	}
 	
 	public void changeReturnValue(String returnValueType, String dialogResult) {
-		
-		//changeReturnValue("ptr",dialogResult)
 
 		DefaultMutableTreeNode clickedNode = (DefaultMutableTreeNode)(tree.getSelectionPath().getLastPathComponent());
 		
@@ -2473,6 +2470,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
 		});
 		
+	}
+	
+	public int getPlatform() {
+		return platform;
 	}
 	
 }

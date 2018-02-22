@@ -5,18 +5,11 @@ import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 
 public class TreePopup extends JPopupMenu {
-	
-	//JMenuItem trapItem;
-	//JMenuItem trapWithBacktraceItem;
-	
-	//BurpExtender ex;
-	
+		
 	private static final long serialVersionUID = 1L;
 
 	public TreePopup(BurpExtender ex){
-		
-		//this.ex = ex;
-		
+				
 		JMenuItem trapItem = new JMenuItem("Inspect!");
         trapItem.setActionCommand("trap");
         trapItem.addActionListener(ex);
@@ -32,22 +25,23 @@ public class TreePopup extends JPopupMenu {
         JMenuItem changeReturnValuePtr = new JMenuItem("ptr");        
         changeReturnValuePtr.setActionCommand("changeReturnValuePtr");
         changeReturnValuePtr.addActionListener(ex);
+        changeReturnValue.add(changeReturnValuePtr);
         
-        JMenuItem changeReturnValueString = new JMenuItem("String");        
-        changeReturnValueString.setActionCommand("changeReturnValueString");
-        changeReturnValueString.addActionListener(ex);
+        if(ex.getPlatform() == BurpExtender.PLATFORM_ANDROID || ex.getPlatform() == BurpExtender.PLATFORM_IOS) {
+	        JMenuItem changeReturnValueString = new JMenuItem("String");        
+	        changeReturnValueString.setActionCommand("changeReturnValueString");
+	        changeReturnValueString.addActionListener(ex);
+	        changeReturnValue.add(changeReturnValueString);
+        }
         
         JMenuItem changeReturnValueInt = new JMenuItem("int");        
         changeReturnValueInt.setActionCommand("changeReturnValueInt");
         changeReturnValueInt.addActionListener(ex);
+        changeReturnValue.add(changeReturnValueInt);
         
         JMenuItem changeReturnValueBoolean = new JMenuItem("boolean");        
         changeReturnValueBoolean.setActionCommand("changeReturnValueBoolean");
         changeReturnValueBoolean.addActionListener(ex);
-        
-        changeReturnValue.add(changeReturnValuePtr);
-        changeReturnValue.add(changeReturnValueString);
-        changeReturnValue.add(changeReturnValueInt);
         changeReturnValue.add(changeReturnValueBoolean);
         
         add(changeReturnValue);

@@ -233,10 +233,12 @@ rpc.exports = {
 	changereturnvalue: function(pattern, type, typeret, newret)	{
 		if(ObjC.available) {
 			changeReturnValueIOS(pattern, type, typeret, newret);
-		} else {
+		} else if(Java.available) {
 			Java.perform(function() {
 				changeReturnValueAndroid(pattern, type, typeret, newret);
 			});
+		} else {
+			changeReturnValueGeneric(pattern, type, typeret, newret);
 		}
 	}
 
@@ -373,29 +375,54 @@ function changeReturnValueIOS(pattern, type, typeret, newret) {
 			}
 		});
 	});	
+	console.log("*** Replacing return value of " + pattern + " with " + newret);
+}
+
+function changeReturnValueGeneric(pattern, type, typeret, newret) {
+	var res = new ApiResolver("module");
+	pattern = "exports:" + pattern;
+	var matches = res.enumerateMatchesSync(pattern);
+	var targets = uniqBy(matches, JSON.stringify);
+	targets.forEach(function(target) {
+		Interceptor.attach(target.address, {
+			onEnter: function(args) {
+			},
+			onLeave: function(retval) {
+				if(typeret === "Ptr") {
+					console.log("*** " + pattern + " Replacing " + ptr(retval) + " with " + ptr(newret));
+					retval.replace(ptr(newret));
+				} else if(typeret === "Boolean") {
+					if(newret === "true") {
+						var toRet = 1;
+					} else {
+						var toRet = 0;
+					}
+					console.log("*** " + pattern + " Replacing " + retval + " with " + toRet);
+					retval.replace(toRet);
+				} else {
+					console.log("*** " + pattern + " Replacing " + retval + " with " + newret);
+					retval.replace(newret);
+				}
+			}
+		});
+	});	
+	console.log("*** Replacing return value of " + pattern + " with " + newret);
 }
 
 function changeReturnValueAndroid(pattern, type, typeret, newret) {
 	if(type === "java_method") {
 		var targetClassMethod = parseJavaMethod(pattern);
-		console.log(targetClassMethod);
+		//console.log(targetClassMethod);
 		var argsTargetClassMethod = getJavaMethodArguments(pattern);
-		console.log(argsTargetClassMethod);
+		//console.log(argsTargetClassMethod);
 		var delim = targetClassMethod.lastIndexOf(".");
 		if (delim === -1) return;
 		var targetClass = targetClassMethod.slice(0, delim)
 		var targetMethod = targetClassMethod.slice(delim + 1, targetClassMethod.length)
-		console.log(targetClass);
-		console.log(targetMethod);
+		//console.log(targetClass);
+		//console.log(targetMethod);
 		var hook = Java.use(targetClass);
 		hook[targetMethod].overload.apply(this,argsTargetClassMethod).implementation = function() {
-			//console.log("\n*** entered XXXXX " + targetClassMethod);
-			// print args
-			if (arguments.length) console.log();
-			for (var j = 0; j < arguments.length; j++) {
-				console.log("arg[" + j + "]: " + arguments[j]);
-			}
-			// print retval
 			var retval = this[targetMethod].apply(this, arguments);
 			var toRet = newret;
 			if(typeret === "String") {
@@ -445,6 +472,7 @@ function changeReturnValueAndroid(pattern, type, typeret, newret) {
 			});
 		});	
 	}
+	console.log("*** Replacing return value of " + pattern + " with " + newret);
 }
 
 // trace ObjC methods
