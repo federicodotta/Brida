@@ -240,7 +240,19 @@ rpc.exports = {
 		} else {
 			changeReturnValueGeneric(pattern, type, typeret, newret);
 		}
-	}
+	},
+
+	getplatform: function() {
+
+		if(Java.available) {
+			return 0;
+		} else if(ObjC.available){
+			return 1;
+		} else {
+			return 2;
+		}
+
+	}	
 
 }
 
