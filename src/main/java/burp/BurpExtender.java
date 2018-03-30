@@ -28,7 +28,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.StringTokenizer;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -80,10 +79,9 @@ import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
-import net.razorvine.pickle.PickleException;
 import net.razorvine.pyro.*;
 
-public class BurpExtender implements IBurpExtender, ITab, ActionListener, IContextMenuFactory, MouseListener {
+public class BurpExtender implements IBurpExtender, ITab, ActionListener, IContextMenuFactory, MouseListener, IExtensionStateListener {
 	
 	public static final int PLATFORM_ANDROID = 0;
 	public static final int PLATFORM_IOS = 1;
@@ -164,7 +162,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
     /*
      * TODO
-     * - Fix JS editor
      * - Add addresses to tree view (export and iOS)
      * - Trap/edit return value of custom methods
      * - Organize better JS file (maybe divide custom one from Brida one)
@@ -184,6 +181,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
         
         //register to produce options for the context menu
         callbacks.registerContextMenuFactory(this);
+        
+        // register to execute actions on unload
+        callbacks.registerExtensionStateListener(this);
         
         // Initialize stdout and stderr
         stdout = new PrintWriter(callbacks.getStdout(), true);
@@ -2494,5 +2494,32 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	public int getPlatform() {
 		return platform;
 	}
+
+	@Override
+	public void extensionUnloaded() {
+
+		if(serverStarted) {
+		
+			stdoutThread.stop();
+			stderrThread.stop();
+			
+			try {
+				pyroBridaService.call("shutdown");
+				pyroServerProcess.destroy();
+				pyroBridaService.close();
+				
+				printSuccessMessage("Pyro server shutted down");
+				
+			} catch (final Exception e) {
+				
+				printException(e,"Exception shutting down Pyro server");
+				
+			}
+			
+		}
+		
+	}
 	
 }
+
+		
