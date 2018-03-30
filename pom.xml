@@ -4,7 +4,7 @@
 
   <groupId>org.fd</groupId>
   <artifactId>Brida</artifactId>
-  <version>0.1</version>
+  <version>0.2</version>
   <packaging>jar</packaging>
 
   <name>Brida</name>
@@ -105,12 +105,12 @@
 	    <version>1.23</version>
 	</dependency> 
 	
-	<!-- https://mvnrepository.com/artifact/com.fifesoft/rsyntaxtextarea -->
+	<!-- Local dependency that must be installed locally with Maven -->
 	<dependency>
 	    <groupId>com.fifesoft</groupId>
 	    <artifactId>rsyntaxtextarea</artifactId>
-	    <version>2.6.1</version>
-	</dependency>   
+	    <version>2.6.1.edited</version>
+	</dependency>
     
   </dependencies>
 </project>
