@@ -19,8 +19,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -75,8 +73,9 @@ import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 
 import org.apache.commons.lang3.ArrayUtils;
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
+import org.fife.ui.rsyntaxtextarea.FileLocation;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
+import org.fife.ui.rsyntaxtextarea.TextEditorPane;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
 import net.razorvine.pyro.*;
@@ -145,7 +144,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     
     private JEditorPane pluginConsoleTextArea;
     
-	private RSyntaxTextArea jsEditorTextArea;
+    private TextEditorPane jsEditorTextArea;
 	
     private Thread stdoutThread;
     private Thread stderrThread;
@@ -418,27 +417,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 // **** END CONFIGURATION PANEL
                 
             	// **** JS EDITOR PANEL / CONSOLE
-                
-                // https://github.com/bobbylight/RSyntaxTextArea
-                // TODO Add other components
-                                
-                jsEditorTextArea = new RSyntaxTextArea();
+                jsEditorTextArea = new TextEditorPane();
                 jsEditorTextArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT);
-                jsEditorTextArea.setCodeFoldingEnabled(false);                
-                //jsEditorTextArea.setEditable(true);
-                //jsEditorTextArea.setEnabled(true);
+                jsEditorTextArea.setCodeFoldingEnabled(false);   
                 RTextScrollPane sp = new RTextScrollPane(jsEditorTextArea);
-                //sp.setEnabled(true);
-                
-                jsEditorTextArea.setFocusable(true);
-                
-                /*
-                // Autocomplete
-                CompletionProvider provider = createCompletionProvider();
-                AutoCompletion ac = new AutoCompletion(provider);
-                ac.install(jsEditorTextArea);
-                */
-
+                jsEditorTextArea.setFocusable(true);                
                 // **** END JS EDITOR PANEL / CONSOLE    
                 
                 // 	*** TREE WITH CLASSES AND METHODS
@@ -1460,39 +1443,30 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		} else if(command.equals("loadJsFile")) {
 			
 			File jsFile = new File(fridaPath.getText().trim());
-			byte[] jsFileContent = null;
-			try {
-				jsFileContent = Files.readAllBytes(jsFile.toPath());
-			} catch (IOException e) {
-				printException(e,"Error opening JS file");
-			}
+			final FileLocation fl = FileLocation.create(jsFile);
 			
-			final byte[] test = jsFileContent;
-			
-			if(jsFileContent != null) {
+			SwingUtilities.invokeLater(new Runnable() {
 				
-				SwingUtilities.invokeLater(new Runnable() {
-					
-		            @Override
-		            public void run() {
-		            			            	
-		            	jsEditorTextArea.setText(new String(test));
+	            @Override
+	            public void run() {
+	            			            	
+	            	try {
+						jsEditorTextArea.load(fl, null);
+					} catch (IOException e) {
+						printException(e,"Exception loading JS file");
+					}
 
-		            }
-				});
-				
-			}
-			
-			
+	            }
+			});
+						
 		} else if(command.equals("saveJsFile")) {
 		
-			File jsFile = new File(fridaPath.getText().trim());
 			try {
-				Files.write(jsFile.toPath(), jsEditorTextArea.getText().getBytes(), StandardOpenOption.WRITE);
+				jsEditorTextArea.save();
 			} catch (IOException e) {
-				printException(e,"Error writing to JS file");
+				printException(e,"Error saving JS file");
 			}
-		
+					
 		} else if(command.equals("contextcustom1") || command.equals("contextcustom2")) {
 			
 			IHttpRequestResponse[] selectedItems = currentInvocation.getSelectedMessages();
