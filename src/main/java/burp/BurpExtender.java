@@ -459,10 +459,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 
                 treePanel.add(tree);
                                 
-                JPanel searchPanelBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                JPanel searchPanelBar = new JPanel();
+                searchPanelBar.setLayout(new BoxLayout(searchPanelBar, BoxLayout.X_AXIS));
                                 
                 JLabel findLabel = new JLabel("Search:");
-                findTextField = new JTextField(60);       
+                //findTextField = new JTextField(60);       
+                findTextField = new JTextField();
                 JButton searchButton = new JButton("Search");
                 searchButton.setActionCommand("searchAnalysis");
                 searchButton.addActionListener(BurpExtender.this); 
@@ -473,7 +475,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
              
                 treeSearchPanel.add(scrollTreeJPanel);
                 treeSearchPanel.add(searchPanelBar,BorderLayout.SOUTH);
-                                
+                
                 // *** TREE WITH CLASSES AND METHODS                
                 
             	// **** STUB GENERATION     
