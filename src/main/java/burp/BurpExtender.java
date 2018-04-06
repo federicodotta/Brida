@@ -192,7 +192,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
         stdout.println("Welcome to Brida, the new bridge between Burp Suite and Frida!");
         stdout.println("Created by Piergiovanni Cipolloni and Federico Dotta");
         stdout.println("Contributors: Maurizio Agazzini");
-        stdout.println("Version: 0.2 beta");
+        stdout.println("Version: 0.2");
         stdout.println("");
         stdout.println("Github: https://github.com/federicodotta/Brida");
         stdout.println("");
