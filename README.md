@@ -24,7 +24,7 @@ This idea is a need that is born during the analysis of some mobile application 
 # Brida 0.2
 Brida 0.2 was presented at Hack In The Box 2018 Amsterdam and includes some new features that speed up dynamical analysis of mobile applications, including:
 - An integrated console in which output from all Frida and Brida hooks are printed
-- An integrated JS editor with Javascript syntax highlighting, in order to be able to add your own Frida exports and Frida hooks directly from Burp Suite
+- An integrated JS editor with Javascript syntax highlighting, in order to be able to add your own Frida exports and Frida hooks directly from Burp Suite. The JS editor is based on the great [RSyntaxTextArea](https://github.com/bobbylight/RSyntaxTextArea) of bobbylight
 - An analysis tab, in which you have a tree rapresentation of the binary (Java/OBJC classes and methods, inports/exports) and from which you can graphically add inspection hoooks (that print arguments and return value every time that the hooked function is executed) and tamper hooks (that dinamically change the return value of the hooked function every time that it is executed)
 
 # Requirements
@@ -40,18 +40,24 @@ Brida can be used also with Frida gadget on a non-jailbroken iOS device. We will
 # Installation
 1.	Install Python 2.7 and Pyro4 (pip install pyro4)
 2.	Download Burp Suite: http://portswigger.net/burp/download.html
-3.	Download the last release of Brida
+3.	Download the last release of Brida: https://github.com/federicodotta/Brida/releases
 4.	Open Burp -> Extender -> Extensions -> Add -> Choose BridaXX.jar file
 5.	Use Brida to generate stubs for your custom extensions or use Brida directly to call Frida exported functions
 
-# Usage and examples
-A brief article containing details on usage and various examples can be found at:  
-- https://techblog.mediaservice.net/2017/07/brida-advanced-mobile-application-penetration-testing-with-frida/
+# Build
+You can build Brida using Maven. Brida uses a modified version of RSyntaxTextArea, that you can find in this [fork](https://github.com/federicodotta/RSyntaxTextArea). In order to be ablet to build Brida you have to download the [last release](https://github.com/federicodotta/RSyntaxTextArea/releases) of the modified version of RSyntaxTextArea or build it and then install it locally with Maven using the following parameters:
 
-Slides of our conference presented at Hack In The Box 2018 Amsterdam that describes the new features of the version 0.2 can be found at:
+- groupId: com.fifesoft
+- artifactId: rsyntaxtextarea
+- version: 2.6.1.edited
+
+# Usage and tutorial
+A step-by-step tutorial that explain how to use Brida can be found at:  
+- https://techblog.mediaservice.net/2018/04/brida-a-step-by-step-user-guide/
+
+The slides and the video of our conference presented at Hack In The Box 2018 Amsterdam that describes the new features of the version 0.2 can be found at:
 - https://conference.hitb.org/hitbsecconf2018ams/materials/D1T1%20-%20Federico%20Dotta%20and%20Piergiovanni%20Cipolloni%20-%20Brida%20When%20Burp%20Suite%20Meets%20Frida.pdf
-
-A step-by-step guide will be published soon!
+- https://www.youtube.com/watch?v=wPepicuHDzs&t=18s
 
 # Screenshot
 ![Brida Screenshot](https://raw.githubusercontent.com/federicodotta/Brida/master/BridaScreen1.PNG)
