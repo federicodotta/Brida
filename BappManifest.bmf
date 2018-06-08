@@ -1,0 +1,12 @@
+Uuid: 2c0def96c5d44e159151b236de766892
+ExtensionType: 1
+Name: Brida: Burp to Frida bridge
+RepoName: brida
+ScreenVersion: 0.2
+SerialVersion: 0
+MinPlatformVersion: 0
+ProOnly: True
+Author: Federico Dotta, Piergiovanni Cipolloni
+ShortDescription: A bridge between Burp Suite and Frida to help test Android applications.
+EntryPoint: build/libs/brida-all.jar
+BuildCommand: gradle fatJar
