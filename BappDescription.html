@@ -1,1 +1,43 @@
-todo
+<p>This extension works as a bridge between Burp Suite and Frida, lets you use and manipulate applications' own methods
+    while tampering the traffic exchanged between the applications and their back-end services/servers.
+    It supports all platforms supported by Frida (Windows, macOS, Linux, iOS, Android, and QNX).
+</p>
+
+<p>This idea is a need that is born during the analysis of some mobile application that use strong symmetric cryptography using
+    random keys, without knowing the correct secret all data was not modifiable via Burp neither with a custom plugin.
+    More generally, applications' logic could be based on cryptographic tokens, it could use a complex challenge-response
+    algorithm as well, and so on. How can we tamper the messages? Most of the times the only viable approach is to
+    decompile/disassemble the application, identify the functions or methods we're interested in AND re-implement them.
+    This approach is obviously time consuming and not always really viable: i.e. the generation of tokens and/or the encryption
+    routines could be based on cryptographic material strictly tied to the device (state) or stored inside protected areas and
+    thus not directly accessible... That's when Brida comes in handy: instead of trying to extract keys/certificates and
+    re-writing the routines we're interested in, why don't we let the application do the dirty work for us?
+</p>
+
+<p>The last version of Brida adds a lot of different tools that help
+    pentesters during mobile application analysis, among which an integrated
+    console in which output from all the Frida and Brida hooks are printed, an
+    integrated JS editor with JavaScript syntax highlighting and an analysis
+    tab, in which there is a tree representation of the binary (Java/OBJC
+    classes and methods, imports/exports) and from which it is possible to
+    graphically add inspection hooks (that print arguments and return value
+    every time that the hooked function is executed) and tamper hooks (that
+    dynamically change the return value of the hooked function every time that
+    it is executed).</p>
+
+<p><b>Requirements:</b></p>
+
+<ul>
+    <li>Python 2.7 and the frida and pyro4 modules</li>
+    <li>An iOS or Android device with the frida-server running on it (root
+    privileges on the device required) or an application patched with the
+        Frida's Gadget (root privileges on the device not required).</li>
+</ul>
+
+<p><b>Further information:</b></p>
+
+<ul>
+    <li>Step-by-step <a href="https://techblog.mediaservice.net/2018/04/brida-a-step-by-step-user-guide/">tutorial</a></li>
+    <li>Hack in The Box 2018 Amsterdam presentation: <a href="https://conference.hitb.org/hitbsecconf2018ams/materials/D1T1%20-%20Federico%20Dotta%20and%20Piergiovanni%20Cipolloni%20-%20Brida%20When%20Burp%20Suite%20Meets%20Frida.pdf">slides</a> and
+        <a href="https://www.youtube.com/watch?v=wPepicuHDzs&t=18s">video</a></li>
+</ul>
