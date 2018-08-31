@@ -369,9 +369,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 JButton fridaPathButton = new JButton("Select file");
                 fridaPathButton.setActionCommand("fridaPathSelectFile");
                 fridaPathButton.addActionListener(BurpExtender.this);
+                JButton fridaDefaultPathButton = new JButton("Load default JS file");
+                fridaDefaultPathButton.setActionCommand("fridaPathSelectDefaultFile");
+                fridaDefaultPathButton.addActionListener(BurpExtender.this);
                 fridaPathPanel.add(labelFridaPath);
                 fridaPathPanel.add(fridaPath);
                 fridaPathPanel.add(fridaPathButton);
+                fridaPathPanel.add(fridaDefaultPathButton);
                 
                 JPanel applicationIdPanel = new JPanel();
                 applicationIdPanel.setLayout(new BoxLayout(applicationIdPanel, BoxLayout.X_AXIS));
@@ -1796,7 +1800,54 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				});
 				
-			}				
+			}
+			
+		} else if(command.equals("fridaPathSelectDefaultFile")) {
+			
+			JFrame parentFrame = new JFrame();
+			JFileChooser fileChooser = new JFileChooser();
+			fileChooser.setDialogTitle("Select location for Frida default JS file");
+			
+			int userSelection = fileChooser.showSaveDialog(parentFrame);
+			
+			if(userSelection == JFileChooser.APPROVE_OPTION) {
+				
+				final File fridaPathFile = fileChooser.getSelectedFile();
+				
+				try {
+					InputStream inputStream = getClass().getClassLoader().getResourceAsStream("res/scriptBridaDefault.js");
+					BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream ));
+					File outputFile = fridaPathFile;
+					
+					FileWriter fr = new FileWriter(outputFile);
+					BufferedWriter br  = new BufferedWriter(fr);
+					
+					String s;
+					while ((s = reader.readLine())!=null) {
+						
+						br.write(s);
+						br.newLine();
+						
+					}
+					reader.close();
+					br.close();
+					
+					SwingUtilities.invokeLater(new Runnable() {
+						
+			            @Override
+			            public void run() {
+			            	fridaPath.setText(fridaPathFile.getAbsolutePath());
+			            }
+					
+					});
+					
+				} catch(Exception e) {
+					
+					printException(e,"Error copying Frida default JS file");
+					
+				}
+				
+			}
 			
 		} else if(command.startsWith("changeReturnValue")) {
 			
