@@ -1254,26 +1254,25 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				printSuccessMessage("Application " + applicationId.getText().trim() + " spawned correctly");
 				
+				// GETTING PLAFORM INFO (ANDROID/IOS/GENERIC)			
+				try {
+					platform = (int)(pyroBridaService.call("callexportfunction","getplatform",new String[] {}));
+					if(platform == BurpExtender.PLATFORM_ANDROID) {
+						printSuccessMessage("Platform: Android");					
+					} else if(platform == BurpExtender.PLATFORM_IOS) {
+						printSuccessMessage("Platform: iOS");
+					} else {
+						printSuccessMessage("Platform: Generic");
+					}
+				} catch (Exception e) {				
+					printException(e,"Exception with getting info Android/iOS");				
+				}
+				
 			} catch (final Exception e) {
 				
 				printException(e,"Exception with spawn application");
 				
-			}
-			
-			// GETTING PLAFORM INFO (ANDROID/IOS/GENERIC)			
-			try {
-				platform = (int)(pyroBridaService.call("callexportfunction","getplatform",new String[] {}));
-				if(platform == BurpExtender.PLATFORM_ANDROID) {
-					printSuccessMessage("Platform: Android");					
-				} else if(platform == BurpExtender.PLATFORM_IOS) {
-					printSuccessMessage("Platform: iOS");
-				} else {
-					printSuccessMessage("Platform: Generic");
-				}
-			} catch (Exception e) {				
-				printException(e,"Exception with getting info Android/iOS");				
-			}
-		
+			}		
 			
 		} else if(command.equals("reloadScript") && serverStarted && applicationSpawned) {
 				
