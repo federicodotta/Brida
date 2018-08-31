@@ -867,7 +867,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
 	}	
 	
-	private String launchPyroServer(String pythonPath, String pyroServicePath) {
+	private void launchPyroServer(String pythonPath, String pyroServicePath) {
 		
 		Runtime rt = Runtime.getRuntime();
 		
@@ -878,18 +878,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 			final BufferedReader stdOutput = new BufferedReader(new InputStreamReader(pyroServerProcess.getInputStream()));
 			final BufferedReader stdError = new BufferedReader(new InputStreamReader(pyroServerProcess.getErrorStream()));
-			
-			ExecutorService executor = Executors.newFixedThreadPool(1);
-
-			Callable<String> readTask = new Callable<String>() {
-		        @Override
-		        public String call() throws Exception {
-		        	return stdOutput.readLine();
-		        }
-		    };
-		    
-		    Future<String> future = executor.submit(readTask);
-		    String result = future.get(5000, TimeUnit.MILLISECONDS);
 		    
 			// Initialize thread that will read stdout
 			stdoutThread = new Thread() {
@@ -901,7 +889,41 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 							try {
 								
 								final String line = stdOutput.readLine();
-								printJSMessage(line);
+								
+								// Only used to handle Pyro first message (when server start)
+								if(line.equals("Ready.")) {
+									        	
+						        	pyroBridaService = new PyroProxy(new PyroURI("PYRO:BridaServicePyro@" + pyroHost.getText().trim() + ":" + pyroPort.getText().trim()));
+						        	serverStarted = true;	 
+						        	
+						        	SwingUtilities.invokeLater(new Runnable() {
+										
+							            @Override
+							            public void run() {
+							            	
+							            	serverStatus.setText("");
+							            	serverStatusButtons.setText("");
+							            	try {
+							                	documentServerStatus.insertString(0, "running", greenStyle);
+							                	documentServerStatusButtons.insertString(0, "Server running", greenStyle);
+											} catch (BadLocationException e) {
+												
+												printException(e,"Exception setting labels");
+	
+											}
+											
+							            }
+									});
+						        	
+						        	printSuccessMessage("Pyro server started correctly");
+								
+						        // Standard line	
+								} else {
+									
+									printJSMessage(line);
+									
+								}
+								
 								
 							} catch (IOException e) {
 								printException(e,"Error reading Pyro stdout");
@@ -936,15 +958,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 			};			
 			stderrThread.start();
-		    
-		    return result;
-		    
-
 			
 		} catch (final Exception e1) {
 			
 			printException(e1,"Exception starting Pyro server");
-			return "";
+
 		}
 		
 		
@@ -1342,44 +1360,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 			try {
 				
-				final String startPyroServerResult = launchPyroServer(pythonPath.getText().trim(),pythonScript);
-				
-				if(startPyroServerResult.trim().equals("Ready.")) {
-						        	
-		        	pyroBridaService = new PyroProxy(new PyroURI("PYRO:BridaServicePyro@" + pyroHost.getText().trim() + ":" + pyroPort.getText().trim()));
-		        	serverStarted = true;	 
-		        	
-		        	SwingUtilities.invokeLater(new Runnable() {
-						
-			            @Override
-			            public void run() {
-			            	
-			            	serverStatus.setText("");
-			            	serverStatusButtons.setText("");
-			            	try {
-			                	documentServerStatus.insertString(0, "running", greenStyle);
-			                	documentServerStatusButtons.insertString(0, "Server running", greenStyle);
-							} catch (BadLocationException e) {
-								
-								printException(e,"Exception setting labels");
+				launchPyroServer(pythonPath.getText().trim(),pythonScript);
 
-							}
-							
-			            }
-					});
-		        	
-		        	printSuccessMessage("Pyro server started correctly");
-		        	
-		        } else {	
-		        	
-		        	if(!(startPyroServerResult.trim().equals(""))) {
-		        				        		
-		        		printException(null,"Exception starting Pyro Server");
-		        		printException(null,startPyroServerResult.trim());
-		        		
-		        	}
-		        	return;		        	
-		        }
 			} catch (final Exception e) {
 								
 				printException(null,"Exception starting Pyro server");
