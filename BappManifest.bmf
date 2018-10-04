@@ -2,8 +2,8 @@ Uuid: 2c0def96c5d44e159151b236de766892
 ExtensionType: 1
 Name: Brida, Burp to Frida bridge
 RepoName: brida
-ScreenVersion: 0.2
-SerialVersion: 1
+ScreenVersion: 0.3
+SerialVersion: 2
 MinPlatformVersion: 0
 ProOnly: False
 Author: Federico Dotta, Piergiovanni Cipolloni
