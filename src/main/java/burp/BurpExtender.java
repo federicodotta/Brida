@@ -191,7 +191,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
         stdout.println("Welcome to Brida, the new bridge between Burp Suite and Frida!");
         stdout.println("Created by Piergiovanni Cipolloni and Federico Dotta");
         stdout.println("Contributors: Maurizio Agazzini");
-        stdout.println("Version: 0.2");
+        stdout.println("Version: 0.3");
         stdout.println("");
         stdout.println("Github: https://github.com/federicodotta/Brida");
         stdout.println("");
@@ -369,9 +369,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 JButton fridaPathButton = new JButton("Select file");
                 fridaPathButton.setActionCommand("fridaPathSelectFile");
                 fridaPathButton.addActionListener(BurpExtender.this);
+                JButton fridaDefaultPathButton = new JButton("Load default JS file");
+                fridaDefaultPathButton.setActionCommand("fridaPathSelectDefaultFile");
+                fridaDefaultPathButton.addActionListener(BurpExtender.this);
                 fridaPathPanel.add(labelFridaPath);
                 fridaPathPanel.add(fridaPath);
                 fridaPathPanel.add(fridaPathButton);
+                fridaPathPanel.add(fridaDefaultPathButton);
                 
                 JPanel applicationIdPanel = new JPanel();
                 applicationIdPanel.setLayout(new BoxLayout(applicationIdPanel, BoxLayout.X_AXIS));
@@ -867,7 +871,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
 	}	
 	
-	private String launchPyroServer(String pythonPath, String pyroServicePath) {
+	private void launchPyroServer(String pythonPath, String pyroServicePath) {
 		
 		Runtime rt = Runtime.getRuntime();
 		
@@ -878,18 +882,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 			final BufferedReader stdOutput = new BufferedReader(new InputStreamReader(pyroServerProcess.getInputStream()));
 			final BufferedReader stdError = new BufferedReader(new InputStreamReader(pyroServerProcess.getErrorStream()));
-			
-			ExecutorService executor = Executors.newFixedThreadPool(1);
-
-			Callable<String> readTask = new Callable<String>() {
-		        @Override
-		        public String call() throws Exception {
-		        	return stdOutput.readLine();
-		        }
-		    };
-		    
-		    Future<String> future = executor.submit(readTask);
-		    String result = future.get(5000, TimeUnit.MILLISECONDS);
 		    
 			// Initialize thread that will read stdout
 			stdoutThread = new Thread() {
@@ -901,7 +893,41 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 							try {
 								
 								final String line = stdOutput.readLine();
-								printJSMessage(line);
+								
+								// Only used to handle Pyro first message (when server start)
+								if(line.equals("Ready.")) {
+									        	
+						        	pyroBridaService = new PyroProxy(new PyroURI("PYRO:BridaServicePyro@" + pyroHost.getText().trim() + ":" + pyroPort.getText().trim()));
+						        	serverStarted = true;	 
+						        	
+						        	SwingUtilities.invokeLater(new Runnable() {
+										
+							            @Override
+							            public void run() {
+							            	
+							            	serverStatus.setText("");
+							            	serverStatusButtons.setText("");
+							            	try {
+							                	documentServerStatus.insertString(0, "running", greenStyle);
+							                	documentServerStatusButtons.insertString(0, "Server running", greenStyle);
+											} catch (BadLocationException e) {
+												
+												printException(e,"Exception setting labels");
+	
+											}
+											
+							            }
+									});
+						        	
+						        	printSuccessMessage("Pyro server started correctly");
+								
+						        // Standard line	
+								} else {
+									
+									printJSMessage(line);
+									
+								}
+								
 								
 							} catch (IOException e) {
 								printException(e,"Error reading Pyro stdout");
@@ -936,15 +962,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 			};			
 			stderrThread.start();
-		    
-		    return result;
-		    
-
 			
 		} catch (final Exception e1) {
 			
 			printException(e1,"Exception starting Pyro server");
-			return "";
+
 		}
 		
 		
@@ -1232,26 +1254,25 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				printSuccessMessage("Application " + applicationId.getText().trim() + " spawned correctly");
 				
+				// GETTING PLAFORM INFO (ANDROID/IOS/GENERIC)			
+				try {
+					platform = (int)(pyroBridaService.call("callexportfunction","getplatform",new String[] {}));
+					if(platform == BurpExtender.PLATFORM_ANDROID) {
+						printSuccessMessage("Platform: Android");					
+					} else if(platform == BurpExtender.PLATFORM_IOS) {
+						printSuccessMessage("Platform: iOS");
+					} else {
+						printSuccessMessage("Platform: Generic");
+					}
+				} catch (Exception e) {				
+					printException(e,"Exception with getting info Android/iOS");				
+				}
+				
 			} catch (final Exception e) {
 				
 				printException(e,"Exception with spawn application");
 				
-			}
-			
-			// GETTING PLAFORM INFO (ANDROID/IOS/GENERIC)			
-			try {
-				platform = (int)(pyroBridaService.call("callexportfunction","getplatform",new String[] {}));
-				if(platform == BurpExtender.PLATFORM_ANDROID) {
-					printSuccessMessage("Platform: Android");					
-				} else if(platform == BurpExtender.PLATFORM_IOS) {
-					printSuccessMessage("Platform: iOS");
-				} else {
-					printSuccessMessage("Platform: Generic");
-				}
-			} catch (Exception e) {				
-				printException(e,"Exception with getting info Android/iOS");				
-			}
-		
+			}		
 			
 		} else if(command.equals("reloadScript") && serverStarted && applicationSpawned) {
 				
@@ -1342,44 +1363,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 			try {
 				
-				final String startPyroServerResult = launchPyroServer(pythonPath.getText().trim(),pythonScript);
-				
-				if(startPyroServerResult.trim().equals("Ready.")) {
-						        	
-		        	pyroBridaService = new PyroProxy(new PyroURI("PYRO:BridaServicePyro@" + pyroHost.getText().trim() + ":" + pyroPort.getText().trim()));
-		        	serverStarted = true;	 
-		        	
-		        	SwingUtilities.invokeLater(new Runnable() {
-						
-			            @Override
-			            public void run() {
-			            	
-			            	serverStatus.setText("");
-			            	serverStatusButtons.setText("");
-			            	try {
-			                	documentServerStatus.insertString(0, "running", greenStyle);
-			                	documentServerStatusButtons.insertString(0, "Server running", greenStyle);
-							} catch (BadLocationException e) {
-								
-								printException(e,"Exception setting labels");
+				launchPyroServer(pythonPath.getText().trim(),pythonScript);
 
-							}
-							
-			            }
-					});
-		        	
-		        	printSuccessMessage("Pyro server started correctly");
-		        	
-		        } else {	
-		        	
-		        	if(!(startPyroServerResult.trim().equals(""))) {
-		        				        		
-		        		printException(null,"Exception starting Pyro Server");
-		        		printException(null,startPyroServerResult.trim());
-		        		
-		        	}
-		        	return;		        	
-		        }
 			} catch (final Exception e) {
 								
 				printException(null,"Exception starting Pyro server");
@@ -1814,7 +1799,54 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				});
 				
-			}				
+			}
+			
+		} else if(command.equals("fridaPathSelectDefaultFile")) {
+			
+			JFrame parentFrame = new JFrame();
+			JFileChooser fileChooser = new JFileChooser();
+			fileChooser.setDialogTitle("Select location for Frida default JS file");
+			
+			int userSelection = fileChooser.showSaveDialog(parentFrame);
+			
+			if(userSelection == JFileChooser.APPROVE_OPTION) {
+				
+				final File fridaPathFile = fileChooser.getSelectedFile();
+				
+				try {
+					InputStream inputStream = getClass().getClassLoader().getResourceAsStream("res/scriptBridaDefault.js");
+					BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream ));
+					File outputFile = fridaPathFile;
+					
+					FileWriter fr = new FileWriter(outputFile);
+					BufferedWriter br  = new BufferedWriter(fr);
+					
+					String s;
+					while ((s = reader.readLine())!=null) {
+						
+						br.write(s);
+						br.newLine();
+						
+					}
+					reader.close();
+					br.close();
+					
+					SwingUtilities.invokeLater(new Runnable() {
+						
+			            @Override
+			            public void run() {
+			            	fridaPath.setText(fridaPathFile.getAbsolutePath());
+			            }
+					
+					});
+					
+				} catch(Exception e) {
+					
+					printException(e,"Error copying Frida default JS file");
+					
+				}
+				
+			}
 			
 		} else if(command.startsWith("changeReturnValue")) {
 			
