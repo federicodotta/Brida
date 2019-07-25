@@ -1386,15 +1386,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 					arguments[i] = (String)(executeMethodInsertedArgumentList.getElementAt(i));
 				}
 				// Fix: non-ascii support
-//				Object retObj = pp.call("callexportfunction","decrypt",new String[]{bodyString});
-//	            String retStr = PrettyPrint.printToStr(retObj);
-//	            String hexString = new String(retStr.getBytes(), "UTF-8");
-//	            byte[] bytes = Hex.decodeHex(hexString.toCharArray());
-//	            stderr.println(new String(bytes, "UTF-8"));
-//	            
-//	            //byte [] retb2 = retb.getBytes();
-//	            ret = new String(bytes, "UTF-8");
-//	            stderr.println(ret);
 				
 				//final String s = (String)(pyroBridaService.call("callexportfunction",executeMethodName.getText().trim(),arguments));
 				Object retObj = pyroBridaService.call("callexportfunction",executeMethodName.getText().trim(),arguments);
@@ -1403,7 +1394,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	            byte[] bytes = Hex.decodeHex(hexString.toCharArray());
 	            stderr.println(new String(bytes, "UTF-8"));
 	            
-	            //byte [] retb2 = retb.getBytes();
 	            final String s = new String(bytes, "UTF-8");
 								
 				printJSMessage("*** Output " + executeMethodName.getText().trim() + ":");
@@ -1493,14 +1483,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				byte[] selectedPortion = Arrays.copyOfRange(selectedRequestOrResponse, selectedBounds[0], selectedBounds[1]);
 				byte[] postSelectedPortion = Arrays.copyOfRange(selectedRequestOrResponse, selectedBounds[1], selectedRequestOrResponse.length);
 				
-				Object retObj = (pyroBridaService.call("callexportfunction",command,new String[]{byteArrayToHexString(selectedPortion)}));
-				//Object retObj = pp.call("callexportfunction","decrypt",new String[]{bodyString});
+				// Fix: non-ascii support
+				
+				Object retObj = pyroBridaService.call("callexportfunction",command,new String[]{byteArrayToHexString(selectedPortion)});
 	            String retStr = PrettyPrint.printToStr(retObj);
 	            String hexString = new String(retStr.getBytes(), "UTF-8");
 	            byte[] bytes = Hex.decodeHex(hexString.toCharArray());
 	            stderr.println(new String(bytes, "UTF-8"));
 	            
-	            //byte [] retb2 = retb.getBytes();
 	            String s = new String(bytes, "UTF-8");
 				
 				byte[] newRequest = ArrayUtils.addAll(preSelectedPortion, hexStringToByteArray(s));
@@ -1760,13 +1750,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				// Fix: non-ascii support
 				
 				//final String s = (String)(pyroBridaService.call("callexportfunction",command,new String[]{byteArrayToHexString(selectedPortion)}));
-				Object retObj = (String)(pyroBridaService.call("callexportfunction",command,new String[]{byteArrayToHexString(selectedPortion)}));
+				Object retObj = pyroBridaService.call("callexportfunction",command,new String[]{byteArrayToHexString(selectedPortion)});
 				String retStr = PrettyPrint.printToStr(retObj);
 	            String hexString = new String(retStr.getBytes(), "UTF-8");
 	            byte[] bytes = Hex.decodeHex(hexString.toCharArray());
 	            stderr.println(new String(bytes, "UTF-8"));
 	            
-	            //byte [] retb2 = retb.getBytes();
 	            final String s = new String(bytes, "UTF-8");
 				
 				SwingUtilities.invokeLater(new Runnable() {
