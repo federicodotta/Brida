@@ -879,7 +879,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		Runtime rt = Runtime.getRuntime();
 		
 		String[] startServerCommand = {pythonPath,"-i",pyroServicePath,pyroHost.getText().trim(),pyroPort.getText().trim()};
-		printSuccessMessage(String.join("---",startServerCommand));
 			
 		try {
 			pyroServerProcess = rt.exec(startServerCommand);
