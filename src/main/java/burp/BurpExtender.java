@@ -81,8 +81,7 @@ import org.fife.ui.rtextarea.RTextScrollPane;
 
 import net.razorvine.pickle.PrettyPrint;
 import net.razorvine.pyro.*;
-import src.main.java.burp.Object;
-import src.main.java.burp.String;
+
 
 public class BurpExtender implements IBurpExtender, ITab, ActionListener, IContextMenuFactory, MouseListener, IExtensionStateListener {
 	
@@ -880,6 +879,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		Runtime rt = Runtime.getRuntime();
 		
 		String[] startServerCommand = {pythonPath,"-i",pyroServicePath,pyroHost.getText().trim(),pyroPort.getText().trim()};
+		printSuccessMessage(String.join("---",startServerCommand));
 			
 		try {
 			pyroServerProcess = rt.exec(startServerCommand);
