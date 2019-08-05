@@ -26,11 +26,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -56,6 +51,7 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
+import javax.swing.JToggleButton;
 import javax.swing.JTree;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -158,13 +154,44 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     private boolean lastPrintIsJS;
     
     private int platform;
+    
+    private List<DefaultHook> defaultHooks;
 		
     /*
      * TODO
+     * - Merge commits
+     * - Add hooks/functions
+     * - Fix char Python
+     * - Search in HEAP
+     * - Tab with helps on Brid and on Frida
+     * - GUI restyle
+     * - Code restyle
+     * - Bugfixes
+     * - Check Burp 2
+     * - Add base address to main view?
+     * - Trap by name/address (addressing base address issues)?
+     * - Add tab with Frida hooks that can be enabled/disabled (pinning, etc.)
      * - Add addresses to tree view (export and iOS)
      * - Trap/edit return value of custom methods
      * - Organize better JS file (maybe divide custom one from Brida one)
      */
+    
+    
+    public void initializeDefaultHooks() {
+    	    	
+    	defaultHooks = new ArrayList<DefaultHook>();
+    	
+    	defaultHooks.add(new DefaultHook("Custom Android hook 1",BurpExtender.PLATFORM_ANDROID,"customandroidhook1",true));
+    	defaultHooks.add(new DefaultHook("Custom Android hook 2",BurpExtender.PLATFORM_ANDROID,"customandroidhook2",true));
+    	defaultHooks.add(new DefaultHook("Custom Android hook 3",BurpExtender.PLATFORM_ANDROID,"customandroidhook3",true));    	
+    	defaultHooks.add(new DefaultHook("Custom iOS hook 1",BurpExtender.PLATFORM_IOS,"customioshook1",true));
+    	defaultHooks.add(new DefaultHook("Custom iOS hook 2",BurpExtender.PLATFORM_IOS,"customioshook2",true));
+    	defaultHooks.add(new DefaultHook("Custom iOS hook 3",BurpExtender.PLATFORM_IOS,"customioshook3",true));    	
+    	defaultHooks.add(new DefaultHook("Custom Generic hook 1",BurpExtender.PLATFORM_GENERIC,"customgenenrichook1",true));
+    	defaultHooks.add(new DefaultHook("Custom Generic hook 2",BurpExtender.PLATFORM_GENERIC,"customgenenrichook2",true));
+    	defaultHooks.add(new DefaultHook("Custom Generic hook 3",BurpExtender.PLATFORM_GENERIC,"customgenenrichook3",true));
+    	    	
+    }
     
 	public void registerExtenderCallbacks(IBurpExtenderCallbacks c) {
 			
@@ -191,7 +218,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
         stdout.println("Welcome to Brida, the new bridge between Burp Suite and Frida!");
         stdout.println("Created by Piergiovanni Cipolloni and Federico Dotta");
         stdout.println("Contributors: Maurizio Agazzini");
-        stdout.println("Version: 0.3");
+        stdout.println("Version: 0.4");
         stdout.println("");
         stdout.println("Github: https://github.com/federicodotta/Brida");
         stdout.println("");
@@ -200,6 +227,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     	applicationSpawned = false;
     	
     	lastPrintIsJS = false;
+    	
+    	initializeDefaultHooks();
     			
 		try {
 			InputStream inputStream = getClass().getClassLoader().getResourceAsStream("res/bridaServicePyro.py");
@@ -558,12 +587,121 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 
                 // **** END TRAPPING TAB
                 
+                
+                // **** FRIDA DEFAULT HOOKS TAB
+                final JTabbedPane tabbedPanelHooks = new JTabbedPane();
+                
+                JPanel androidHooksPanel = new JPanel();
+                androidHooksPanel.setLayout(new BoxLayout(androidHooksPanel, BoxLayout.Y_AXIS));
+                
+                JPanel iOSHooksPanel = new JPanel();
+                iOSHooksPanel.setLayout(new BoxLayout(iOSHooksPanel, BoxLayout.Y_AXIS));                
+                
+                JPanel genericHooksPanel = new JPanel();
+                genericHooksPanel.setLayout(new BoxLayout(genericHooksPanel, BoxLayout.Y_AXIS));  
+                
+                for(int i=0; i< defaultHooks.size();i ++) {
+                	
+                	final int currentIndex = i;
+                	
+                    JLabel tempHookLabel = new JLabel(defaultHooks.get(i).getName());                    
+                    
+                    JPanel lineJPanel = new JPanel();
+                    lineJPanel.setLayout(new BoxLayout(lineJPanel, BoxLayout.X_AXIS));
+                    lineJPanel.setAlignmentX(Component.LEFT_ALIGNMENT);                    
+                    
+                    if(defaultHooks.get(i).isInterceptorHook()) {
+                    
+	                    final JToggleButton tempHookToggleButton = new JToggleButton("Enable",false);
+	                    tempHookToggleButton.addActionListener(new ActionListener() {
+	                    	public void actionPerformed(ActionEvent actionEvent) {
+	                    		
+	                    		// Enabling hook
+	                    		if(tempHookToggleButton.isSelected()) {
+	                    			
+	                    			if(applicationSpawned) {
+	                    				
+	                    				// Call hook
+	                    				try {
+	                    					pyroBridaService.call("callexportfunction",defaultHooks.get(currentIndex).getFridaExportName(),new String[0]);
+	                        				printSuccessMessage("Hook " + defaultHooks.get(currentIndex).getName() + " ENABLED");
+										} catch (Exception e) {
+											printException(e,"Error while enabling hook " + defaultHooks.get(currentIndex).getName());
+										} 
+	                    			} else {
+	                    				
+	                    				printSuccessMessage("Hook " + defaultHooks.get(currentIndex).getName() + " ENABLED");
+	                    				defaultHooks.get(currentIndex).setEnabled(true);
+	                    				
+	                    			}
+	                    		
+	                    		// Disabling hook	
+	                    		} else {
+	                    			
+	                    			if(applicationSpawned) {
+	                    			
+	                    				printException(null,"It is not possible to detach a single hook while app is running (you can detach ALL the hooks with the \"Detach all\" button)");
+	    	                			tempHookToggleButton.setSelected(true);
+	    	                			
+	                    			} else {
+	                    				
+	                        			printSuccessMessage("Hook " + defaultHooks.get(currentIndex).getName() + " DISABLED");
+	                    				defaultHooks.get(currentIndex).setEnabled(false);
+	                    				
+	                    			}
+	    	                			
+	                    		}
+	                    	}
+	                    });
+	                    
+	                    lineJPanel.add(tempHookToggleButton);
+
+	                    
+                    } else {
+                    	
+                    	JButton tempHookButton = new JButton("Execute");
+                    	tempHookButton.addActionListener(new ActionListener() {
+	                    	public void actionPerformed(ActionEvent actionEvent) {
+                				// Call exported function
+                				try {
+                					final String s = (String)(pyroBridaService.call("callexportfunction",defaultHooks.get(currentIndex).getFridaExportName(),new String[0]));
+                					printJSMessage("*** Output " + defaultHooks.get(currentIndex).getName() + ":");
+                					printJSMessage(s);
+								} catch (Exception e) {
+									printException(e,"Error while enabling hook " + defaultHooks.get(currentIndex).getName());
+								} 	                    		
+	                    	}
+	                    	
+                    	});
+                    	
+	                    lineJPanel.add(tempHookButton);
+                    	
+                    }
+                    
+                    lineJPanel.add(tempHookLabel);                    
+                    
+                    if(defaultHooks.get(i).getOs() == BurpExtender.PLATFORM_ANDROID) {
+                    	androidHooksPanel.add(lineJPanel);
+                    } else if(defaultHooks.get(i).getOs() == BurpExtender.PLATFORM_IOS) {
+                    	iOSHooksPanel.add(lineJPanel);
+                    } else {
+                    	genericHooksPanel.add(lineJPanel);
+                    }
+                    
+                }    
+               
+                tabbedPanelHooks.add("Android",androidHooksPanel);
+                tabbedPanelHooks.add("iOS",iOSHooksPanel);
+                tabbedPanelHooks.add("Generic",genericHooksPanel);
+                // **** END FRIDA DEFAULT HOOKS TAB                
+                
             	tabbedPanel.add("Configurations",configurationConfPanel);
             	tabbedPanel.add("JS Editor",sp); 
             	tabbedPanel.add("Analyze binary",treeSearchPanel);
             	tabbedPanel.add("Generate stubs",stubTextEditor.getComponent());            	
             	tabbedPanel.add("Execute method",executeMethodPanel);
             	tabbedPanel.add("Trap methods",trapTableScrollPane);
+            	tabbedPanel.add("Hooks and functions",tabbedPanelHooks);
             	            	
             	// *** CONSOLE            	
             	pluginConsoleTextArea = new JEditorPane("text/html", "<font color=\"green\"><b>*** Brida Console ***</b></font><br/><br/>");
@@ -713,7 +851,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
         });
 		
 	}
-	
+		
 	private void showHideButtons(int indexTabbedPanel) {
 		
 		switch(indexTabbedPanel) {
@@ -862,6 +1000,30 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				});
 				
 				break;
+
+				//DEFAULT HOOKS	
+				case 6:
+					
+					SwingUtilities.invokeLater(new Runnable() {
+						
+			            @Override
+			            public void run() {
+					
+							executeMethodButton.setVisible(false);
+							saveSettingsToFileButton.setVisible(false);
+							loadSettingsFromFileButton.setVisible(false);
+							generateJavaStubButton.setVisible(false);
+							generatePythonStubButton.setVisible(false);
+							loadJSFileButton.setVisible(false);
+							saveJSFileButton.setVisible(false);
+							loadTreeButton.setVisible(false);
+							detachAllButton.setVisible(true);
+							
+			            }
+			            
+					});
+					
+					break;				
 				
 			default:			
 				printException(null,"ShowHideButtons: index not found");				
@@ -879,7 +1041,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 		try {
 			pyroServerProcess = rt.exec(startServerCommand);
-			
+						
 			final BufferedReader stdOutput = new BufferedReader(new InputStreamReader(pyroServerProcess.getInputStream()));
 			final BufferedReader stdError = new BufferedReader(new InputStreamReader(pyroServerProcess.getErrorStream()));
 		    
@@ -1076,6 +1238,31 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		}
 		
 	}
+	
+	private void execute_startup_scripts() {
+		
+		DefaultHook currentHook;
+		for(int i=0; i < defaultHooks.size();i++) {
+			
+			currentHook = defaultHooks.get(i);
+			
+			if(currentHook.isEnabled() && currentHook.getOs() == platform) {
+				
+				try {
+					
+					pyroBridaService.call("callexportfunction",currentHook.getFridaExportName(),new String[] {});
+					
+				} catch (Exception e) {
+						
+					 printException(e,"Exception running starting hook " + currentHook.getName());
+						
+				}
+				
+			}
+			
+		}
+		
+	}
 
 	private void loadConfigurationsFromFile() {
 		
@@ -1222,6 +1409,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			try {
 				
 				pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim(),remoteRadioButton.isSelected());
+				
+				execute_startup_scripts();
+				
+				// Wait for 3 seconds in order to load hooks
+				Thread.sleep(3000);
+				
+				pyroBridaService.call("resume_application");				
+				
 				applicationSpawned = true;
 				
 				SwingUtilities.invokeLater(new Runnable() {
@@ -1681,7 +1876,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		} else if(command.equals("detachAll")) {	
 			
 			int dialogButton = JOptionPane.YES_NO_OPTION;
-			int dialogResult = JOptionPane.showConfirmDialog(mainPanel, "Detach all will detach also custom interception methods defined in your JS file. Are you sure?", "Confirm detach all", dialogButton);
+			int dialogResult = JOptionPane.showConfirmDialog(mainPanel, "Detach all will detach also custom interception methods defined in your JS file and hooks enabled in the hooks and functions section. Are you sure?", "Confirm detach all", dialogButton);
 			if(dialogResult == 0) {
 				try {
 					pyroBridaService.call("callexportfunction","detachAll",new String[] {});

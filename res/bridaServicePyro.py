@@ -39,6 +39,10 @@ class BridaServicePyro:
         self.script = self.session.create_script(source)
         self.script.load()
 
+        return
+
+    def resume_application(self):
+
         self.device.resume(self.pid)
 
         return

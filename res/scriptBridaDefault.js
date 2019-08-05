@@ -41,6 +41,42 @@ rpc.exports = {
 		return "6768";
 	},
 
+	// Generic Android hook that could be enabled from GUI
+	customandroidhook1: function() {
+	},
+
+	// Generic Android hook that could be enabled from GUI
+	customandroidhook2: function() {
+	},
+
+	// Generic Android hook that could be enabled from GUI
+	customandroidhook3: function() {
+	},
+
+	// Generic iOS hook that could be enabled from GUI
+	customioshook1: function() {
+	},
+
+	// Generic iOS hook that could be enabled from GUI
+	customioshook2: function() {
+	},
+
+	// Generic iOS hook that could be enabled from GUI
+	customioshook3: function() {
+	},
+
+	// Generic OS (not Android or iOS) hook that could be enabled from GUI
+	customgenenrichook1: function() {
+	},
+
+	// Generic OS (not Android or iOS) hook that could be enabled from GUI
+	customgenenrichook2: function() {
+	},
+
+	// Generic OS (not Android or iOS) hook that could be enabled from GUI
+	customgenenrichook3: function() {
+	},
+	
 	// **** BE CAREFULL ****
 	// Do not remove these functions. They are used by Brida plugin in the "Analyze binary" tab!
 	// *********************
@@ -253,7 +289,7 @@ rpc.exports = {
 		}
 
 	}	
-
+	
 }
 
 // 2 - AUXILIARY FUNCTIONS
