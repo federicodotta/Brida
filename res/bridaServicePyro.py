@@ -4,8 +4,8 @@ import codecs
 import Pyro4
 import sys
 
-reload(sys)   
-sys.setdefaultencoding('utf-8')
+#reload(sys)   
+#sys.setdefaultencoding('utf-8')
 
 class Unbuffered(object):
    def __init__(self, stream):
