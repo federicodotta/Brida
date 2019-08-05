@@ -3,6 +3,18 @@ import codecs
 import Pyro4
 import sys
 
+class Unbuffered(object):
+   def __init__(self, stream):
+       self.stream = stream
+   def write(self, data):
+       self.stream.write(data)
+       self.stream.flush()
+   def writelines(self, datas):
+       self.stream.writelines(datas)
+       self.stream.flush()
+   def __getattr__(self, attr):
+       return getattr(self.stream, attr)
+
 @Pyro4.expose
 class BridaServicePyro:
     def __init__(self, daemon):
@@ -62,6 +74,9 @@ class BridaServicePyro:
     def shutdown(self):
         print('shutting down...')
         self.daemon.shutdown()
+
+# Disable python buffering (cause issues when communicating with Java...)
+sys.stdout = Unbuffered(sys.stdout)
 
 host = sys.argv[1]
 port = int(sys.argv[2])
