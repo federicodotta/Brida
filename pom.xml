@@ -35,8 +35,8 @@
 					</manifest>
 				</archive>
 				
-				<source>1.7</source>
-	        	<target>1.7</target>
+				<source>1.8</source>
+	        	<target>1.8</target>
 				
 			</configuration>        
                 
@@ -97,7 +97,7 @@
 	<dependency>
 	    <groupId>net.razorvine</groupId>
 	    <artifactId>pyrolite</artifactId>
-	    <version>4.20</version>
+	    <version>4.30</version>
 	</dependency>
     
 	<!-- https://mvnrepository.com/artifact/net.razorvine/serpent -->
