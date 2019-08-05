@@ -168,6 +168,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
      * - Code restyle
      * - Bugfixes
      * - Check Burp 2
+     * - Add references to README and update README
      * - Add base address to main view?
      * - Trap by name/address (addressing base address issues)?
      * - Add tab with Frida hooks that can be enabled/disabled (pinning, etc.)
@@ -181,12 +182,23 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     	    	
     	defaultHooks = new ArrayList<DefaultHook>();
     	
+    	// Default Android hooks
+    	defaultHooks.add(new DefaultHook("SSL Pinning bypass with CA certificate, more reliable (require CA public certificate in /data/local/tmp/cert-der.crt)",BurpExtender.PLATFORM_ANDROID,"androidpinningwithca1",true));
+    	defaultHooks.add(new DefaultHook("SSL Pinning bypass without CA certificate, less reliable",BurpExtender.PLATFORM_ANDROID,"androidpinningwithoutca1",true));
+    	defaultHooks.add(new DefaultHook("Rooting check bypass",BurpExtender.PLATFORM_ANDROID,"androidrooting1",true));
+    	defaultHooks.add(new DefaultHook("Print keystore when they are opened",BurpExtender.PLATFORM_ANDROID,"androiddumpkeystore1",true));
+    	    	
+    	// Custom Android hooks
     	defaultHooks.add(new DefaultHook("Custom Android hook 1",BurpExtender.PLATFORM_ANDROID,"customandroidhook1",true));
     	defaultHooks.add(new DefaultHook("Custom Android hook 2",BurpExtender.PLATFORM_ANDROID,"customandroidhook2",true));
-    	defaultHooks.add(new DefaultHook("Custom Android hook 3",BurpExtender.PLATFORM_ANDROID,"customandroidhook3",true));    	
+    	defaultHooks.add(new DefaultHook("Custom Android hook 3",BurpExtender.PLATFORM_ANDROID,"customandroidhook3",true));
+    	
+    	// Custom iOS hooks
     	defaultHooks.add(new DefaultHook("Custom iOS hook 1",BurpExtender.PLATFORM_IOS,"customioshook1",true));
     	defaultHooks.add(new DefaultHook("Custom iOS hook 2",BurpExtender.PLATFORM_IOS,"customioshook2",true));
-    	defaultHooks.add(new DefaultHook("Custom iOS hook 3",BurpExtender.PLATFORM_IOS,"customioshook3",true));    	
+    	defaultHooks.add(new DefaultHook("Custom iOS hook 3",BurpExtender.PLATFORM_IOS,"customioshook3",true));
+    	
+    	// Custom generic hooks
     	defaultHooks.add(new DefaultHook("Custom Generic hook 1",BurpExtender.PLATFORM_GENERIC,"customgenenrichook1",true));
     	defaultHooks.add(new DefaultHook("Custom Generic hook 2",BurpExtender.PLATFORM_GENERIC,"customgenenrichook2",true));
     	defaultHooks.add(new DefaultHook("Custom Generic hook 3",BurpExtender.PLATFORM_GENERIC,"customgenenrichook3",true));
@@ -623,8 +635,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	                    				
 	                    				// Call hook
 	                    				try {
-	                    					pyroBridaService.call("callexportfunction",defaultHooks.get(currentIndex).getFridaExportName(),new String[0]);
+	                    					pyroBridaService.call("callexportfunction",defaultHooks.get(currentIndex).getFridaExportName(),new String[] {});
 	                        				printSuccessMessage("Hook " + defaultHooks.get(currentIndex).getName() + " ENABLED");
+	                        				defaultHooks.get(currentIndex).setEnabled(true);
 										} catch (Exception e) {
 											printException(e,"Error while enabling hook " + defaultHooks.get(currentIndex).getName());
 										} 
