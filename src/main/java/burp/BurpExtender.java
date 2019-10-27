@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
@@ -159,6 +160,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
     /*
      * TODO
+     * - Android hooks keychain/touchID
+     * - Swift demangle?
+     * - "Execute method" -> "Run export"
      * - Merge commits
      * - Add hooks/functions
      * - Fix char Python
@@ -183,15 +187,22 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     	defaultHooks = new ArrayList<DefaultHook>();
     	
     	// Default Android hooks
-    	defaultHooks.add(new DefaultHook("SSL Pinning bypass with CA certificate, more reliable (require CA public certificate in /data/local/tmp/cert-der.crt)",BurpExtender.PLATFORM_ANDROID,"androidpinningwithca1",true));
+    	defaultHooks.add(new DefaultHook("SSL Pinning bypass with CA certificate, more reliable (requires CA public certificate in /data/local/tmp/cert-der.crt)",BurpExtender.PLATFORM_ANDROID,"androidpinningwithca1",true));
     	defaultHooks.add(new DefaultHook("SSL Pinning bypass without CA certificate, less reliable",BurpExtender.PLATFORM_ANDROID,"androidpinningwithoutca1",true));
     	defaultHooks.add(new DefaultHook("Rooting check bypass",BurpExtender.PLATFORM_ANDROID,"androidrooting1",true));
-    	defaultHooks.add(new DefaultHook("Print keystore when they are opened",BurpExtender.PLATFORM_ANDROID,"androiddumpkeystore1",true));
+    	defaultHooks.add(new DefaultHook("Print keystores when they are opened",BurpExtender.PLATFORM_ANDROID,"androiddumpkeystore1",true));
     	    	
     	// Custom Android hooks
     	defaultHooks.add(new DefaultHook("Custom Android hook 1",BurpExtender.PLATFORM_ANDROID,"customandroidhook1",true));
     	defaultHooks.add(new DefaultHook("Custom Android hook 2",BurpExtender.PLATFORM_ANDROID,"customandroidhook2",true));
     	defaultHooks.add(new DefaultHook("Custom Android hook 3",BurpExtender.PLATFORM_ANDROID,"customandroidhook3",true));
+    	
+    	// Default iOS hooks
+    	defaultHooks.add(new DefaultHook("SSL Pinning bypass (iOS 10) *",BurpExtender.PLATFORM_IOS,"ios10pinning",true));
+    	defaultHooks.add(new DefaultHook("SSL Pinning bypass (iOS 11) *",BurpExtender.PLATFORM_IOS,"ios11pinning",true));
+    	defaultHooks.add(new DefaultHook("SSL Pinning bypass (iOS 12) *",BurpExtender.PLATFORM_IOS,"ios12pinning",true));
+    	defaultHooks.add(new DefaultHook("Jailbreaking check bypass **",BurpExtender.PLATFORM_IOS,"iosjailbreak",true));
+    	defaultHooks.add(new DefaultHook("Bypass TouchID (click \"Cancel\" when TouchID windows pops up)",BurpExtender.PLATFORM_IOS,"iosbypasstouchid",true));   	
     	
     	// Custom iOS hooks
     	defaultHooks.add(new DefaultHook("Custom iOS hook 1",BurpExtender.PLATFORM_IOS,"customioshook1",true));
@@ -202,6 +213,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     	defaultHooks.add(new DefaultHook("Custom Generic hook 1",BurpExtender.PLATFORM_GENERIC,"customgenenrichook1",true));
     	defaultHooks.add(new DefaultHook("Custom Generic hook 2",BurpExtender.PLATFORM_GENERIC,"customgenenrichook2",true));
     	defaultHooks.add(new DefaultHook("Custom Generic hook 3",BurpExtender.PLATFORM_GENERIC,"customgenenrichook3",true));
+    	
+    	// Default iOS functions
+    	defaultHooks.add(new DefaultHook("Dump keychain",BurpExtender.PLATFORM_IOS,"iosdumpkeychain",false));
+    	defaultHooks.add(new DefaultHook("List files with Data Protection keys",BurpExtender.PLATFORM_IOS,"iosdataprotectionkeys",false));
+    	defaultHooks.add(new DefaultHook("Dump current ENCRYPTED app (downloaded from App Store)",BurpExtender.PLATFORM_IOS,"iosdumpcurrentencryptedapp",false));
     	    	
     }
     
@@ -677,11 +693,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	                    	public void actionPerformed(ActionEvent actionEvent) {
                 				// Call exported function
                 				try {
-                					final String s = (String)(pyroBridaService.call("callexportfunction",defaultHooks.get(currentIndex).getFridaExportName(),new String[0]));
                 					printJSMessage("*** Output " + defaultHooks.get(currentIndex).getName() + ":");
-                					printJSMessage(s);
+                					pyroBridaService.call("callexportfunction",defaultHooks.get(currentIndex).getFridaExportName(),new String[0]);
 								} catch (Exception e) {
-									printException(e,"Error while enabling hook " + defaultHooks.get(currentIndex).getName());
+									printException(e,"Error while running function " + defaultHooks.get(currentIndex).getName());
 								} 	                    		
 	                    	}
 	                    	
@@ -701,10 +716,25 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                     	genericHooksPanel.add(lineJPanel);
                     }
                     
-                }    
+                }
+                
+                // Add tips to iOS hooks tab
+                JPanel iosTipsJPanel = new JPanel();
+                iosTipsJPanel.setLayout(new BoxLayout(iosTipsJPanel, BoxLayout.Y_AXIS));
+                JLabel iosTip1Label = new JLabel("* TIP: If SSL pinning escape does not work try \"SSL Kill Switch 2\" application!");
+                JLabel iosTip2Label = new JLabel("** TIP: If Jailbreak escape does not work try \"TS Protector\" or \"Liberty Lite\" applications!");
+                Font fontJLabel = iosTip1Label.getFont();
+                iosTip1Label.setFont(fontJLabel.deriveFont(fontJLabel.getStyle() | Font.BOLD));
+                iosTip2Label.setFont(fontJLabel.deriveFont(fontJLabel.getStyle() | Font.BOLD));
+                iosTipsJPanel.add(iosTip1Label);
+                iosTipsJPanel.add(iosTip2Label);                
+                JPanel iOSHooksPanelWithTips = new JPanel();
+                iOSHooksPanelWithTips.setLayout(new BorderLayout());
+                iOSHooksPanelWithTips.add(iOSHooksPanel);
+                iOSHooksPanelWithTips.add(iosTipsJPanel,BorderLayout.SOUTH);
                
                 tabbedPanelHooks.add("Android",androidHooksPanel);
-                tabbedPanelHooks.add("iOS",iOSHooksPanel);
+                tabbedPanelHooks.add("iOS",iOSHooksPanelWithTips);
                 tabbedPanelHooks.add("Generic",genericHooksPanel);
                 // **** END FRIDA DEFAULT HOOKS TAB                
                 
