@@ -9,6 +9,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.BufferedReader;
@@ -33,8 +34,11 @@ import java.util.regex.Pattern;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -75,6 +79,9 @@ import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rsyntaxtextarea.TextEditorPane;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
+import burp.CustomPlugin.CustomPluginExecuteValues;
+import burp.CustomPlugin.CustomPluginFunctionOutputValues;
+import burp.CustomPlugin.CustomPluginParameterValues;
 import net.razorvine.pyro.*;
 
 public class BurpExtender implements IBurpExtender, ITab, ActionListener, IContextMenuFactory, MouseListener, IExtensionStateListener {
@@ -83,11 +90,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	public static final int PLATFORM_IOS = 1;
 	public static final int PLATFORM_GENERIC = 2;
 
-    private IBurpExtenderCallbacks callbacks;
-    private IExtensionHelpers helpers;
+	public IBurpExtenderCallbacks callbacks;
+	public IExtensionHelpers helpers;
     
-    private PrintWriter stdout;
-    private PrintWriter stderr;
+    public PrintWriter stdout;
+    public PrintWriter stderr;
     
     private JPanel mainPanel;
     
@@ -96,8 +103,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     	
 	private JTextField pythonPath;
 	private String pythonScript;
-	private JTextField pyroHost;
-	private JTextField pyroPort;
+	public JTextField pyroHost;
+	public JTextField pyroPort;
 	private JTextPane serverStatus;
 	private JTextPane applicationStatus;
 	private JTextField fridaPath;
@@ -121,10 +128,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	private DefaultListModel executeMethodInsertedArgumentList;
 	private JList executeMethodInsertedArgument;
 	
-	private boolean serverStarted;
-	private boolean applicationSpawned;
+	public boolean serverStarted;
+	public boolean applicationSpawned;
+	public boolean customPluginEnabled;
 	
-	private IContextMenuInvocation currentInvocation;
+	public IContextMenuInvocation currentInvocation;
 	
 	private ITextEditor stubTextEditor;
     
@@ -138,6 +146,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     private JButton loadTreeButton;
     private JButton detachAllButton;
     private JButton clearConsoleButton;
+    private JButton enableCustomPluginButton;
     
     private JEditorPane pluginConsoleTextArea;
     
@@ -157,9 +166,83 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     private int platform;
     
     private List<DefaultHook> defaultHooks;
-		
+    
+    private JPanel customPluginToolsPanel;
+    private JPanel customPluginScopePanel;
+    private JPanel customPluginButtonTypePanel;
+    private JPanel customPluginButtonPlatformPanel;
+    private JPanel customPluginExecuteWhenPanel;
+    private JPanel customPluginParametersPanel;
+    private JPanel customPluginParameterEncodingPanel;
+    private JPanel customPluginOutputDecodingPanel;
+    private JPanel customPluginOutputEncodingPanel;
+    private JPanel customPluginMessageEditorModifiedEncodeInputPanel;
+    private JPanel customPluginMessageEditorModifiedDecodingOutputPanel;
+    private JPanel customPluginMessageEditorModifiedFridaFunctioPanel;
+    private JPanel customPluginMessageEditorModifiedOutputEncodingPanel;
+    private JPanel customPluginMessageEditorModifiedOutputLocationPanel;
+    private JTextField customPluginNameText;
+    private JComboBox<String> customPluginTypePluginOptions;
+    private JLabel customPluginTypePluginDescription;
+    private JTextField customPluginExportNameText;
+    private JRadioButton customPluginExecuteOnRadioRequest;
+    private JRadioButton customPluginExecuteOnRadioResponse;
+    private JRadioButton customPluginExecuteOnRadioAll;
+    private JRadioButton customPluginExecuteOnRadioContext;
+    private JRadioButton customPluginExecuteOnRadioButton;
+    private JTextField customPluginExecuteOnStringParameter;
+    private JRadioButton customPluginButtonTypeRadioFunction;
+    private JRadioButton customPluginButtonTypeRadioHook;
+    private JRadioButton customPluginButtonTypeRadioIos;
+    private JRadioButton customPluginButtonTypeRadioAndroid;
+    private JRadioButton customPluginButtonTypeRadioGeneric;
+    private JRadioButton customPluginMessageEditorModifiedEncodingInputFridaRadioNone;
+    private JRadioButton customPluginMessageEditorModifiedEncodingInputFridaRadioBase64;
+    private JRadioButton customPluginMessageEditorModifiedEncodingInputFridaRadioAsciiHex;
+    private JRadioButton customPluginOutputMessageEditorModifiedDecodingRadioNone;
+    private JRadioButton customPluginOutputMessageEditorModifiedDecodingRadioBase64;
+    private JRadioButton customPluginOutputMessageEditorModifiedDecodingRadioAsciiHex;
+    private JTextField customPluginMessageEditorModifiedFridaExportNameText;
+    private JRadioButton customPluginMessageEditorModifiedOutputEncodingRadioNone;
+    private JRadioButton customPluginMessageEditorModifiedOutputEncodingRadioBase64;
+    private JRadioButton customPluginMessageEditorModifiedOutputEncodingRadioAsciiHex;
+    
+    private JCheckBox customPluginToolsRepeater;
+    private JCheckBox customPluginToolsProxy;
+    private JCheckBox customPluginToolsScanner;
+    private JCheckBox customPluginToolsIntruder;
+    private JCheckBox customPluginToolsExtender;
+    private JCheckBox customPluginToolsSequencer;
+    private JCheckBox customPluginToolsSpider;
+    private JCheckBox customPluginScopeCheckBox;
+    private JComboBox<String> customPluginExecuteWhenOptions;
+    private JTextField customPluginExecuteWhenText;
+    private JComboBox<String> customPluginParametersOptions;
+    private JTextField customPluginParametersText;
+    private JRadioButton customPluginParameterEncodingRadioPlain;
+    private JRadioButton customPluginParameterEncodingRadioBase64;
+    private JRadioButton customPluginParameterEncodingRadioAsciiHex;
+    private JRadioButton customPluginOutputDecodingRadioNone;
+    private JRadioButton customPluginOutputDecodingRadioBase64;
+    private JRadioButton customPluginOutputDecodingRadioAsciiHex;
+    private JComboBox<String> customPluginOutputOptions;
+    private JTextField customPluginOutputText;
+    private JRadioButton customPluginOutputEncodingRadioNone;
+    private JRadioButton customPluginOutputEncodingRadioBase64;
+    private JRadioButton customPluginOutputEncodingRadioAsciiHex;
+    
+    private JComboBox<String> customPluginMessageEditorModifiedOutputLocationOptions;
+    private JTextField customPluginMessageEditorModifiedOutputLocationText;
+    
+    private JPanel androidHooksPanel;
+    private JPanel iOSHooksPanel;
+    private JPanel genericHooksPanel;
+    
+    private JTable customPluginsTable;
+    		
     /*
      * TODO
+     * - Migrate from ASCII HEX to Base64 for defautl hooks?
      * - Android hooks keychain/touchID
      * - Swift demangle?
      * - "Execute method" -> "Run export"
@@ -183,41 +266,39 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     
     
     public void initializeDefaultHooks() {
-    	    	
-    	defaultHooks = new ArrayList<DefaultHook>();
     	
     	// Default Android hooks
-    	defaultHooks.add(new DefaultHook("SSL Pinning bypass with CA certificate, more reliable (requires CA public certificate in /data/local/tmp/cert-der.crt)",BurpExtender.PLATFORM_ANDROID,"androidpinningwithca1",true));
-    	defaultHooks.add(new DefaultHook("SSL Pinning bypass without CA certificate, less reliable",BurpExtender.PLATFORM_ANDROID,"androidpinningwithoutca1",true));
-    	defaultHooks.add(new DefaultHook("Rooting check bypass",BurpExtender.PLATFORM_ANDROID,"androidrooting1",true));
-    	defaultHooks.add(new DefaultHook("Print keystores when they are opened",BurpExtender.PLATFORM_ANDROID,"androiddumpkeystore1",true));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass with CA certificate, more reliable (requires CA public certificate in /data/local/tmp/cert-der.crt)",BurpExtender.PLATFORM_ANDROID,"androidpinningwithca1",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass without CA certificate, less reliable",BurpExtender.PLATFORM_ANDROID,"androidpinningwithoutca1",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Rooting check bypass",BurpExtender.PLATFORM_ANDROID,"androidrooting1",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Print keystores when they are opened",BurpExtender.PLATFORM_ANDROID,"androiddumpkeystore1",true,new String[] {},null,false));
     	    	
     	// Custom Android hooks
-    	defaultHooks.add(new DefaultHook("Custom Android hook 1",BurpExtender.PLATFORM_ANDROID,"customandroidhook1",true));
-    	defaultHooks.add(new DefaultHook("Custom Android hook 2",BurpExtender.PLATFORM_ANDROID,"customandroidhook2",true));
-    	defaultHooks.add(new DefaultHook("Custom Android hook 3",BurpExtender.PLATFORM_ANDROID,"customandroidhook3",true));
+    	addButtonToHooksAndFunctions(new DefaultHook("Custom Android hook 1",BurpExtender.PLATFORM_ANDROID,"customandroidhook1",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Custom Android hook 2",BurpExtender.PLATFORM_ANDROID,"customandroidhook2",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Custom Android hook 3",BurpExtender.PLATFORM_ANDROID,"customandroidhook3",true,new String[] {},null,false));
     	
     	// Default iOS hooks
-    	defaultHooks.add(new DefaultHook("SSL Pinning bypass (iOS 10) *",BurpExtender.PLATFORM_IOS,"ios10pinning",true));
-    	defaultHooks.add(new DefaultHook("SSL Pinning bypass (iOS 11) *",BurpExtender.PLATFORM_IOS,"ios11pinning",true));
-    	defaultHooks.add(new DefaultHook("SSL Pinning bypass (iOS 12) *",BurpExtender.PLATFORM_IOS,"ios12pinning",true));
-    	defaultHooks.add(new DefaultHook("Jailbreaking check bypass **",BurpExtender.PLATFORM_IOS,"iosjailbreak",true));
-    	defaultHooks.add(new DefaultHook("Bypass TouchID (click \"Cancel\" when TouchID windows pops up)",BurpExtender.PLATFORM_IOS,"iosbypasstouchid",true));   	
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 10) *",BurpExtender.PLATFORM_IOS,"ios10pinning",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 11) *",BurpExtender.PLATFORM_IOS,"ios11pinning",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 12) *",BurpExtender.PLATFORM_IOS,"ios12pinning",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Jailbreaking check bypass **",BurpExtender.PLATFORM_IOS,"iosjailbreak",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Bypass TouchID (click \"Cancel\" when TouchID windows pops up)",BurpExtender.PLATFORM_IOS,"iosbypasstouchid",true,new String[] {},null,false));   	
     	
     	// Custom iOS hooks
-    	defaultHooks.add(new DefaultHook("Custom iOS hook 1",BurpExtender.PLATFORM_IOS,"customioshook1",true));
-    	defaultHooks.add(new DefaultHook("Custom iOS hook 2",BurpExtender.PLATFORM_IOS,"customioshook2",true));
-    	defaultHooks.add(new DefaultHook("Custom iOS hook 3",BurpExtender.PLATFORM_IOS,"customioshook3",true));
+    	addButtonToHooksAndFunctions(new DefaultHook("Custom iOS hook 1",BurpExtender.PLATFORM_IOS,"customioshook1",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Custom iOS hook 2",BurpExtender.PLATFORM_IOS,"customioshook2",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Custom iOS hook 3",BurpExtender.PLATFORM_IOS,"customioshook3",true,new String[] {},null,false));
     	
     	// Custom generic hooks
-    	defaultHooks.add(new DefaultHook("Custom Generic hook 1",BurpExtender.PLATFORM_GENERIC,"customgenenrichook1",true));
-    	defaultHooks.add(new DefaultHook("Custom Generic hook 2",BurpExtender.PLATFORM_GENERIC,"customgenenrichook2",true));
-    	defaultHooks.add(new DefaultHook("Custom Generic hook 3",BurpExtender.PLATFORM_GENERIC,"customgenenrichook3",true));
+    	addButtonToHooksAndFunctions(new DefaultHook("Custom Generic hook 1",BurpExtender.PLATFORM_GENERIC,"customgenenrichook1",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Custom Generic hook 2",BurpExtender.PLATFORM_GENERIC,"customgenenrichook2",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Custom Generic hook 3",BurpExtender.PLATFORM_GENERIC,"customgenenrichook3",true,new String[] {},null,false));
     	
     	// Default iOS functions
-    	defaultHooks.add(new DefaultHook("Dump keychain",BurpExtender.PLATFORM_IOS,"iosdumpkeychain",false));
-    	defaultHooks.add(new DefaultHook("List files with Data Protection keys",BurpExtender.PLATFORM_IOS,"iosdataprotectionkeys",false));
-    	defaultHooks.add(new DefaultHook("Dump current ENCRYPTED app (downloaded from App Store)",BurpExtender.PLATFORM_IOS,"iosdumpcurrentencryptedapp",false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump keychain",BurpExtender.PLATFORM_IOS,"iosdumpkeychain",false,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("List files with Data Protection keys",BurpExtender.PLATFORM_IOS,"iosdataprotectionkeys",false,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump current ENCRYPTED app (downloaded from App Store)",BurpExtender.PLATFORM_IOS,"iosdumpcurrentencryptedapp",false,new String[] {},null,false));
     	    	
     }
     
@@ -255,8 +336,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     	applicationSpawned = false;
     	
     	lastPrintIsJS = false;
-    	
-    	initializeDefaultHooks();
+
+    	defaultHooks = new ArrayList<DefaultHook>();
     			
 		try {
 			InputStream inputStream = getClass().getClassLoader().getResourceAsStream("res/bridaServicePyro.py");
@@ -619,104 +700,17 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 // **** FRIDA DEFAULT HOOKS TAB
                 final JTabbedPane tabbedPanelHooks = new JTabbedPane();
                 
-                JPanel androidHooksPanel = new JPanel();
+                androidHooksPanel = new JPanel();
                 androidHooksPanel.setLayout(new BoxLayout(androidHooksPanel, BoxLayout.Y_AXIS));
                 
-                JPanel iOSHooksPanel = new JPanel();
+                iOSHooksPanel = new JPanel();
                 iOSHooksPanel.setLayout(new BoxLayout(iOSHooksPanel, BoxLayout.Y_AXIS));                
                 
-                JPanel genericHooksPanel = new JPanel();
+                genericHooksPanel = new JPanel();
                 genericHooksPanel.setLayout(new BoxLayout(genericHooksPanel, BoxLayout.Y_AXIS));  
                 
-                for(int i=0; i< defaultHooks.size();i ++) {
-                	
-                	final int currentIndex = i;
-                	
-                    JLabel tempHookLabel = new JLabel(defaultHooks.get(i).getName());                    
-                    
-                    JPanel lineJPanel = new JPanel();
-                    lineJPanel.setLayout(new BoxLayout(lineJPanel, BoxLayout.X_AXIS));
-                    lineJPanel.setAlignmentX(Component.LEFT_ALIGNMENT);                    
-                    
-                    if(defaultHooks.get(i).isInterceptorHook()) {
-                    
-	                    final JToggleButton tempHookToggleButton = new JToggleButton("Enable",false);
-	                    tempHookToggleButton.addActionListener(new ActionListener() {
-	                    	public void actionPerformed(ActionEvent actionEvent) {
-	                    		
-	                    		// Enabling hook
-	                    		if(tempHookToggleButton.isSelected()) {
-	                    			
-	                    			if(applicationSpawned) {
-	                    				
-	                    				// Call hook
-	                    				try {
-	                    					pyroBridaService.call("callexportfunction",defaultHooks.get(currentIndex).getFridaExportName(),new String[] {});
-	                        				printSuccessMessage("Hook " + defaultHooks.get(currentIndex).getName() + " ENABLED");
-	                        				defaultHooks.get(currentIndex).setEnabled(true);
-										} catch (Exception e) {
-											printException(e,"Error while enabling hook " + defaultHooks.get(currentIndex).getName());
-										} 
-	                    			} else {
-	                    				
-	                    				printSuccessMessage("Hook " + defaultHooks.get(currentIndex).getName() + " ENABLED");
-	                    				defaultHooks.get(currentIndex).setEnabled(true);
-	                    				
-	                    			}
-	                    		
-	                    		// Disabling hook	
-	                    		} else {
-	                    			
-	                    			if(applicationSpawned) {
-	                    			
-	                    				printException(null,"It is not possible to detach a single hook while app is running (you can detach ALL the hooks with the \"Detach all\" button)");
-	    	                			tempHookToggleButton.setSelected(true);
-	    	                			
-	                    			} else {
-	                    				
-	                        			printSuccessMessage("Hook " + defaultHooks.get(currentIndex).getName() + " DISABLED");
-	                    				defaultHooks.get(currentIndex).setEnabled(false);
-	                    				
-	                    			}
-	    	                			
-	                    		}
-	                    	}
-	                    });
-	                    
-	                    lineJPanel.add(tempHookToggleButton);
-
-	                    
-                    } else {
-                    	
-                    	JButton tempHookButton = new JButton("Execute");
-                    	tempHookButton.addActionListener(new ActionListener() {
-	                    	public void actionPerformed(ActionEvent actionEvent) {
-                				// Call exported function
-                				try {
-                					printJSMessage("*** Output " + defaultHooks.get(currentIndex).getName() + ":");
-                					pyroBridaService.call("callexportfunction",defaultHooks.get(currentIndex).getFridaExportName(),new String[0]);
-								} catch (Exception e) {
-									printException(e,"Error while running function " + defaultHooks.get(currentIndex).getName());
-								} 	                    		
-	                    	}
-	                    	
-                    	});
-                    	
-	                    lineJPanel.add(tempHookButton);
-                    	
-                    }
-                    
-                    lineJPanel.add(tempHookLabel);                    
-                    
-                    if(defaultHooks.get(i).getOs() == BurpExtender.PLATFORM_ANDROID) {
-                    	androidHooksPanel.add(lineJPanel);
-                    } else if(defaultHooks.get(i).getOs() == BurpExtender.PLATFORM_IOS) {
-                    	iOSHooksPanel.add(lineJPanel);
-                    } else {
-                    	genericHooksPanel.add(lineJPanel);
-                    }
-                    
-                }
+                // Initialize default hooks
+                initializeDefaultHooks();
                 
                 // Add tips to iOS hooks tab
                 JPanel iosTipsJPanel = new JPanel();
@@ -736,7 +730,429 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 tabbedPanelHooks.add("Android",androidHooksPanel);
                 tabbedPanelHooks.add("iOS",iOSHooksPanelWithTips);
                 tabbedPanelHooks.add("Generic",genericHooksPanel);
-                // **** END FRIDA DEFAULT HOOKS TAB                
+                // **** END FRIDA DEFAULT HOOKS TAB    
+                
+                
+                // **** BEGIN CUSTOM PLUGINS
+                JPanel customPluginPanel = new JPanel();
+                customPluginPanel.setLayout(new BoxLayout(customPluginPanel, BoxLayout.Y_AXIS));
+                
+                JPanel customPluginNamePanel = new JPanel();
+                customPluginNamePanel.setLayout(new BoxLayout(customPluginNamePanel, BoxLayout.X_AXIS));
+                customPluginNamePanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
+                JLabel customPluginNameLabel = new JLabel("Plugin name: ");
+                customPluginNameText = new JTextField(200);                
+                customPluginNameText.setMaximumSize( customPluginNameText.getPreferredSize() );
+                customPluginNamePanel.add(customPluginNameLabel);
+                customPluginNamePanel.add(customPluginNameText);
+                
+                JPanel customPluginTypePluginPanel = new JPanel();
+                customPluginTypePluginPanel.setLayout(new BoxLayout(customPluginTypePluginPanel, BoxLayout.X_AXIS));
+                customPluginTypePluginPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginTypePluginLabel = new JLabel("Plugin Type ");                
+                String[] customPluginTypePluginComboOptions = new String[] {"IHttpListener", "IMessageEditorTab","IContextMenu","JButton"};
+                customPluginTypePluginOptions = new JComboBox<String>(customPluginTypePluginComboOptions);
+                customPluginTypePluginOptions.setSelectedIndex(0);
+                customPluginTypePluginOptions.setMaximumSize( customPluginTypePluginOptions.getPreferredSize() );  
+                customPluginTypePluginOptions.addActionListener (new ActionListener () {
+                    public void actionPerformed(ActionEvent e) {
+                    	changeCustomPluginOptions(customPluginTypePluginOptions.getSelectedItem().toString());
+                    }
+                });
+                customPluginTypePluginDescription = new JLabel("Plugin that dynamically process each requests and responses");                 
+                customPluginTypePluginDescription.setMaximumSize( customPluginTypePluginDescription.getPreferredSize() );
+                customPluginTypePluginPanel.add(customPluginTypePluginLabel);
+                customPluginTypePluginPanel.add(customPluginTypePluginOptions);
+                customPluginTypePluginPanel.add(customPluginTypePluginDescription);
+                
+                JPanel customPluginExportNamePanel = new JPanel();
+                customPluginExportNamePanel.setLayout(new BoxLayout(customPluginExportNamePanel, BoxLayout.X_AXIS));
+                customPluginExportNamePanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
+                JLabel customPluginExportNameLabel = new JLabel("Name of the Frida exported function (*): ");
+                customPluginExportNameText = new JTextField(200);                
+                customPluginExportNameText.setMaximumSize( customPluginExportNameText.getPreferredSize() );
+                customPluginExportNamePanel.add(customPluginExportNameLabel);
+                customPluginExportNamePanel.add(customPluginExportNameText);
+                
+                JPanel customPluginExecuteOnPanel = new JPanel();
+                customPluginExecuteOnPanel.setLayout(new BoxLayout(customPluginExecuteOnPanel, BoxLayout.X_AXIS));
+                customPluginExecuteOnPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginExecuteOnLabel = new JLabel("Execute on: ");                
+                customPluginExecuteOnRadioRequest = new JRadioButton("Requests");
+                customPluginExecuteOnRadioResponse = new JRadioButton("Responses");
+                customPluginExecuteOnRadioAll = new JRadioButton("All");
+                customPluginExecuteOnRadioContext = new JRadioButton("Context menu options named: ");
+                customPluginExecuteOnRadioContext.setVisible(false);
+                customPluginExecuteOnRadioButton = new JRadioButton("Button named: ");
+                customPluginExecuteOnRadioButton.setVisible(false);
+                customPluginExecuteOnRadioRequest.setSelected(true);     
+                customPluginExecuteOnStringParameter = new JTextField(200);    
+                customPluginExecuteOnStringParameter.setMaximumSize( customPluginExecuteOnStringParameter.getPreferredSize() );
+                customPluginExecuteOnStringParameter.setVisible(false);
+                ButtonGroup customPluginExecuteOnRadioButtonGroup = new ButtonGroup();
+                customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioRequest);
+                customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioResponse);
+                customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioAll);
+                customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioContext);
+                customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioButton);
+                customPluginExecuteOnPanel.add(customPluginExecuteOnLabel);
+                customPluginExecuteOnPanel.add(customPluginExecuteOnRadioRequest);
+                customPluginExecuteOnPanel.add(customPluginExecuteOnRadioResponse);
+                customPluginExecuteOnPanel.add(customPluginExecuteOnRadioAll);
+                customPluginExecuteOnPanel.add(customPluginExecuteOnRadioContext);
+                customPluginExecuteOnPanel.add(customPluginExecuteOnRadioButton);
+                customPluginExecuteOnPanel.add(customPluginExecuteOnStringParameter);
+                
+                customPluginButtonPlatformPanel = new JPanel();
+                customPluginButtonPlatformPanel.setLayout(new BoxLayout(customPluginButtonPlatformPanel, BoxLayout.X_AXIS));
+                customPluginButtonPlatformPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginButtonPlatformLabel = new JLabel("Platform: ");                
+                customPluginButtonTypeRadioIos = new JRadioButton("iOS");
+                customPluginButtonTypeRadioAndroid = new JRadioButton("Android");
+                customPluginButtonTypeRadioGeneric = new JRadioButton("Generic");
+                customPluginButtonTypeRadioIos.setSelected(true);     
+                ButtonGroup customPluginButtonPlatformRadioButtonGroup = new ButtonGroup();
+                customPluginButtonPlatformRadioButtonGroup.add(customPluginButtonTypeRadioIos);
+                customPluginButtonPlatformRadioButtonGroup.add(customPluginButtonTypeRadioAndroid);
+                customPluginButtonPlatformRadioButtonGroup.add(customPluginButtonTypeRadioGeneric);
+                customPluginButtonPlatformPanel.add(customPluginButtonPlatformLabel);
+                customPluginButtonPlatformPanel.add(customPluginButtonTypeRadioIos);
+                customPluginButtonPlatformPanel.add(customPluginButtonTypeRadioAndroid);
+                customPluginButtonPlatformPanel.add(customPluginButtonTypeRadioGeneric);
+                customPluginButtonPlatformPanel.setVisible(false);
+                
+                customPluginButtonTypePanel = new JPanel();
+                customPluginButtonTypePanel.setLayout(new BoxLayout(customPluginButtonTypePanel, BoxLayout.X_AXIS));
+                customPluginButtonTypePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginButtonTypeLabel = new JLabel("Button type: ");                
+                customPluginButtonTypeRadioFunction = new JRadioButton("Function");
+                customPluginButtonTypeRadioHook = new JRadioButton("Hook");
+                customPluginButtonTypeRadioFunction.setSelected(true);     
+                ButtonGroup customPluginButtonTypeRadioButtonGroup = new ButtonGroup();
+                customPluginButtonTypeRadioButtonGroup.add(customPluginButtonTypeRadioFunction);
+                customPluginButtonTypeRadioButtonGroup.add(customPluginButtonTypeRadioHook);
+                customPluginButtonTypeRadioFunction.addActionListener(new ActionListener() {
+                	@Override
+                    public void actionPerformed(ActionEvent e) {
+                		SwingUtilities.invokeLater(new Runnable() {                			
+                            @Override
+                            public void run() {
+		                		customPluginParametersPanel.setVisible(true);
+		                		customPluginParameterEncodingPanel.setVisible(true);
+                            }
+                		});
+                	}
+                });
+                customPluginButtonTypeRadioHook.addActionListener(new ActionListener() {
+                	@Override
+                    public void actionPerformed(ActionEvent e) {
+                		SwingUtilities.invokeLater(new Runnable() {                			
+                            @Override
+                            public void run() {
+		                		customPluginParametersPanel.setVisible(false);
+		                		customPluginParameterEncodingPanel.setVisible(false);
+                            }
+                		});
+                	}
+                });
+                customPluginButtonTypePanel.add(customPluginButtonTypeLabel);
+                customPluginButtonTypePanel.add(customPluginButtonTypeRadioFunction);
+                customPluginButtonTypePanel.add(customPluginButtonTypeRadioHook);
+                customPluginButtonTypePanel.setVisible(false);
+                
+                customPluginToolsPanel = new JPanel();
+                customPluginToolsPanel.setLayout(new BoxLayout(customPluginToolsPanel, BoxLayout.X_AXIS));
+                customPluginToolsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginToolsLabel = new JLabel("Burp Suite Tools: ");                
+                customPluginToolsRepeater = new JCheckBox("Repeater",true);
+                customPluginToolsProxy = new JCheckBox("Proxy",false);
+                customPluginToolsScanner = new JCheckBox("Scanner",false);
+                customPluginToolsIntruder = new JCheckBox("Intruder",false);
+                customPluginToolsExtender = new JCheckBox("Extender",false);
+                customPluginToolsSequencer = new JCheckBox("Sequencer",false);
+                customPluginToolsSpider = new JCheckBox("Spider",false);
+                customPluginToolsPanel.add(customPluginToolsLabel);
+                customPluginToolsPanel.add(customPluginToolsRepeater);
+                customPluginToolsPanel.add(customPluginToolsProxy);
+                customPluginToolsPanel.add(customPluginToolsScanner);
+                customPluginToolsPanel.add(customPluginToolsIntruder);
+                customPluginToolsPanel.add(customPluginToolsExtender);
+                customPluginToolsPanel.add(customPluginToolsSequencer);
+                customPluginToolsPanel.add(customPluginToolsSpider);
+                
+                customPluginScopePanel = new JPanel();
+                customPluginScopePanel.setLayout(new BoxLayout(customPluginScopePanel, BoxLayout.X_AXIS));
+                customPluginScopePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginScopeLabel = new JLabel("Process only in-scope requests/responses: ");                
+                customPluginScopeCheckBox = new JCheckBox();
+                customPluginScopePanel.add(customPluginScopeLabel);
+                customPluginScopePanel.add(customPluginScopeCheckBox);
+                                
+                customPluginExecuteWhenPanel = new JPanel();
+                customPluginExecuteWhenPanel.setLayout(new BoxLayout(customPluginExecuteWhenPanel, BoxLayout.X_AXIS));
+                customPluginExecuteWhenPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginExecuteWhenLabel = new JLabel("Execute ");                
+                String[] customPluginExecuteJComboOptions = new String[] {"always", "when request/response contains plaintext","when request/response contains regex"};
+                customPluginExecuteWhenOptions = new JComboBox<String>(customPluginExecuteJComboOptions);
+                customPluginExecuteWhenOptions.setSelectedIndex(0);
+                customPluginExecuteWhenOptions.setMaximumSize( customPluginExecuteWhenOptions.getPreferredSize() );
+                customPluginExecuteWhenText = new JTextField(200);                
+                customPluginExecuteWhenText.setMaximumSize( customPluginExecuteWhenText.getPreferredSize() );
+                customPluginExecuteWhenPanel.add(customPluginExecuteWhenLabel);
+                customPluginExecuteWhenPanel.add(customPluginExecuteWhenOptions);
+                customPluginExecuteWhenPanel.add(customPluginExecuteWhenText);
+                
+                customPluginParametersPanel = new JPanel();
+                customPluginParametersPanel.setLayout(new BoxLayout(customPluginParametersPanel, BoxLayout.X_AXIS));
+                customPluginParametersPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginParametersLabel = new JLabel("Parameters: ");                
+                String[] customPluginParametersComboOptions = new String[] {"none", "complete request/response","headers","body","regex (with parenthesis)","fixed (#,# as separator)","ask to user with popup (#,# as separator)"};
+                customPluginParametersOptions = new JComboBox<String>(customPluginParametersComboOptions);
+                customPluginParametersOptions.setSelectedIndex(0);
+                customPluginParametersOptions.setMaximumSize( customPluginParametersOptions.getPreferredSize() );
+                customPluginParametersText = new JTextField(200);                
+                customPluginParametersText.setMaximumSize( customPluginParametersText.getPreferredSize() );
+                customPluginParametersPanel.add(customPluginParametersLabel);
+                customPluginParametersPanel.add(customPluginParametersOptions);
+                customPluginParametersPanel.add(customPluginParametersText);
+                
+                customPluginParameterEncodingPanel = new JPanel();
+                customPluginParameterEncodingPanel.setLayout(new BoxLayout(customPluginParameterEncodingPanel, BoxLayout.X_AXIS));
+                customPluginParameterEncodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginParameterEncodinglabel = new JLabel("Encode function parameters: ");   
+                customPluginParameterEncodingRadioPlain = new JRadioButton("Plain (not advisable with non-ASCII parameters)");
+                customPluginParameterEncodingRadioBase64 = new JRadioButton("Base64");
+                customPluginParameterEncodingRadioAsciiHex = new JRadioButton("Ascii-Hex");
+                customPluginParameterEncodingRadioPlain.setSelected(true);                
+                ButtonGroup customPluginParameterEncodingRadioGroup = new ButtonGroup();
+                customPluginParameterEncodingRadioGroup.add(customPluginParameterEncodingRadioPlain);
+                customPluginParameterEncodingRadioGroup.add(customPluginParameterEncodingRadioBase64);
+                customPluginParameterEncodingRadioGroup.add(customPluginParameterEncodingRadioAsciiHex);
+                customPluginParameterEncodingPanel.add(customPluginParameterEncodinglabel);
+                customPluginParameterEncodingPanel.add(customPluginParameterEncodingRadioPlain);
+                customPluginParameterEncodingPanel.add(customPluginParameterEncodingRadioBase64);
+                customPluginParameterEncodingPanel.add(customPluginParameterEncodingRadioAsciiHex);
+                
+                customPluginOutputDecodingPanel = new JPanel();
+                customPluginOutputDecodingPanel.setLayout(new BoxLayout(customPluginOutputDecodingPanel, BoxLayout.X_AXIS));
+                customPluginOutputDecodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginOutputDecodingLabel = new JLabel("Decode function output: ");                
+                customPluginOutputDecodingRadioNone = new JRadioButton("None");
+                customPluginOutputDecodingRadioBase64 = new JRadioButton("Base64");
+                customPluginOutputDecodingRadioAsciiHex = new JRadioButton("Ascii-Hex");
+                customPluginOutputDecodingRadioNone.setSelected(true);                
+                ButtonGroup customPluginOutputDecodingRadioGroup = new ButtonGroup();
+                customPluginOutputDecodingRadioGroup.add(customPluginOutputDecodingRadioNone);
+                customPluginOutputDecodingRadioGroup.add(customPluginOutputDecodingRadioBase64);
+                customPluginOutputDecodingRadioGroup.add(customPluginOutputDecodingRadioAsciiHex);
+                customPluginOutputDecodingPanel.add(customPluginOutputDecodingLabel);
+                customPluginOutputDecodingPanel.add(customPluginOutputDecodingRadioNone);
+                customPluginOutputDecodingPanel.add(customPluginOutputDecodingRadioBase64);
+                customPluginOutputDecodingPanel.add(customPluginOutputDecodingRadioAsciiHex);
+                
+                JPanel customPluginOutputPanel = new JPanel();
+                customPluginOutputPanel.setLayout(new BoxLayout(customPluginOutputPanel, BoxLayout.X_AXIS));
+                customPluginOutputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginOutputLabel = new JLabel("Plugin output: ");                
+                String[] customPluginOutputComboOptions = new String[] {"print in Brida console","replace in request/response with regex (with parenthesys)"};
+                customPluginOutputOptions = new JComboBox<String>(customPluginOutputComboOptions);
+                customPluginOutputOptions.setSelectedIndex(0);
+                customPluginOutputOptions.setMaximumSize( customPluginOutputOptions.getPreferredSize() );
+                customPluginOutputText = new JTextField(200);                
+                customPluginOutputText.setMaximumSize( customPluginOutputText.getPreferredSize() );
+                customPluginOutputPanel.add(customPluginOutputLabel);
+                customPluginOutputPanel.add(customPluginOutputOptions);
+                customPluginOutputPanel.add(customPluginOutputText);
+                
+                customPluginOutputEncodingPanel = new JPanel();
+                customPluginOutputEncodingPanel.setLayout(new BoxLayout(customPluginOutputEncodingPanel, BoxLayout.X_AXIS));
+                customPluginOutputEncodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginOutputEncodingLabel = new JLabel("Plugin output encoding: ");                
+                customPluginOutputEncodingRadioNone = new JRadioButton("None");
+                customPluginOutputEncodingRadioBase64 = new JRadioButton("Base64");
+                customPluginOutputEncodingRadioAsciiHex = new JRadioButton("Ascii-Hex");
+                customPluginOutputEncodingRadioNone.setSelected(true);                
+                ButtonGroup customPluginOutputEncodingRadioGroup = new ButtonGroup();
+                customPluginOutputEncodingRadioGroup.add(customPluginOutputEncodingRadioNone);
+                customPluginOutputEncodingRadioGroup.add(customPluginOutputEncodingRadioBase64);
+                customPluginOutputEncodingRadioGroup.add(customPluginOutputEncodingRadioAsciiHex);
+                customPluginOutputEncodingPanel.add(customPluginOutputEncodingLabel);
+                customPluginOutputEncodingPanel.add(customPluginOutputEncodingRadioNone);
+                customPluginOutputEncodingPanel.add(customPluginOutputEncodingRadioBase64);
+                customPluginOutputEncodingPanel.add(customPluginOutputEncodingRadioAsciiHex); 
+                
+                customPluginMessageEditorModifiedFridaFunctioPanel = new JPanel();
+                customPluginMessageEditorModifiedFridaFunctioPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedFridaFunctioPanel, BoxLayout.X_AXIS));
+                customPluginMessageEditorModifiedFridaFunctioPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
+                JLabel customPluginMessageEditorModifiedFridaExportNameLabel = new JLabel("Name of the Frida exported function for the edited content (*): ");
+                customPluginMessageEditorModifiedFridaExportNameText = new JTextField(200);                
+                customPluginMessageEditorModifiedFridaExportNameText.setMaximumSize( customPluginMessageEditorModifiedFridaExportNameText.getPreferredSize() );
+                customPluginMessageEditorModifiedFridaFunctioPanel.add(customPluginMessageEditorModifiedFridaExportNameLabel);
+                customPluginMessageEditorModifiedFridaFunctioPanel.add(customPluginMessageEditorModifiedFridaExportNameText);
+                customPluginMessageEditorModifiedFridaFunctioPanel.setVisible(false);
+                
+                customPluginMessageEditorModifiedEncodeInputPanel = new JPanel();
+                customPluginMessageEditorModifiedEncodeInputPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedEncodeInputPanel, BoxLayout.X_AXIS));
+                customPluginMessageEditorModifiedEncodeInputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginMessageEditorModifiedEncodeInputLabel = new JLabel("Encode input passed to Frida function executed on edited content: ");                
+                customPluginMessageEditorModifiedEncodingInputFridaRadioNone = new JRadioButton("None");
+                customPluginMessageEditorModifiedEncodingInputFridaRadioBase64 = new JRadioButton("Base64");
+                customPluginMessageEditorModifiedEncodingInputFridaRadioAsciiHex = new JRadioButton("Ascii-Hex");
+                customPluginMessageEditorModifiedEncodingInputFridaRadioNone.setSelected(true);                
+                ButtonGroup customPluginMessageEditorModifiedEncodingInputFridaRadioGroup = new ButtonGroup();
+                customPluginMessageEditorModifiedEncodingInputFridaRadioGroup.add(customPluginMessageEditorModifiedEncodingInputFridaRadioNone);
+                customPluginMessageEditorModifiedEncodingInputFridaRadioGroup.add(customPluginMessageEditorModifiedEncodingInputFridaRadioBase64);
+                customPluginMessageEditorModifiedEncodingInputFridaRadioGroup.add(customPluginMessageEditorModifiedEncodingInputFridaRadioAsciiHex);
+                customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodeInputLabel);
+                customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodingInputFridaRadioNone);
+                customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodingInputFridaRadioBase64);
+                customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodingInputFridaRadioAsciiHex);
+                customPluginMessageEditorModifiedEncodeInputPanel.setVisible(false);
+                
+                customPluginMessageEditorModifiedDecodingOutputPanel = new JPanel();
+                customPluginMessageEditorModifiedDecodingOutputPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedDecodingOutputPanel, BoxLayout.X_AXIS));
+                customPluginMessageEditorModifiedDecodingOutputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginMessageEditorModifiedDecodingOutputLabel = new JLabel("Decode output of Frida function executed on edited content: ");                
+                customPluginOutputMessageEditorModifiedDecodingRadioNone = new JRadioButton("None");
+                customPluginOutputMessageEditorModifiedDecodingRadioBase64 = new JRadioButton("Base64");
+                customPluginOutputMessageEditorModifiedDecodingRadioAsciiHex = new JRadioButton("Ascii-Hex");
+                customPluginOutputMessageEditorModifiedDecodingRadioNone.setSelected(true);                
+                ButtonGroup customPluginOutputMessageEditorModifiedDecodingRadioGroup = new ButtonGroup();
+                customPluginOutputMessageEditorModifiedDecodingRadioGroup.add(customPluginOutputMessageEditorModifiedDecodingRadioNone);
+                customPluginOutputMessageEditorModifiedDecodingRadioGroup.add(customPluginOutputMessageEditorModifiedDecodingRadioBase64);
+                customPluginOutputMessageEditorModifiedDecodingRadioGroup.add(customPluginOutputMessageEditorModifiedDecodingRadioAsciiHex);
+                customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginMessageEditorModifiedDecodingOutputLabel);
+                customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginOutputMessageEditorModifiedDecodingRadioNone);
+                customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginOutputMessageEditorModifiedDecodingRadioBase64);
+                customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginOutputMessageEditorModifiedDecodingRadioAsciiHex);
+                customPluginMessageEditorModifiedDecodingOutputPanel.setVisible(false);
+                
+                customPluginMessageEditorModifiedOutputLocationPanel = new JPanel();
+                customPluginMessageEditorModifiedOutputLocationPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedOutputLocationPanel, BoxLayout.X_AXIS));
+                customPluginMessageEditorModifiedOutputLocationPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginMessageEditorModifiedOutputLocationLabel = new JLabel("Edited content location: ");                
+                String[] customPluginMessageEditorModifiedOutputLocationComboOptions = new String[] {"Discard (view only mode)","Print in Brida console and return original request/response","Replace complete request/response","Replace request/response body","Regex (with parenthesys)"};
+                customPluginMessageEditorModifiedOutputLocationOptions = new JComboBox<String>(customPluginMessageEditorModifiedOutputLocationComboOptions);
+                customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(0);
+                customPluginMessageEditorModifiedOutputLocationOptions.setMaximumSize( customPluginMessageEditorModifiedOutputLocationOptions.getPreferredSize() );
+                customPluginMessageEditorModifiedOutputLocationText = new JTextField(200);                
+                customPluginMessageEditorModifiedOutputLocationText.setMaximumSize( customPluginMessageEditorModifiedOutputLocationText.getPreferredSize() );
+                customPluginMessageEditorModifiedOutputLocationPanel.add(customPluginMessageEditorModifiedOutputLocationLabel);
+                customPluginMessageEditorModifiedOutputLocationPanel.add(customPluginMessageEditorModifiedOutputLocationOptions);
+                customPluginMessageEditorModifiedOutputLocationPanel.add(customPluginMessageEditorModifiedOutputLocationText);
+                customPluginMessageEditorModifiedOutputLocationPanel.setVisible(false);
+                
+                customPluginMessageEditorModifiedOutputEncodingPanel = new JPanel();
+                customPluginMessageEditorModifiedOutputEncodingPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedOutputEncodingPanel, BoxLayout.X_AXIS));
+                customPluginMessageEditorModifiedOutputEncodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel customPluginMessageEditorModifiedOutputEncodingLabel = new JLabel("Encode output of edited content function: ");                
+                customPluginMessageEditorModifiedOutputEncodingRadioNone = new JRadioButton("None");
+                customPluginMessageEditorModifiedOutputEncodingRadioBase64 = new JRadioButton("Base64");
+                customPluginMessageEditorModifiedOutputEncodingRadioAsciiHex = new JRadioButton("Ascii-Hex");
+                customPluginMessageEditorModifiedOutputEncodingRadioNone.setSelected(true);                
+                ButtonGroup customPluginMessageEditorModifiedOutputEncodingRadioGroup = new ButtonGroup();
+                customPluginMessageEditorModifiedOutputEncodingRadioGroup.add(customPluginMessageEditorModifiedOutputEncodingRadioNone);
+                customPluginMessageEditorModifiedOutputEncodingRadioGroup.add(customPluginMessageEditorModifiedOutputEncodingRadioBase64);
+                customPluginMessageEditorModifiedOutputEncodingRadioGroup.add(customPluginMessageEditorModifiedOutputEncodingRadioAsciiHex);
+                customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingLabel);
+                customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingRadioNone);
+                customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingRadioBase64);
+                customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingRadioAsciiHex);     
+                customPluginMessageEditorModifiedOutputEncodingPanel.setVisible(false);
+                
+                customPluginPanel.add(customPluginNamePanel);
+                customPluginPanel.add(customPluginTypePluginPanel);
+                customPluginPanel.add(customPluginExportNamePanel);
+                customPluginPanel.add(customPluginExecuteOnPanel);
+                customPluginPanel.add(customPluginButtonPlatformPanel);
+                customPluginPanel.add(customPluginButtonTypePanel);
+                customPluginPanel.add(customPluginToolsPanel);
+                customPluginPanel.add(customPluginScopePanel);
+                customPluginPanel.add(customPluginExecuteWhenPanel);
+                customPluginPanel.add(customPluginParametersPanel);
+                customPluginPanel.add(customPluginParameterEncodingPanel);
+                customPluginPanel.add(customPluginOutputDecodingPanel);
+                customPluginPanel.add(customPluginOutputPanel);
+                customPluginPanel.add(customPluginOutputEncodingPanel);
+                customPluginPanel.add(customPluginMessageEditorModifiedFridaFunctioPanel);
+                customPluginPanel.add(customPluginMessageEditorModifiedEncodeInputPanel);
+                customPluginPanel.add(customPluginMessageEditorModifiedDecodingOutputPanel);
+                customPluginPanel.add(customPluginMessageEditorModifiedOutputLocationPanel);
+                customPluginPanel.add(customPluginMessageEditorModifiedOutputEncodingPanel);
+                                                
+                customPluginsTable = new JTable(new CustomPluginsTableModel());
+                JScrollPane customPluginsTableScrollPane = new JScrollPane(customPluginsTable);
+                customPluginsTableScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+                customPluginsTableScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+                customPluginsTable.setAutoCreateRowSorter(true);
+                
+                // Handle buttons action in the table
+                customPluginsTable.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent evt) {
+                        int row = customPluginsTable.rowAtPoint(evt.getPoint());
+                        int col = customPluginsTable.columnAtPoint(evt.getPoint());
+                        if (row >= 0 && col >= 0) {
+                        	List<CustomPlugin> customPlugins = ((CustomPluginsTableModel)(customPluginsTable.getModel())).getCustomPlugins();
+                			CustomPlugin currentPlugin = customPlugins.get(row);
+                        	switch(col) {
+                        		// Enable/disable
+                        		case 0:                        			
+                        			if(currentPlugin.isOn()) {
+                        				currentPlugin.disable(); 
+                        			} else {
+                        				currentPlugin.enable(); 
+                        			}
+                        			((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableCellUpdated(row, col);
+                        			break;
+                        		// Debug
+                        		case 4:
+                        			if(currentPlugin.getType() != CustomPlugin.CustomPluginType.JBUTTON) {
+                        				currentPlugin.enableDebugToExternalFrame();
+                        			}
+                        			break;
+                        		// Edit
+                        		case 5:
+                        			// TODO in future releases
+                        			break;
+                        		// Remove
+                        		case 6:
+                        			// If plugin is enabled, disable first
+                            		if(currentPlugin.isOn())
+                            			currentPlugin.disable();                              		
+                            		// Double check because unload button hooks may fail if the application is running
+                            		if(!currentPlugin.isOn()) {
+            	                		synchronized(customPlugins) {                		
+            	                			int currentPluginIndex = customPlugins.indexOf(currentPlugin);
+            	                			customPlugins.remove(currentPlugin);
+            	                			((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsDeleted(currentPluginIndex, currentPluginIndex);
+            	                		}
+                            		}
+                        			break;
+                        		default:
+                        			break;
+                        	}
+                        	
+                        }
+                    }
+                });                
+                
+                // Center header
+                ((DefaultTableCellRenderer)customPluginsTable.getTableHeader().getDefaultRenderer()).setHorizontalAlignment(JLabel.CENTER);
+                               
+                // Center columns 0, 4, 5 and 6
+                customPluginsTable.getColumnModel().getColumn(0).setCellRenderer( centerRenderer );
+                customPluginsTable.getColumnModel().getColumn(4).setCellRenderer( centerRenderer );
+                customPluginsTable.getColumnModel().getColumn(5).setCellRenderer( centerRenderer );
+                customPluginsTable.getColumnModel().getColumn(6).setCellRenderer( centerRenderer );
+                
+                JSplitPane customPluginsplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+                customPluginsplitPane.setTopComponent(customPluginPanel);
+                customPluginsplitPane.setBottomComponent(customPluginsTableScrollPane);                
+                customPluginsplitPane.setResizeWeight(.7d);
+                
+                
+                // **** END CUSTOM PLUGINS
                 
             	tabbedPanel.add("Configurations",configurationConfPanel);
             	tabbedPanel.add("JS Editor",sp); 
@@ -745,6 +1161,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
             	tabbedPanel.add("Execute method",executeMethodPanel);
             	tabbedPanel.add("Trap methods",trapTableScrollPane);
             	tabbedPanel.add("Hooks and functions",tabbedPanelHooks);
+            	tabbedPanel.add("Custom plugins",customPluginsplitPane);
             	            	
             	// *** CONSOLE            	
             	pluginConsoleTextArea = new JEditorPane("text/html", "<font color=\"green\"><b>*** Brida Console ***</b></font><br/><br/>");
@@ -842,6 +1259,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 detachAllButton = new JButton("Detach all");
                 detachAllButton.setActionCommand("detachAll");
                 detachAllButton.addActionListener(BurpExtender.this); 
+                
+                enableCustomPluginButton = new JButton("Add plugin");
+                enableCustomPluginButton.setActionCommand("enablePlugin");
+                enableCustomPluginButton.addActionListener(BurpExtender.this); 
                            
                 JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
                 separator.setBorder(BorderFactory.createMatteBorder(3, 0, 3, 0, Color.ORANGE));
@@ -878,6 +1299,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 // TRAP METHODS
                 rightSplitPane.add(detachAllButton,gbc);
                 
+                // CUSTOM PLUGINS
+                rightSplitPane.add(enableCustomPluginButton,gbc);
+                
                 splitPane.setLeftComponent(consoleTabbedSplitPane);
                 splitPane.setRightComponent(rightSplitPane);
                 
@@ -892,6 +1316,210 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
             }
             
         });
+		
+	}
+	
+	private void changeCustomPluginOptions(String pluginType) {
+		
+		SwingUtilities.invokeLater(new Runnable() {
+			
+            @Override
+            public void run() {
+            	
+            	if(pluginType.equals("IHttpListener")) {
+            		// Plugin description
+                	customPluginTypePluginDescription.setText("Plugin that dynamically process each requests and responses");
+                	// Execute on
+                	customPluginExecuteOnRadioRequest.setVisible(true);
+                	customPluginExecuteOnRadioResponse.setVisible(true);
+                	customPluginExecuteOnRadioAll.setVisible(true);
+                	customPluginExecuteOnRadioContext.setVisible(false);
+                	customPluginExecuteOnRadioButton.setVisible(false);
+                	customPluginExecuteOnStringParameter.setVisible(false);
+                	customPluginExecuteOnRadioRequest.setSelected(true);
+                	// Button platform
+                	customPluginButtonPlatformPanel.setVisible(false);
+                	// Button type
+                	customPluginButtonTypePanel.setVisible(false);
+                	// Burp Suite Tools
+                	customPluginToolsPanel.setVisible(true);
+                	// Only in scope?
+                	customPluginScopePanel.setVisible(true);
+                	// Execute
+                	customPluginExecuteWhenPanel.setVisible(true);
+                	// Parameter
+                    customPluginParametersPanel.setVisible(true);
+                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(new String[] {"none", "complete request/response","headers","body","regex (with parenthesis)","fixed (#,# as separator)","ask to user with popup (#,# as separator)"});
+                	customPluginParametersOptions.setModel(customPluginParametersModel);
+                	// Parameter encoding
+                	customPluginParameterEncodingPanel.setVisible(true);
+                	// Plugin output
+                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console","replace in request/response with regex (with parenthesys)"});
+                	customPluginOutputOptions.setModel(customPluginOutputModel);
+                	customPluginOutputText.setVisible(true);
+                	// Frida output decoding
+                    customPluginOutputDecodingPanel.setVisible(true);
+                    // Plugin output encoding
+                    customPluginOutputEncodingPanel.setVisible(true);
+                	// Message editor encode input to Frida function for edited content
+                	customPluginMessageEditorModifiedEncodeInputPanel.setVisible(false);
+                	// Message Editor Decoding Output
+                	customPluginMessageEditorModifiedDecodingOutputPanel.setVisible(false);
+                	// Message Editor Frida funtion for edited content
+                	customPluginMessageEditorModifiedFridaFunctioPanel.setVisible(false);
+                	// Message Editor Output encoding
+                	customPluginMessageEditorModifiedOutputEncodingPanel.setVisible(false);
+                	// Message Editor Output location
+                	customPluginMessageEditorModifiedOutputLocationPanel.setVisible(false);
+                } else if(pluginType.equals("IMessageEditorTab")) {
+            		// Plugin description
+                	customPluginTypePluginDescription.setText("Plugin that add a editable Message Editor Tab to all requests/responses");
+                	// Execute on                	
+                	customPluginExecuteOnRadioRequest.setVisible(true);
+                	customPluginExecuteOnRadioResponse.setVisible(true);
+                	customPluginExecuteOnRadioAll.setVisible(true);
+                	customPluginExecuteOnRadioContext.setVisible(false);
+                	customPluginExecuteOnRadioButton.setVisible(false);
+                	customPluginExecuteOnStringParameter.setVisible(false);
+                	customPluginExecuteOnRadioRequest.setSelected(true);
+                	// Button platform
+                	customPluginButtonPlatformPanel.setVisible(false);                	
+                	// Button type
+                	customPluginButtonTypePanel.setVisible(false);                	
+                	// Burp Suite Tools
+                	customPluginToolsPanel.setVisible(false);   
+                	// Only in scope?
+                	customPluginScopePanel.setVisible(false);                	
+                	// Execute
+                	customPluginExecuteWhenPanel.setVisible(true);  
+                	// Parameter
+                	customPluginParametersPanel.setVisible(true);
+                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(new String[] {"none", "complete request/response","headers","body","regex (with parenthesis)","fixed (#,# as separator)","ask to user with popup (#,# as separator)"});
+                	customPluginParametersOptions.setModel(customPluginParametersModel);
+                	// Parameter encoding
+                	customPluginParameterEncodingPanel.setVisible(true);
+                	// Plugin output
+                	//DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console","replace in request/response with regex (with parenthesys)"});
+                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"Print in Message Editor tab named"});
+                	customPluginOutputOptions.setModel(customPluginOutputModel);
+                	customPluginOutputText.setVisible(true);
+                	// Frida output decoding
+                    customPluginOutputDecodingPanel.setVisible(true);
+                    // Plugin output encoding
+                    customPluginOutputEncodingPanel.setVisible(true);                	
+                	// Message editor encode input to Frida function for edited content
+                	customPluginMessageEditorModifiedEncodeInputPanel.setVisible(true);                	
+                	// Message Editor Decoding Output
+                	customPluginMessageEditorModifiedDecodingOutputPanel.setVisible(true);
+                	// Message Editor Frida funtion for edited content
+                	customPluginMessageEditorModifiedFridaFunctioPanel.setVisible(true);
+                	// Message Editor Output encoding
+                	customPluginMessageEditorModifiedOutputEncodingPanel.setVisible(true); 
+                	// Message Editor Output location
+                	customPluginMessageEditorModifiedOutputLocationPanel.setVisible(true);
+                } else if(pluginType.equals("IContextMenu")) {
+            		// Plugin description
+                	customPluginTypePluginDescription.setText("Plugin that add a context menu option to Burp Suite right-button menu");
+                	// Execute on                	
+                	customPluginExecuteOnRadioRequest.setVisible(false);
+                	customPluginExecuteOnRadioResponse.setVisible(false);
+                	customPluginExecuteOnRadioAll.setVisible(false);
+                	customPluginExecuteOnRadioContext.setVisible(true);
+                	customPluginExecuteOnRadioButton.setVisible(false);
+                	customPluginExecuteOnStringParameter.setVisible(true);
+                	customPluginExecuteOnRadioContext.setSelected(true);
+                	// Button platform
+                	customPluginButtonPlatformPanel.setVisible(false);                	
+                	// Button type
+                	customPluginButtonTypePanel.setVisible(false);                	
+                	// Burp Suite Tools
+                	customPluginToolsPanel.setVisible(false);    
+                	// Only in scope?
+                	customPluginScopePanel.setVisible(false);                	
+                	// Execute
+                	customPluginExecuteWhenPanel.setVisible(false); 
+                	// Parameter
+                	customPluginParametersPanel.setVisible(true);
+                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(new String[] {"none", "complete request/response","headers","body","regex (with parenthesis)","highlighted value in request/response","fixed (#,# as separator)","ask to user with popup (#,# as separator)"});
+                	customPluginParametersOptions.setModel(customPluginParametersModel);
+                	// Parameter encoding
+                	customPluginParameterEncodingPanel.setVisible(true);
+                	// Plugin output
+                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console","replace in request/response with regex (with parenthesys)","replace highlighted value in request/response"});
+                	customPluginOutputOptions.setModel(customPluginOutputModel);
+                	customPluginOutputText.setVisible(true);
+                	// Frida output decoding
+                    customPluginOutputDecodingPanel.setVisible(true);
+                    // Plugin output encoding
+                    customPluginOutputEncodingPanel.setVisible(true);                	
+                	// Message editor encode input to Frida function for edited content
+                	customPluginMessageEditorModifiedEncodeInputPanel.setVisible(false);                	
+                	// Message Editor Decoding Output
+                	customPluginMessageEditorModifiedDecodingOutputPanel.setVisible(false);
+                	// Message Editor Frida funtion for edited content
+                	customPluginMessageEditorModifiedFridaFunctioPanel.setVisible(false);
+                	// Message Editor Output encoding
+                	customPluginMessageEditorModifiedOutputEncodingPanel.setVisible(false);         
+                	// Message Editor Output location
+                	customPluginMessageEditorModifiedOutputLocationPanel.setVisible(false);
+                } else {
+            		// Plugin description
+                	customPluginTypePluginDescription.setText("Plugin that add a button that enable a hook/call a function");
+                	// Execute on                	
+                	customPluginExecuteOnRadioRequest.setVisible(false);
+                	customPluginExecuteOnRadioResponse.setVisible(false);
+                	customPluginExecuteOnRadioAll.setVisible(false);
+                	customPluginExecuteOnRadioContext.setVisible(false);
+                	customPluginExecuteOnRadioButton.setVisible(true);
+                	customPluginExecuteOnStringParameter.setVisible(true);
+                	customPluginExecuteOnRadioButton.setSelected(true);
+                	// Button platform
+                	customPluginButtonPlatformPanel.setVisible(true);                	
+                	// Button type
+                	customPluginButtonTypePanel.setVisible(true);                	
+                	// Burp Suite Tools
+                	customPluginToolsPanel.setVisible(false);   
+                	// Only in scope?
+                	customPluginScopePanel.setVisible(false);                	
+                	// Execute
+                	customPluginExecuteWhenPanel.setVisible(false);  
+                	// Parameter
+                	if(customPluginButtonTypeRadioFunction.isSelected()) {
+                		customPluginParametersPanel.setVisible(true);
+                	} else {
+                		customPluginParametersPanel.setVisible(false);
+                	}
+                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(new String[] {"none", "fixed (#,# as separator)","ask to user with popup (#,# as separator)"});
+                	customPluginParametersOptions.setModel(customPluginParametersModel);
+                	// Parameter encoding
+                	if(customPluginButtonTypeRadioFunction.isSelected()) {
+                		customPluginParameterEncodingPanel.setVisible(true);
+                	} else {
+                		customPluginParameterEncodingPanel.setVisible(false);
+                	}
+                	// Plugin output
+                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console"});
+                	customPluginOutputOptions.setModel(customPluginOutputModel);
+                	customPluginOutputText.setVisible(false);
+                	// Frida output decoding
+                    customPluginOutputDecodingPanel.setVisible(false);
+                    // Plugin output encoding
+                    customPluginOutputEncodingPanel.setVisible(false);                	
+                	// Message editor encode input to Frida function for edited content
+                	customPluginMessageEditorModifiedEncodeInputPanel.setVisible(false);                	
+                	// Message Editor Decoding Output
+                	customPluginMessageEditorModifiedDecodingOutputPanel.setVisible(false);
+                	// Message Editor Frida funtion for edited content
+                	customPluginMessageEditorModifiedFridaFunctioPanel.setVisible(false);
+                	// Message Editor Output encoding
+                	customPluginMessageEditorModifiedOutputEncodingPanel.setVisible(false);    
+                	// Message Editor Output location
+                	customPluginMessageEditorModifiedOutputLocationPanel.setVisible(false);
+                }
+            	
+            }
+            
+		});
 		
 	}
 		
@@ -916,7 +1544,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(false);
 						detachAllButton.setVisible(false);
-						
+						enableCustomPluginButton.setVisible(false);
+
 		            }
 		            
 				});
@@ -940,7 +1569,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						saveJSFileButton.setVisible(true);
 						loadTreeButton.setVisible(false);
 						detachAllButton.setVisible(false);
-						
+						enableCustomPluginButton.setVisible(false);
+
 		            }
 		            
 				});
@@ -964,7 +1594,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(true);
 						detachAllButton.setVisible(false);
-						
+						enableCustomPluginButton.setVisible(false);
+
 		            }
 		            
 				});
@@ -989,7 +1620,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(false);
 						detachAllButton.setVisible(false);
-						
+						enableCustomPluginButton.setVisible(false);
+
 		            }
 		            
 				});
@@ -1013,7 +1645,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(false);
 						detachAllButton.setVisible(false);
-						
+						enableCustomPluginButton.setVisible(false);
+
 		            }
 		            
 				});
@@ -1037,7 +1670,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(false);
 						detachAllButton.setVisible(true);
-						
+						enableCustomPluginButton.setVisible(false);
+
 		            }
 		            
 				});
@@ -1061,13 +1695,39 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 							saveJSFileButton.setVisible(false);
 							loadTreeButton.setVisible(false);
 							detachAllButton.setVisible(true);
+							enableCustomPluginButton.setVisible(false);
 							
 			            }
 			            
 					});
 					
-					break;				
-				
+					break;	
+					
+				//CUSTOM PLUGIN	
+				case 7:
+					
+					SwingUtilities.invokeLater(new Runnable() {
+						
+			            @Override
+			            public void run() {
+					
+							executeMethodButton.setVisible(false);
+							saveSettingsToFileButton.setVisible(false);
+							loadSettingsFromFileButton.setVisible(false);
+							generateJavaStubButton.setVisible(false);
+							generatePythonStubButton.setVisible(false);
+							loadJSFileButton.setVisible(false);
+							saveJSFileButton.setVisible(false);
+							loadTreeButton.setVisible(false);
+							detachAllButton.setVisible(false);
+			                enableCustomPluginButton.setVisible(true);
+
+			            }
+			            
+					});
+					
+					break;						
+			
 			default:			
 				printException(null,"ShowHideButtons: index not found");				
 				break;	
@@ -2119,6 +2779,283 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 			});
 			
+		} else if(command.startsWith("enablePlugin")) {
+			
+			// Plugin type
+			CustomPlugin.CustomPluginType pluginType = null;
+			if(customPluginTypePluginOptions.getSelectedItem().toString().equals("IHttpListener")) {
+				pluginType = CustomPlugin.CustomPluginType.IHTTPLISTENER;
+			} else if(customPluginTypePluginOptions.getSelectedItem().toString().equals("IMessageEditorTab")) {
+				pluginType = CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB;
+			} else if(customPluginTypePluginOptions.getSelectedItem().toString().equals("IContextMenu")) {
+				pluginType = CustomPlugin.CustomPluginType.ICONTEXTMENU;
+			} else {
+				pluginType = CustomPlugin.CustomPluginType.JBUTTON;
+			}
+			
+			// Execute on
+			CustomPlugin.CustomPluginExecuteOnValues customPluginExecuteOn = null;			
+			if(customPluginExecuteOnRadioRequest.isSelected()) {
+				customPluginExecuteOn = CustomPlugin.CustomPluginExecuteOnValues.REQUESTS;
+			} else if(customPluginExecuteOnRadioResponse.isSelected()) {
+				customPluginExecuteOn = CustomPlugin.CustomPluginExecuteOnValues.RESPONSES;
+			} else if(customPluginExecuteOnRadioAll.isSelected()) {
+				customPluginExecuteOn = CustomPlugin.CustomPluginExecuteOnValues.ALL;
+			} else if(customPluginExecuteOnRadioContext.isSelected()) {
+				customPluginExecuteOn = CustomPlugin.CustomPluginExecuteOnValues.CONTEXT;
+			} else {
+				customPluginExecuteOn = CustomPlugin.CustomPluginExecuteOnValues.BUTTON;
+			}
+			
+			// Burp Suite tools (IHttpListener plugins only)
+			ArrayList<Integer> customPluginTools = new ArrayList<Integer>();
+			if(pluginType == CustomPlugin.CustomPluginType.IHTTPLISTENER) {
+				if(customPluginToolsRepeater.isSelected())	customPluginTools.add(IBurpExtenderCallbacks.TOOL_REPEATER);
+				if(customPluginToolsProxy.isSelected())	customPluginTools.add(IBurpExtenderCallbacks.TOOL_PROXY);
+				if(customPluginToolsScanner.isSelected())	customPluginTools.add(IBurpExtenderCallbacks.TOOL_SCANNER);
+				if(customPluginToolsIntruder.isSelected())	customPluginTools.add(IBurpExtenderCallbacks.TOOL_INTRUDER);
+				if(customPluginToolsExtender.isSelected())	customPluginTools.add(IBurpExtenderCallbacks.TOOL_EXTENDER);
+				if(customPluginToolsSequencer.isSelected())	customPluginTools.add(IBurpExtenderCallbacks.TOOL_SEQUENCER);
+				if(customPluginToolsSpider.isSelected())	customPluginTools.add(IBurpExtenderCallbacks.TOOL_SPIDER);
+			}
+			
+			// Execute (IHttpListener and IMessageEditorTab only)
+			CustomPlugin.CustomPluginExecuteValues customPluginExecute = null;
+			if(pluginType == CustomPlugin.CustomPluginType.IHTTPLISTENER || pluginType == CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB) {
+				if(customPluginExecuteWhenOptions.getSelectedItem().toString().equals("always")) {
+					customPluginExecute = CustomPluginExecuteValues.ALWAYS;
+				} else if(customPluginExecuteWhenOptions.getSelectedItem().toString().equals("when request/response contains plaintext")) {
+					customPluginExecute = CustomPluginExecuteValues.PLAINTEXT;
+				} else {
+					customPluginExecute = CustomPluginExecuteValues.REGEX;
+				}
+			}
+			
+			// Plugin platform (JButton only)
+			int pluginPlatform = 0;
+			if(pluginType == CustomPlugin.CustomPluginType.JBUTTON) {
+				if(customPluginButtonTypeRadioIos.isSelected()) {
+					pluginPlatform = PLATFORM_IOS;
+				} else if(customPluginButtonTypeRadioAndroid.isSelected()) {
+					pluginPlatform = PLATFORM_ANDROID;
+				} else {
+					pluginPlatform = PLATFORM_GENERIC;
+				}
+			}
+			
+			// Hook or function (JButton only)
+			boolean hookOrFunction = false;
+			if(pluginType == CustomPlugin.CustomPluginType.JBUTTON) {
+				if(customPluginButtonTypeRadioFunction.isSelected()) {
+					hookOrFunction = false;
+				} else {
+					hookOrFunction = true;
+				}
+			}
+			
+			// Parameters
+			CustomPluginParameterValues customPluginParameter = null;
+			if(customPluginParametersOptions.getSelectedItem().toString().equals("none")) {
+				customPluginParameter = CustomPlugin.CustomPluginParameterValues.NONE;
+			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("complete request/response")) {
+				customPluginParameter = CustomPlugin.CustomPluginParameterValues.COMPLETE;
+			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("headers")) {
+				customPluginParameter = CustomPlugin.CustomPluginParameterValues.HEADERS;
+			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("body")) {
+				customPluginParameter = CustomPlugin.CustomPluginParameterValues.BODY;
+			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("highlighted value in request/response")) {
+				customPluginParameter = CustomPlugin.CustomPluginParameterValues.CONTEXT;
+			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("regex (with parenthesis)")) {
+				customPluginParameter = CustomPlugin.CustomPluginParameterValues.REGEX;
+			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("fixed (#,# as separator)")) {
+				customPluginParameter = CustomPlugin.CustomPluginParameterValues.FIXED;
+			} else {
+				customPluginParameter = CustomPlugin.CustomPluginParameterValues.POPUP;
+			}
+			
+			// Parameter encoding
+			CustomPlugin.CustomPluginEncodingValues customPluginParameterEncoding = null;
+			if(customPluginParameterEncodingRadioPlain.isSelected()) {
+				customPluginParameterEncoding = CustomPlugin.CustomPluginEncodingValues.PLAIN;
+			} else if(customPluginParameterEncodingRadioBase64.isSelected()) {
+				customPluginParameterEncoding = CustomPlugin.CustomPluginEncodingValues.BASE64;
+			} else {
+				customPluginParameterEncoding = CustomPlugin.CustomPluginEncodingValues.ASCII_HEX;
+			}
+			
+			// Decode Frida output
+			CustomPlugin.CustomPluginEncodingValues customPluginOutputDecoding = null;
+			if(customPluginOutputDecodingRadioNone.isSelected()) {
+				customPluginOutputDecoding = CustomPlugin.CustomPluginEncodingValues.PLAIN;
+			} else if(customPluginOutputDecodingRadioBase64.isSelected()) {
+				customPluginOutputDecoding = CustomPlugin.CustomPluginEncodingValues.BASE64;
+			} else {
+				customPluginOutputDecoding = CustomPlugin.CustomPluginEncodingValues.ASCII_HEX;
+			}
+			
+			// Plugin output
+			CustomPluginFunctionOutputValues customPluginFunctionOutput = null;
+			if(customPluginOutputOptions.getSelectedItem().toString().equals("print in Brida console")) {
+				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.BRIDA;
+			} else if(customPluginOutputOptions.getSelectedItem().toString().equals("replace highlighted value in request/response")) {
+				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.CONTEXT;
+			} else if(customPluginOutputOptions.getSelectedItem().toString().equals("replace in request/response with regex (with parenthesys)")) {
+				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.REGEX;
+			} else {
+				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.MESSAGE_EDITOR;
+			}
+			
+			// Encode output
+			CustomPlugin.CustomPluginEncodingValues customPluginOutputEncoding = null;
+			if(customPluginOutputEncodingRadioNone.isSelected()) {
+				customPluginOutputEncoding = CustomPlugin.CustomPluginEncodingValues.PLAIN;
+			} else if(customPluginOutputEncodingRadioBase64.isSelected()) {
+				customPluginOutputEncoding = CustomPlugin.CustomPluginEncodingValues.BASE64;
+			} else {
+				customPluginOutputEncoding = CustomPlugin.CustomPluginEncodingValues.ASCII_HEX;
+			}
+			
+			// Encode value edited message before passing to Frida function executed on edited content (IMessageEditorTab only)
+			CustomPlugin.CustomPluginEncodingValues customPluginFridaInputEncodingEditedContent = null;
+			if(pluginType == CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB) {
+				if(customPluginMessageEditorModifiedEncodingInputFridaRadioNone.isSelected()) {
+					customPluginFridaInputEncodingEditedContent = CustomPlugin.CustomPluginEncodingValues.PLAIN;
+				} else if(customPluginMessageEditorModifiedEncodingInputFridaRadioBase64.isSelected()) {
+					customPluginFridaInputEncodingEditedContent = CustomPlugin.CustomPluginEncodingValues.BASE64;
+				} else {
+					customPluginFridaInputEncodingEditedContent = CustomPlugin.CustomPluginEncodingValues.ASCII_HEX;
+				}
+			}
+			
+			// Decode output of Frida function executed on edited content (IMessageEditorTab only)
+			CustomPlugin.CustomPluginEncodingValues customPluginOutputDecodingEditedContent = null;
+			if(pluginType == CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB) {
+				if(customPluginOutputMessageEditorModifiedDecodingRadioNone.isSelected()) {
+					customPluginOutputDecodingEditedContent = CustomPlugin.CustomPluginEncodingValues.PLAIN;
+				} else if(customPluginOutputMessageEditorModifiedDecodingRadioBase64.isSelected()) {
+					customPluginOutputDecodingEditedContent = CustomPlugin.CustomPluginEncodingValues.BASE64;
+				} else {
+					customPluginOutputDecodingEditedContent = CustomPlugin.CustomPluginEncodingValues.ASCII_HEX;
+				}
+			}
+			
+			// Message editor output location (IMessageEditorTab only)
+			BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation customPluginEditedMessageOutputLocation = null;
+			if(pluginType == CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB) {
+				if(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString().equals("Discard (view only mode)")) {
+					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.NONE;
+				} else if(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString().equals("Print in Brida console and return original request/response")) {
+					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.CONSOLE;
+				} else if(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString().equals("Replace complete request/response")) {
+					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.COMPLETE;
+				} else if(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString().equals("Replace request/response body")) {
+					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.BODY;
+				} else {
+					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.REGEX;
+				}
+			}
+			
+			// Encode output of Frida function executed on edited content (IMessageEditorTab only)
+			CustomPlugin.CustomPluginEncodingValues customPluginEditedFunctionOutputEncoding = null;
+			if(pluginType == CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB) {
+				if(customPluginMessageEditorModifiedOutputEncodingRadioNone.isSelected()) {
+					customPluginEditedFunctionOutputEncoding = CustomPlugin.CustomPluginEncodingValues.PLAIN;
+				} else if(customPluginMessageEditorModifiedOutputEncodingRadioBase64.isSelected()) {
+					customPluginEditedFunctionOutputEncoding = CustomPlugin.CustomPluginEncodingValues.BASE64;
+				} else {
+					customPluginEditedFunctionOutputEncoding = CustomPlugin.CustomPluginEncodingValues.ASCII_HEX;
+				}
+			}
+			
+			CustomPlugin newCustomPlugin;
+			if(pluginType == CustomPlugin.CustomPluginType.IHTTPLISTENER) {
+				BridaHttpListenerPlugin newPlugin = new BridaHttpListenerPlugin(customPluginTools,
+						customPluginScopeCheckBox.isSelected(),
+						this,
+						customPluginNameText.getText(),
+						customPluginExportNameText.getText(),
+						customPluginExecuteOn,
+						customPluginExecuteOnStringParameter.getText(),
+						customPluginExecute,
+						customPluginExecuteWhenText.getText(),
+						customPluginParameter,
+						customPluginParametersText.getText(),
+						customPluginParameterEncoding,
+						customPluginFunctionOutput,
+						customPluginOutputText.getText(),
+						customPluginOutputEncoding,
+						customPluginOutputDecoding);
+				
+				newCustomPlugin = newPlugin;
+								
+			} else if(pluginType == CustomPlugin.CustomPluginType.ICONTEXTMENU) {
+				BridaContextMenuPlugin newPlugin = new BridaContextMenuPlugin(this,
+						customPluginNameText.getText(),
+						customPluginExportNameText.getText(),
+						customPluginExecuteOn,
+						customPluginExecuteOnStringParameter.getText(),
+						customPluginParameter,
+						customPluginParametersText.getText(),
+						customPluginParameterEncoding,
+						customPluginFunctionOutput,
+						customPluginOutputText.getText(),
+						customPluginOutputEncoding,
+						customPluginOutputDecoding);
+				
+				newCustomPlugin = newPlugin;
+								
+			} else if(pluginType == CustomPlugin.CustomPluginType.JBUTTON) {
+				BridaButtonPlugin newPlugin = new BridaButtonPlugin(pluginPlatform,
+						hookOrFunction,
+						this,
+						customPluginNameText.getText(),
+						customPluginExportNameText.getText(),
+						customPluginExecuteOn,
+						customPluginExecuteOnStringParameter.getText(),
+						customPluginParameter,
+						customPluginParametersText.getText(),
+						customPluginParameterEncoding,
+						customPluginFunctionOutput,
+						customPluginOutputText.getText(),
+						customPluginOutputEncoding,
+						customPluginOutputDecoding);
+				
+				newCustomPlugin = newPlugin;
+								
+			} else {
+				
+				BridaMessageEditorPlugin newPlugin = new BridaMessageEditorPlugin(customPluginEditedMessageOutputLocation,
+						customPluginMessageEditorModifiedOutputLocationText.getText(),
+						customPluginFridaInputEncodingEditedContent,
+						customPluginOutputDecodingEditedContent,
+						customPluginMessageEditorModifiedFridaExportNameText.getText(),
+						customPluginEditedFunctionOutputEncoding,
+						this,
+						customPluginNameText.getText(),
+						customPluginExportNameText.getText(),
+						customPluginExecuteOn,
+						customPluginExecuteOnStringParameter.getText(),
+						customPluginExecute,
+						customPluginExecuteWhenText.getText(),
+						customPluginParameter,
+						customPluginParametersText.getText(),
+						customPluginParameterEncoding,
+						customPluginFunctionOutput,
+						customPluginOutputText.getText(),
+						customPluginOutputEncoding,
+						customPluginOutputDecoding);
+				
+				newCustomPlugin = newPlugin;
+								
+			}
+			
+			List<CustomPlugin> customPlugins = ((CustomPluginsTableModel)(customPluginsTable.getModel())).getCustomPlugins();
+			synchronized(customPlugins) {
+				int customPluginsOldSize = customPlugins.size();
+				customPlugins.add(newCustomPlugin);
+				((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsInserted(customPluginsOldSize, customPlugins.size() - 1);
+			}			
+						
 		}
 		
 	}
@@ -2174,7 +3111,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
 	}
 	
-	static String byteArrayToHexString(byte[] raw) {
+	public static String byteArrayToHexString(byte[] raw) {
         StringBuilder sb = new StringBuilder(2 + raw.length * 2);
         for (int i = 0; i < raw.length; i++) {
             sb.append(String.format("%02X", Integer.valueOf(raw[i] & 0xFF)));
@@ -2182,7 +3119,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
         return sb.toString();
     }
 	
-	private static byte[] hexStringToByteArray(String hex) {
+	public static byte[] hexStringToByteArray(String hex) {
         byte[] b = new byte[hex.length() / 2];
         for (int i = 0; i < b.length; i++){
           int index = i * 2;
@@ -2766,6 +3703,163 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
 	}
 	
+	public boolean removeButtonFromHooksAndFunctions(JPanel buttonPanelToRemove, DefaultHook dh) {
+		
+		// Disable the hook, if enabled and if possible
+		if(dh.isEnabled() && dh.isInterceptorHook() && applicationSpawned) {
+			printException(null,"Could not unload a single hook while application is running. Detach hook first by stopping application or by detatching all the hooks and then remove the button");
+			return false;
+		} else if(dh.isEnabled() && dh.isInterceptorHook()) {
+			printSuccessMessage("Hook " + dh.getName() + " is enabled. It will be disabled.");
+			dh.setEnabled(false);
+		}
+		
+		// Removing the button
+		if(dh.getOs() == BurpExtender.PLATFORM_ANDROID) {
+			SwingUtilities.invokeLater(new Runnable() {
+	            @Override
+	            public void run() {
+	            	androidHooksPanel.remove(buttonPanelToRemove);
+	            	androidHooksPanel.revalidate();
+	            	androidHooksPanel.repaint();
+	            }
+			});
+		} else if(dh.getOs() == BurpExtender.PLATFORM_IOS) {
+			SwingUtilities.invokeLater(new Runnable() {
+	            @Override
+	            public void run() {
+	            	iOSHooksPanel.remove(buttonPanelToRemove);
+	            	iOSHooksPanel.revalidate();
+	            	iOSHooksPanel.repaint();
+	            }
+			});
+		} else {
+			SwingUtilities.invokeLater(new Runnable() {
+	            @Override
+	            public void run() {
+	            	genericHooksPanel.remove(buttonPanelToRemove);
+	            	genericHooksPanel.revalidate();
+	            	genericHooksPanel.repaint();
+	            }
+			});
+		}
+		
+		defaultHooks.remove(dh);
+		return true;
+		
+	}	
+	
+	public JPanel addButtonToHooksAndFunctions(DefaultHook dh) {
+    	
+        JLabel tempHookLabel = new JLabel(dh.getName());                    
+        
+        JPanel lineJPanel = new JPanel();
+        lineJPanel.setLayout(new BoxLayout(lineJPanel, BoxLayout.X_AXIS));
+        lineJPanel.setAlignmentX(Component.LEFT_ALIGNMENT);     
+        
+        if(dh.isInterceptorHook()) {
+        
+            final JToggleButton tempHookToggleButton = new JToggleButton("Enable",false);
+            tempHookToggleButton.addActionListener(new ActionListener() {
+            	public void actionPerformed(ActionEvent actionEvent) {
+            		
+            		// Enabling hook
+            		if(tempHookToggleButton.isSelected()) {
+            			
+            			if(applicationSpawned) {
+            				            				
+            				// Call hook
+            				try {
+            					pyroBridaService.call("callexportfunction",dh.getFridaExportName(),new String[0]);
+                				printSuccessMessage("Hook " + dh.getName() + " ENABLED");
+                				dh.setEnabled(true);
+							} catch (Exception e) {
+								printException(e,"Error while enabling hook " + dh.getName());
+							} 
+            			} else {
+            				
+            				printSuccessMessage("Hook " + dh.getName() + " ENABLED");
+            				dh.setEnabled(true);
+            				
+            			}
+            		
+            		// Disabling hook	
+            		} else {
+            			
+            			if(applicationSpawned) {
+            			
+            				printException(null,"It is not possible to detach a single hook while app is running (you can detach ALL the hooks with the \"Detach all\" button)");
+                			tempHookToggleButton.setSelected(true);
+                			
+            			} else {
+            				
+                			printSuccessMessage("Hook " + dh.getName() + " DISABLED");
+                			dh.setEnabled(false);
+            				
+            			}
+                			
+            		}
+            	}
+            });
+            
+            lineJPanel.add(tempHookToggleButton);
+            
+        } else {
+        	
+        	JButton tempHookButton = new JButton("Execute");
+        	tempHookButton.addActionListener(new ActionListener() {
+            	public void actionPerformed(ActionEvent actionEvent) {
+
+            		if(applicationSpawned) {
+	            		// Parameters
+	    				String[] currentParameters;
+	    				if(dh.isPopupParameters()) {
+	    					String parametersPopup = JOptionPane.showInputDialog("Enter parameter(s), delimited by \"#,#\"");
+	    					currentParameters = parametersPopup.split("#,#");
+	    					for(int i=0;i<currentParameters.length;i++) {
+        						currentParameters[i] = CustomPlugin.encodeCustomPluginValue(currentParameters[i].getBytes(),dh.getParametersEncoding());
+        					}
+	    				} else {
+        					// For cases different from POPUP parameters are already encoded	    					
+	    					currentParameters = dh.getParameters();
+	    				}
+	    				// Call exported function
+	    				try {
+	    					printJSMessage("*** Output " + dh.getName() + ":");
+	    					String ret = (String)pyroBridaService.call("callexportfunction",dh.getFridaExportName(),currentParameters);
+	    					printJSMessage("* Ret value: " + ret);
+						} catch (Exception e) {
+							printException(e,"Error while running function " + dh.getName());
+						} 	  
+            		} else {
+            			
+            			printException(null,"Error, start Pyro server and spawn application first.");
+            			
+            		}
+            	}
+            	
+        	});
+        	
+            lineJPanel.add(tempHookButton);
+        	
+        }
+        
+        lineJPanel.add(tempHookLabel);                    
+        
+        if(dh.getOs() == BurpExtender.PLATFORM_ANDROID) {
+        	androidHooksPanel.add(lineJPanel);
+        } else if(dh.getOs() == BurpExtender.PLATFORM_IOS) {
+        	iOSHooksPanel.add(lineJPanel);
+        } else {
+        	genericHooksPanel.add(lineJPanel);
+        }
+        
+        defaultHooks.add(dh);
+        
+        return lineJPanel;
+        
+	}
+	
 }
 
-		
+		 

@@ -7,13 +7,19 @@ public class DefaultHook {
 	private String fridaExportName;
 	private boolean isInterceptorHook;
 	private boolean isEnabled;
+	private String[] parameters;
+	private CustomPlugin.CustomPluginEncodingValues parametersEncoding;
+	private boolean popupParameters;
 		
-	public DefaultHook(String name, int os, String code, boolean isInterceptorHook) {
+	public DefaultHook(String name, int os, String code, boolean isInterceptorHook, String[] parameters, CustomPlugin.CustomPluginEncodingValues parametersEncoding, boolean popupParameters) {
 		this.name = name;
 		this.os = os;
 		this.fridaExportName = code;
 		this.isInterceptorHook = isInterceptorHook;
 		this.isEnabled = false;
+		this.parameters = parameters;
+		this.parametersEncoding = parametersEncoding;
+		this.popupParameters = popupParameters;
 	}
 	public boolean isInterceptorHook() {
 		return isInterceptorHook;
@@ -44,6 +50,25 @@ public class DefaultHook {
 	}
 	public void setFridaExportName(String fridaExportName) {
 		this.fridaExportName = fridaExportName;
+	}
+	public String[] getParameters() {
+		return parameters;
+	}
+	public void setParameters(String[] parameters) {
+		this.parameters = parameters;
+	}
+	public boolean isPopupParameters() {
+		return popupParameters;
+	}
+	public void setPopupParameters(boolean popupParameters) {
+		this.popupParameters = popupParameters;
+	}
+	public CustomPlugin.CustomPluginEncodingValues getParametersEncoding() {
+		return parametersEncoding;
+	}
+	public void setParametersEncoding(CustomPlugin.CustomPluginEncodingValues parametersEncoding) {
+		this.parametersEncoding = parametersEncoding;
 	}	
+	
 
 }
