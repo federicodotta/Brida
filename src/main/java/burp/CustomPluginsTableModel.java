@@ -54,8 +54,7 @@ public class CustomPluginsTableModel  extends AbstractTableModel {
 					return null;
 				}
 			case 5:
-				// TODO TO be implemented in future
-				return null;
+				return "EDIT";
 			case 6:
 				return "REMOVE";			
 			default:

@@ -76,6 +76,7 @@ public abstract class CustomPlugin {
     
     public abstract void enable();
     public abstract void disable();
+    public abstract String exportPlugin();
     	
     public static enum CustomPluginType {
     	IHTTPLISTENER,

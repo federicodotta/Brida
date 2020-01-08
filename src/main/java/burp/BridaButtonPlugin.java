@@ -1,5 +1,7 @@
 package burp;
 
+import java.util.Base64;
+
 import javax.swing.JPanel;
 
 public class BridaButtonPlugin extends CustomPlugin {
@@ -33,6 +35,32 @@ public class BridaButtonPlugin extends CustomPlugin {
 	}
 	
 	@Override
+	public String exportPlugin() {
+		
+		String result = "";
+		
+		result = result + getType().ordinal() + ";";
+		
+		result = result + hookOrFunction.getOs() + ";";
+		result = result + hookOrFunction.isInterceptorHook() + ";";
+		
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginName().getBytes()) + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginExportedFunctionName().getBytes()) + ";";
+		result = result + getCustomPluginExecuteOn().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginExecuteOnContextName().getBytes()) + ";";
+		result = result + getCustomPluginParameter().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginParameterString().getBytes()) + ";";
+		result = result + getCustomPluginParameterEncoding().ordinal() + ";";		
+		result = result + getCustomPluginFunctionOutput().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginFunctionOutputString().getBytes()) + ";";
+		result = result + getCustomPluginOutputEncoding().ordinal() + ";";
+		result = result + getCustomPluginOutputDecoding().ordinal();
+				
+		return result;
+		
+	}
+	
+	@Override
 	public void enable() {
 		buttonPanel = getMainPlugin().addButtonToHooksAndFunctions(hookOrFunction);
 		setOnOff(true);
@@ -48,5 +76,15 @@ public class BridaButtonPlugin extends CustomPlugin {
 			}
 		}
 	}
+
+	public DefaultHook getHookOrFunction() {
+		return hookOrFunction;
+	}
+
+	public void setHookOrFunction(DefaultHook hookOrFunction) {
+		this.hookOrFunction = hookOrFunction;
+	}
+	
+	
 
 }

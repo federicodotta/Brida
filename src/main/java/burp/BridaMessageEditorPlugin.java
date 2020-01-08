@@ -2,6 +2,7 @@ package burp;
 
 import java.awt.Component;
 import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -52,7 +53,6 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 				customPluginOutputEncoding,
 				customPluginOutputDecoding);
                 
-        this.setType(CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB);
         this.tabCaption = customPluginFunctionOutputString;        
         this.customPluginEditedContentLocation = customPluginEditedContentLocation;
         this.customPluginEditedContentLocationString = customPluginEditedContentLocationString;
@@ -61,6 +61,38 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
         this.customPluginEditedContentFridaFunctionName = customPluginEditedContentFridaFunctionName;
         this.customPluginEditedContentOutputEncoding = customPluginEditedContentOutputEncoding;
         
+        this.setType(CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB);
+        
+	}
+	
+	@Override
+	public String exportPlugin() {
+		
+		String result = "";
+		
+		result = result + getType().ordinal() + ";";
+		result = result + customPluginEditedContentLocation.ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(customPluginEditedContentLocationString.getBytes()) + ";";
+		result = result + customPluginEditedContentEncodingFridaInput.ordinal() + ";";
+		result = result + customPluginEditedContentFridaOutputDecoding.ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(customPluginEditedContentFridaFunctionName.getBytes()) + ";";
+		result = result + customPluginEditedContentOutputEncoding.ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginName().getBytes()) + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginExportedFunctionName().getBytes()) + ";";
+		result = result + getCustomPluginExecuteOn().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginExecuteOnContextName().getBytes()) + ";";
+		result = result + getCustomPluginExecute().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginExecuteString().getBytes()) + ";";
+		result = result + getCustomPluginParameter().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginParameterString().getBytes()) + ";";
+		result = result + getCustomPluginParameterEncoding().ordinal() + ";";		
+		result = result + getCustomPluginFunctionOutput().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginFunctionOutputString().getBytes()) + ";";
+		result = result + getCustomPluginOutputEncoding().ordinal() + ";";
+		result = result + getCustomPluginOutputDecoding().ordinal();
+				
+		return result;
+		
 	}
 	
 	public void enable() {
@@ -304,6 +336,60 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 			}
 		}
 	
-    }	
+    }
+
+	public CustomPluginEncodingValues getCustomPluginEditedContentEncodingFridaInput() {
+		return customPluginEditedContentEncodingFridaInput;
+	}
+
+	public void setCustomPluginEditedContentEncodingFridaInput(
+			CustomPluginEncodingValues customPluginEditedContentEncodingFridaInput) {
+		this.customPluginEditedContentEncodingFridaInput = customPluginEditedContentEncodingFridaInput;
+	}
+
+	public String getCustomPluginEditedContentLocationString() {
+		return customPluginEditedContentLocationString;
+	}
+
+	public void setCustomPluginEditedContentLocationString(String customPluginEditedContentLocationString) {
+		this.customPluginEditedContentLocationString = customPluginEditedContentLocationString;
+	}
+
+	public CustomPluginEncodingValues getCustomPluginEditedContentFridaOutputDecoding() {
+		return customPluginEditedContentFridaOutputDecoding;
+	}
+
+	public void setCustomPluginEditedContentFridaOutputDecoding(
+			CustomPluginEncodingValues customPluginEditedContentFridaOutputDecoding) {
+		this.customPluginEditedContentFridaOutputDecoding = customPluginEditedContentFridaOutputDecoding;
+	}
+
+	public String getCustomPluginEditedContentFridaFunctionName() {
+		return customPluginEditedContentFridaFunctionName;
+	}
+
+	public void setCustomPluginEditedContentFridaFunctionName(String customPluginEditedContentFridaFunctionName) {
+		this.customPluginEditedContentFridaFunctionName = customPluginEditedContentFridaFunctionName;
+	}
+
+	public CustomPluginEncodingValues getCustomPluginEditedContentOutputEncoding() {
+		return customPluginEditedContentOutputEncoding;
+	}
+
+	public void setCustomPluginEditedContentOutputEncoding(
+			CustomPluginEncodingValues customPluginEditedContentOutputEncoding) {
+		this.customPluginEditedContentOutputEncoding = customPluginEditedContentOutputEncoding;
+	}
+
+	public BridaMessageEditorPluginOutputLocation getCustomPluginEditedContentLocation() {
+		return customPluginEditedContentLocation;
+	}
+
+	public void setCustomPluginEditedContentLocation(
+			BridaMessageEditorPluginOutputLocation customPluginEditedContentLocation) {
+		this.customPluginEditedContentLocation = customPluginEditedContentLocation;
+	}
+    
+    
 
 }

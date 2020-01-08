@@ -1,6 +1,7 @@
 package burp;
 
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,6 +28,42 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 		this.processOnlyInScope = processOnlyInScope;
 		
 		this.setType(CustomPlugin.CustomPluginType.IHTTPLISTENER);
+		
+	}
+    
+    @Override
+	public String exportPlugin() {
+		
+		String result = "";
+		
+		result = result + getType().ordinal() + ";";
+		
+		String pluginTools = "";
+		for(int i=0;i<customPluginTools.size();i++) {
+			pluginTools = pluginTools + customPluginTools.get(i) + ",";
+		}
+		if(customPluginTools.size() > 0) {
+			pluginTools = pluginTools.substring(0,pluginTools.length()-1);
+		}
+		
+		result = result + pluginTools + ";";
+		result = result + processOnlyInScope + ";";		
+		
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginName().getBytes()) + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginExportedFunctionName().getBytes()) + ";";
+		result = result + getCustomPluginExecuteOn().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginExecuteOnContextName().getBytes()) + ";";
+		result = result + getCustomPluginExecute().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginExecuteString().getBytes()) + ";";
+		result = result + getCustomPluginParameter().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginParameterString().getBytes()) + ";";
+		result = result + getCustomPluginParameterEncoding().ordinal() + ";";		
+		result = result + getCustomPluginFunctionOutput().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginFunctionOutputString().getBytes()) + ";";
+		result = result + getCustomPluginOutputEncoding().ordinal() + ";";
+		result = result + getCustomPluginOutputDecoding().ordinal();
+				
+		return result;
 		
 	}
     
@@ -129,7 +166,13 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 	public void setCustomPluginTools(ArrayList<Integer> customPluginTools) {
 		this.customPluginTools = customPluginTools;
 	}
-	
-	
 
+	public boolean isProcessOnlyInScope() {
+		return processOnlyInScope;
+	}
+
+	public void setProcessOnlyInScope(boolean processOnlyInScope) {
+		this.processOnlyInScope = processOnlyInScope;
+	}
+	
 }

@@ -4,6 +4,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,6 +29,29 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 				customPluginFunctionOutputString, customPluginOutputEncoding, customPluginOutputDecoding);
 
 		this.setType(CustomPlugin.CustomPluginType.ICONTEXTMENU);
+		
+	}
+	
+	@Override
+	public String exportPlugin() {
+		
+		String result = "";
+		
+		result = result + getType().ordinal() + ";";
+		
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginName().getBytes()) + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginExportedFunctionName().getBytes()) + ";";
+		result = result + getCustomPluginExecuteOn().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginExecuteOnContextName().getBytes()) + ";";
+		result = result + getCustomPluginParameter().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginParameterString().getBytes()) + ";";
+		result = result + getCustomPluginParameterEncoding().ordinal() + ";";		
+		result = result + getCustomPluginFunctionOutput().ordinal() + ";";
+		result = result + Base64.getEncoder().encodeToString(getCustomPluginFunctionOutputString().getBytes()) + ";";
+		result = result + getCustomPluginOutputEncoding().ordinal() + ";";
+		result = result + getCustomPluginOutputDecoding().ordinal();
+				
+		return result;
 		
 	}
 	
