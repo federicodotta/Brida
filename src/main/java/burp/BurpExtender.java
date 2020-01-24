@@ -65,6 +65,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.LineBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultStyledDocument;
@@ -107,6 +108,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	private String pythonScript;
 	public JTextField pyroHost;
 	public JTextField pyroPort;
+	private JTextField fridaCompilePath;
 	private JTextPane serverStatus;
 	private JTextPane applicationStatus;
 	private JTextField fridaPath;
@@ -505,26 +507,48 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 pyroPort.setMaximumSize( pyroPort.getPreferredSize() );
                 pyroPortPanel.add(labelPyroPort);
                 pyroPortPanel.add(pyroPort);
-                                
+                
+                JPanel fridaCompilePathPanel = new JPanel();
+                fridaCompilePathPanel.setLayout(new BoxLayout(fridaCompilePathPanel, BoxLayout.X_AXIS));
+                fridaCompilePathPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
+                JLabel labelFridaCompilePath = new JLabel("frida-compile path: ");
+                fridaCompilePath = new JTextField(200);                
+                if(callbacks.loadExtensionSetting("fridaCompilePath") != null)
+                	fridaCompilePath.setText(callbacks.loadExtensionSetting("fridaCompilePath"));
+                else {
+                	if(System.getProperty("os.name").startsWith("Windows")) {
+                		fridaCompilePath.setText("C:\\Users\\test\\node_modules\\.bin\\frida-compile.cmd");
+                	} else {
+                		fridaCompilePath.setText("/usr/local/lib/node_modules/.bin/frida-compile");
+                	}
+                }
+                fridaCompilePath.setMaximumSize( fridaCompilePath.getPreferredSize() );
+                JButton fridaCompilePathButton = new JButton("Select file");
+                fridaCompilePathButton.setActionCommand("fridaCompilePathSelectFile");
+                fridaCompilePathButton.addActionListener(BurpExtender.this);
+                fridaCompilePathPanel.add(labelFridaCompilePath);
+                fridaCompilePathPanel.add(fridaCompilePath);
+                fridaCompilePathPanel.add(fridaCompilePathButton);
+ 
                 JPanel fridaPathPanel = new JPanel();
                 fridaPathPanel.setLayout(new BoxLayout(fridaPathPanel, BoxLayout.X_AXIS));
                 fridaPathPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelFridaPath = new JLabel("Frida JS file path: ");
+                JLabel labelFridaPath = new JLabel("Frida JS file folder: ");
                 fridaPath = new JTextField(200);                
                 if(callbacks.loadExtensionSetting("fridaPath") != null)
                 	fridaPath.setText(callbacks.loadExtensionSetting("fridaPath"));
                 else {                	
                 	if(System.getProperty("os.name").startsWith("Windows")) {
-                		fridaPath.setText("C:\\burp\\script.js");
+                		fridaPath.setText("C:\\burp\\brida\\");
                 	} else {
-                		fridaPath.setText("/opt/burp/script.js");
+                		fridaPath.setText("/opt/burp/brida/");
                 	}
                 }
                 fridaPath.setMaximumSize( fridaPath.getPreferredSize() );
-                JButton fridaPathButton = new JButton("Select file");
+                JButton fridaPathButton = new JButton("Select folder");
                 fridaPathButton.setActionCommand("fridaPathSelectFile");
                 fridaPathButton.addActionListener(BurpExtender.this);
-                JButton fridaDefaultPathButton = new JButton("Load default JS file");
+                JButton fridaDefaultPathButton = new JButton("Load default JS files");
                 fridaDefaultPathButton.setActionCommand("fridaPathSelectDefaultFile");
                 fridaDefaultPathButton.addActionListener(BurpExtender.this);
                 fridaPathPanel.add(labelFridaPath);
@@ -569,6 +593,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 configurationConfPanel.add(pythonPathPanel);
                 configurationConfPanel.add(pyroHostPanel);
                 configurationConfPanel.add(pyroPortPanel);
+                configurationConfPanel.add(fridaCompilePathPanel);
                 configurationConfPanel.add(fridaPathPanel);
                 configurationConfPanel.add(applicationIdPanel);  
                 configurationConfPanel.add(localRemotePanel);
@@ -1243,6 +1268,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 spawnApplication.setActionCommand("spawnApplication");
                 spawnApplication.addActionListener(BurpExtender.this);   
                 
+                JButton compileSpawnApplication = new JButton("Compile & Spawn");
+                compileSpawnApplication.setActionCommand("compileSpawnApplication");
+                compileSpawnApplication.addActionListener(BurpExtender.this);  
+                
                 JButton killApplication = new JButton("Kill application");
                 killApplication.setActionCommand("killApplication");
                 killApplication.addActionListener(BurpExtender.this);
@@ -1250,6 +1279,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 JButton reloadScript = new JButton("Reload JS");
                 reloadScript.setActionCommand("reloadScript");
                 reloadScript.addActionListener(BurpExtender.this); 
+                
+                JButton compileReloadScript = new JButton("Compile & reload JS");
+                compileReloadScript.setActionCommand("compileReloadScript");
+                compileReloadScript.addActionListener(BurpExtender.this); 
                 
                 clearConsoleButton = new JButton("Clear console");
                 clearConsoleButton.setActionCommand("clearConsole");
@@ -1311,8 +1344,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
                 rightSplitPane.add(startServer,gbc);
                 rightSplitPane.add(killServer,gbc);
                 rightSplitPane.add(spawnApplication,gbc);
+                rightSplitPane.add(compileSpawnApplication,gbc);
                 rightSplitPane.add(killApplication,gbc);
                 rightSplitPane.add(reloadScript,gbc);
+                rightSplitPane.add(compileReloadScript,gbc);                
                 rightSplitPane.add(clearConsoleButton,gbc);
 
                 rightSplitPane.add(separator,gbc);
@@ -2229,6 +2264,46 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
 	}	
 	
+	private boolean compileFridaCode(String fridaCompilePath, String fridaJsFolder) {
+		
+		Runtime rt = Runtime.getRuntime();
+
+		String[] fridaCompileCommand = {fridaCompilePath,"-x","-o",fridaJsFolder + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",fridaJsFolder + System.getProperty("file.separator") + "brida.js"};
+		
+		Process processCompilation = null;
+		try {
+			processCompilation = rt.exec(fridaCompileCommand);
+			
+			BufferedReader stdInput = new BufferedReader(new InputStreamReader(processCompilation.getInputStream()));	
+			BufferedReader stdError = new BufferedReader(new InputStreamReader(processCompilation.getErrorStream()));
+		
+			String s = null;
+			while ((s = stdInput.readLine()) != null) {
+			    printJSMessage(s);
+			}
+		
+			// Read any errors from the attempted command
+			System.out.println("Here is the standard error of the command (if any):\n");
+			boolean hasExceptions = false;
+			while ((s = stdError.readLine()) != null) {
+			    printException(null,s);
+			    hasExceptions = true;
+			}
+			
+			if(!hasExceptions) {
+				printSuccessMessage("frida-compile completed successfully");
+				return true;
+			} else {
+				return false;
+			}
+			
+		} catch (IOException e) {
+			printException(e, "Exception during frida-compile");
+			return false;
+		}
+		
+	}
+	
 	private void launchPyroServer(String pythonPath, String pyroServicePath) {
 		
 		Runtime rt = Runtime.getRuntime();
@@ -2371,6 +2446,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		callbacks.saveExtensionSetting("pythonPath",pythonPath.getText().trim());
 		callbacks.saveExtensionSetting("pyroHost",pyroHost.getText().trim());
 		callbacks.saveExtensionSetting("pyroPort",pyroPort.getText().trim());
+		callbacks.saveExtensionSetting("fridaCompilePath",fridaCompilePath.getText().trim());
 		callbacks.saveExtensionSetting("fridaPath",fridaPath.getText().trim());
 		callbacks.saveExtensionSetting("applicationId",applicationId.getText().trim());
 		if(remoteRadioButton.isSelected()) {
@@ -2399,6 +2475,16 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 
 			
 			File outputFile = fileChooser.getSelectedFile();
+			
+			// Check if file already exists
+        	if(outputFile.exists()) {	        		
+        		JFrame parentDialogResult = new JFrame();
+        		int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "The file already exists. Would you like to overwrite it?","Warning",JOptionPane.YES_NO_OPTION);
+        		if(dialogResult != JOptionPane.YES_OPTION){
+        			return;
+        		}	        		
+        	}			
+			
 			FileWriter fw;
 			try {
 				fw = new FileWriter(outputFile);
@@ -2406,6 +2492,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				fw.write("pythonPath:" + pythonPath.getText().trim() + "\n");
 				fw.write("pyroHost:" + pyroHost.getText().trim() + "\n");
 				fw.write("pyroPort:" + pyroPort.getText().trim() + "\n");
+				fw.write("fridaCompilePath:" + fridaCompilePath.getText().trim() + "\n");
 				fw.write("fridaPath:" + fridaPath.getText().trim() + "\n");
 				fw.write("applicationId:" + applicationId.getText().trim() + "\n");
 				if(remoteRadioButton.isSelected()) 
@@ -2492,6 +2579,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 						case "pyroPort":
 							pyroPort.setText(lineParts[1]);
 							break;
+						case "fridaCompilePath":
+							fridaCompilePath.setText(lineParts[1]);
+							break;							
 						case "fridaPath":
 							fridaPath.setText(lineParts[1]);
 							break;
@@ -2540,6 +2630,74 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 			
 		}
+	}
+	
+	public void spawnApplication() {
+		
+		try {
+			
+			// pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim(),remoteRadioButton.isSelected());
+			pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",remoteRadioButton.isSelected());
+
+			execute_startup_scripts();
+			
+			// Wait for 3 seconds in order to load hooks
+			Thread.sleep(3000);
+			
+			pyroBridaService.call("resume_application");				
+			
+			applicationSpawned = true;
+			
+			SwingUtilities.invokeLater(new Runnable() {
+				
+	            @Override
+	            public void run() {
+	            	
+	            	applicationStatus.setText("");
+	            	applicationStatusButtons.setText("");
+	            			            	
+	            	// Empty trapping table
+	            	List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
+	            	synchronized(trapEntries) {
+	            		int trapEntryOldSize = trapEntries.size();
+	            		if(trapEntryOldSize > 0) {
+	            			trapEntries.clear();
+	            			((TrapTableModel)(trapTable.getModel())).fireTableRowsDeleted(0, trapEntryOldSize - 1);
+	            		}
+	                }
+	            	
+	            	try {
+	                	documentApplicationStatus.insertString(0, "spawned", greenStyle);
+	                	documentApplicationStatusButtons.insertString(0, "App running", greenStyle);
+					} catch (BadLocationException e) {
+						printException(e,"Exception with labels");
+					}
+					
+	            }
+			});
+			
+			printSuccessMessage("Application " + applicationId.getText().trim() + " spawned correctly");
+			
+			// GETTING PLAFORM INFO (ANDROID/IOS/GENERIC)			
+			try {
+				platform = (int)(pyroBridaService.call("callexportfunction","getplatform",new String[] {}));
+				if(platform == BurpExtender.PLATFORM_ANDROID) {
+					printSuccessMessage("Platform: Android");					
+				} else if(platform == BurpExtender.PLATFORM_IOS) {
+					printSuccessMessage("Platform: iOS");
+				} else {
+					printSuccessMessage("Platform: Generic");
+				}
+			} catch (Exception e) {				
+				printException(e,"Exception with getting info Android/iOS");				
+			}
+			
+		} catch (final Exception e) {
+			
+			printException(e,"Exception with spawn application");
+			
+		}				
+		
 	}
 
 	public String getTabCaption() {
@@ -2602,71 +2760,27 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		
 		} else if(command.equals("spawnApplication") && serverStarted) {
 			
-			try {
+			if(!(new File(fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js")).exists()) {
 				
-				pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim(),remoteRadioButton.isSelected());
-				
-				execute_startup_scripts();
-				
-				// Wait for 3 seconds in order to load hooks
-				Thread.sleep(3000);
-				
-				pyroBridaService.call("resume_application");				
-				
-				applicationSpawned = true;
-				
-				SwingUtilities.invokeLater(new Runnable() {
-					
-		            @Override
-		            public void run() {
-		            	
-		            	applicationStatus.setText("");
-		            	applicationStatusButtons.setText("");
-		            			            	
-		            	// Empty trapping table
-		            	List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
-		            	synchronized(trapEntries) {
-		            		int trapEntryOldSize = trapEntries.size();
-		            		if(trapEntryOldSize > 0) {
-		            			trapEntries.clear();
-		            			((TrapTableModel)(trapTable.getModel())).fireTableRowsDeleted(0, trapEntryOldSize - 1);
-		            		}
-		                }
-		            	
-		            	try {
-		                	documentApplicationStatus.insertString(0, "spawned", greenStyle);
-		                	documentApplicationStatusButtons.insertString(0, "App running", greenStyle);
-						} catch (BadLocationException e) {
-							printException(e,"Exception with labels");
-						}
-						
-		            }
-				});
-				
-				printSuccessMessage("Application " + applicationId.getText().trim() + " spawned correctly");
-				
-				// GETTING PLAFORM INFO (ANDROID/IOS/GENERIC)			
-				try {
-					platform = (int)(pyroBridaService.call("callexportfunction","getplatform",new String[] {}));
-					if(platform == BurpExtender.PLATFORM_ANDROID) {
-						printSuccessMessage("Platform: Android");					
-					} else if(platform == BurpExtender.PLATFORM_IOS) {
-						printSuccessMessage("Platform: iOS");
-					} else {
-						printSuccessMessage("Platform: Generic");
-					}
-				} catch (Exception e) {				
-					printException(e,"Exception with getting info Android/iOS");				
+				// Brida compiled file does not exist. Compiling it...
+				if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+					return;
 				}
 				
-			} catch (final Exception e) {
-				
-				printException(e,"Exception with spawn application");
-				
-			}		
+			}
+			
+			spawnApplication();
+			
+		} else if(command.equals("compileSpawnApplication") && serverStarted) {
+			
+			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+				return;
+			}
+			
+			spawnApplication();
 			
 		} else if(command.equals("reloadScript") && serverStarted && applicationSpawned) {
-				
+							
 			try {
 				
 				pyroBridaService.call("reload_script");
@@ -2678,7 +2792,24 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				printException(e,"Exception reloading script");
 				
 			}
-	
+			
+		} else if(command.equals("compileReloadScript") && serverStarted && applicationSpawned) {
+			
+			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+				return;
+			}
+				
+			try {
+				
+				pyroBridaService.call("reload_script");
+				
+				printSuccessMessage("Reloading script executed");
+				
+			} catch (final Exception e) {
+								
+				printException(e,"Exception reloading script");
+				
+			}	
 						
 		} else if(command.equals("killApplication") && serverStarted && applicationSpawned) {
 			
@@ -2817,25 +2948,63 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			loadConfigurationsFromFile();			
 			
 		} else if(command.equals("loadJsFile")) {
+						
+			// There already is a loaded file
+			if(jsEditorTextArea.getFileName() != null) {				
+				// The content has been modified
+				if(jsEditorTextArea.isDirty()) {					       		
+	        		JFrame parentDialogResult = new JFrame();
+	        		Object[] dialogOptions = {"Yes","No"};
+	        		int dialogResult = JOptionPane.showOptionDialog(parentDialogResult, "The file in the editor has been modified. Would you like to discard changes and open a new file?","Warning",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE,null,dialogOptions,dialogOptions[1]);	        		
+	        		if(dialogResult != JOptionPane.YES_OPTION){
+	        			return;
+	        		}	        							
+				}				
+			}
 			
-			File jsFile = new File(fridaPath.getText().trim());
-			final FileLocation fl = FileLocation.create(jsFile);
+			JFrame parentFrameLoadJsFile = new JFrame();
+			JFileChooser fileChooserLoadJsFile = new JFileChooser();
+			fileChooserLoadJsFile.setDialogTitle("Load JS file");
+			fileChooserLoadJsFile.setCurrentDirectory(new File(fridaPath.getText().trim()));
+			FileNameExtensionFilter filterLoadJsFile = new FileNameExtensionFilter("JS file", "js");
+			fileChooserLoadJsFile.setFileFilter(filterLoadJsFile);
+	        int userSelectionLoadJsFile = fileChooserLoadJsFile.showOpenDialog(parentFrameLoadJsFile);
+	        
+	        if (userSelectionLoadJsFile == JFileChooser.APPROVE_OPTION) {
 			
-			SwingUtilities.invokeLater(new Runnable() {
+				File jsFile = fileChooserLoadJsFile.getSelectedFile();			
 				
-	            @Override
-	            public void run() {
-	            			            	
-	            	try {
-						jsEditorTextArea.load(fl, null);
-					} catch (IOException e) {
-						printException(e,"Exception loading JS file");
-					}
-
-	            }
-			});
+				final FileLocation fl = FileLocation.create(jsFile);
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+		            			            	
+		            	try {
+							jsEditorTextArea.load(fl, null);
+						} catch (IOException e) {
+							printException(e,"Exception loading JS file");
+						}
+	
+		            }
+				});
+				
+	        }
 						
 		} else if(command.equals("saveJsFile")) {
+			
+			/*
+			// The content of file has been modified outside Brida editor - Don't work correctly unfortunately...
+			if(jsEditorTextArea.isModifiedOutsideEditor()) {
+				
+				JFrame parentDialogResult = new JFrame();
+        		int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "The file has been modified has been modified outside Brida editor. Would you like to override it?","Warning",JOptionPane.YES_NO_OPTION);
+        		if(dialogResult != JOptionPane.YES_OPTION){
+        			return;
+        		}					
+			}
+			*/
 		
 			try {
 				jsEditorTextArea.save();
@@ -3167,13 +3336,37 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 				
 				});
 				
-			}				
+			}	
+			
+		} else if(command.equals("fridaCompilePathSelectFile")) {
+			
+			JFrame parentFrame = new JFrame();
+			JFileChooser fileChooser = new JFileChooser();
+			fileChooser.setDialogTitle("frida-compile path");
+			
+			int userSelection = fileChooser.showOpenDialog(parentFrame);
+			
+			if(userSelection == JFileChooser.APPROVE_OPTION) {
+				
+				final File fridaCompilePathFile = fileChooser.getSelectedFile();
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+		            	fridaCompilePath.setText(fridaCompilePathFile.getAbsolutePath());
+		            }
+				
+				});
+				
+			}		
 			
 		} else if(command.equals("fridaPathSelectFile")) {
 			
 			JFrame parentFrame = new JFrame();
 			JFileChooser fileChooser = new JFileChooser();
-			fileChooser.setDialogTitle("Frida JS Path");
+			fileChooser.setDialogTitle("Frida JS folder");
+			fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 			
 			int userSelection = fileChooser.showOpenDialog(parentFrame);
 			
@@ -3197,43 +3390,66 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			JFrame parentFrame = new JFrame();
 			JFileChooser fileChooser = new JFileChooser();
 			fileChooser.setDialogTitle("Select location for Frida default JS file");
+			fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+			
+			String[] bridaFiles = new String[] {
+				"brida.js",
+				"bridaFunctions.js",
+				"bridaPlaceholders.js",
+				"androidDefaultHooks.js",
+				"iosDefaultHooks.js"
+			};
 			
 			int userSelection = fileChooser.showSaveDialog(parentFrame);
 			
 			if(userSelection == JFileChooser.APPROVE_OPTION) {
 				
-				final File fridaPathFile = fileChooser.getSelectedFile();
+				final File fridaPathFolder = fileChooser.getSelectedFile();
 				
-				try {
-					InputStream inputStream = getClass().getClassLoader().getResourceAsStream("res/scriptBridaDefault.js");
-					BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream ));
-					File outputFile = fridaPathFile;
+				for(int i=0;i<bridaFiles.length;i++) {
 					
-					FileWriter fr = new FileWriter(outputFile);
-					BufferedWriter br  = new BufferedWriter(fr);
-					
-					String s;
-					while ((s = reader.readLine())!=null) {
+					try {
+
+						InputStream inputStream = getClass().getClassLoader().getResourceAsStream("res/" + bridaFiles[i]);
+						BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream ));
+						File outputFile = new File(fridaPathFolder.getAbsolutePath() + System.getProperty("file.separator") + bridaFiles[i]);
 						
-						br.write(s);
-						br.newLine();
+						// Check if file already exists
+			        	if(outputFile.exists()) {	        		
+			        		JFrame parentDialogResult = new JFrame();
+			        		int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "The file " + bridaFiles[i] + " already exists. Would you like to overwrite it?","Warning",JOptionPane.YES_NO_OPTION);
+			        		if(dialogResult != JOptionPane.YES_OPTION){
+			        			continue;
+			        		}	        		
+			        	}						
+						
+						FileWriter fr = new FileWriter(outputFile);
+						BufferedWriter br  = new BufferedWriter(fr);
+						
+						String s;
+						while ((s = reader.readLine())!=null) {
+							
+							br.write(s);
+							br.newLine();
+							
+						}
+						reader.close();
+						br.close();
+						
+						SwingUtilities.invokeLater(new Runnable() {
+							
+				            @Override
+				            public void run() {
+				            	fridaPath.setText(fridaPathFolder.getAbsolutePath());
+				            }
+						
+						});
+						
+					} catch(Exception e) {
+						
+						printException(e,"Error copying Frida " + bridaFiles[i] + " JS file");
 						
 					}
-					reader.close();
-					br.close();
-					
-					SwingUtilities.invokeLater(new Runnable() {
-						
-			            @Override
-			            public void run() {
-			            	fridaPath.setText(fridaPathFile.getAbsolutePath());
-			            }
-					
-					});
-					
-				} catch(Exception e) {
-					
-					printException(e,"Error copying Frida default JS file");
 					
 				}
 				
