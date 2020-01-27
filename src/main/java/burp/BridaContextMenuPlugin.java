@@ -203,7 +203,7 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 					
 			} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.CONTEXT) {
 				
-				int[] selectedBounds = getMainPlugin().currentInvocation.getSelectionBounds();
+				int[] selectedBounds = currentInvocation.getSelectionBounds();
 				
 				if(selectedInvocationContext == IContextMenuInvocation.CONTEXT_MESSAGE_EDITOR_REQUEST || selectedInvocationContext == IContextMenuInvocation.CONTEXT_MESSAGE_EDITOR_RESPONSE) {
 					

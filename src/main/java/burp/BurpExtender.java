@@ -23,7 +23,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Comparator;
@@ -46,7 +45,6 @@ import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
-import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
@@ -55,7 +53,6 @@ import javax.swing.JSeparator;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.JToggleButton;
@@ -76,7 +73,6 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 
-import org.apache.commons.lang3.ArrayUtils;
 import org.fife.ui.rsyntaxtextarea.FileLocation;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rsyntaxtextarea.TextEditorPane;
@@ -87,7 +83,7 @@ import burp.CustomPlugin.CustomPluginFunctionOutputValues;
 import burp.CustomPlugin.CustomPluginParameterValues;
 import net.razorvine.pyro.*;
 
-public class BurpExtender implements IBurpExtender, ITab, ActionListener, IContextMenuFactory, MouseListener, IExtensionStateListener {
+public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseListener, IExtensionStateListener {
 	
 	public static final int PLATFORM_ANDROID = 0;
 	public static final int PLATFORM_IOS = 1;
@@ -135,9 +131,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 	public boolean serverStarted;
 	public boolean applicationSpawned;
 	public boolean customPluginEnabled;
-	
-	public IContextMenuInvocation currentInvocation;
-	
+		
 	private ITextEditor stubTextEditor;
     
     private JButton executeMethodButton;
@@ -289,28 +283,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass without CA certificate, less reliable",BurpExtender.PLATFORM_ANDROID,"androidpinningwithoutca1",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Rooting check bypass",BurpExtender.PLATFORM_ANDROID,"androidrooting1",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Print keystores when they are opened",BurpExtender.PLATFORM_ANDROID,"androiddumpkeystore1",true,new String[] {},null,false));
-    	    	
-    	// Custom Android hooks
-    	addButtonToHooksAndFunctions(new DefaultHook("Custom Android hook 1",BurpExtender.PLATFORM_ANDROID,"customandroidhook1",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Custom Android hook 2",BurpExtender.PLATFORM_ANDROID,"customandroidhook2",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Custom Android hook 3",BurpExtender.PLATFORM_ANDROID,"customandroidhook3",true,new String[] {},null,false));
-    	
+    	  
     	// Default iOS hooks
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 10) *",BurpExtender.PLATFORM_IOS,"ios10pinning",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 11) *",BurpExtender.PLATFORM_IOS,"ios11pinning",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 12) *",BurpExtender.PLATFORM_IOS,"ios12pinning",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Jailbreaking check bypass **",BurpExtender.PLATFORM_IOS,"iosjailbreak",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Bypass TouchID (click \"Cancel\" when TouchID windows pops up)",BurpExtender.PLATFORM_IOS,"iosbypasstouchid",true,new String[] {},null,false));   	
-    	
-    	// Custom iOS hooks
-    	addButtonToHooksAndFunctions(new DefaultHook("Custom iOS hook 1",BurpExtender.PLATFORM_IOS,"customioshook1",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Custom iOS hook 2",BurpExtender.PLATFORM_IOS,"customioshook2",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Custom iOS hook 3",BurpExtender.PLATFORM_IOS,"customioshook3",true,new String[] {},null,false));
-    	
-    	// Custom generic hooks
-    	addButtonToHooksAndFunctions(new DefaultHook("Custom Generic hook 1",BurpExtender.PLATFORM_GENERIC,"customgenenrichook1",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Custom Generic hook 2",BurpExtender.PLATFORM_GENERIC,"customgenenrichook2",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Custom Generic hook 3",BurpExtender.PLATFORM_GENERIC,"customgenenrichook3",true,new String[] {},null,false));
     	
     	// Default iOS functions
     	addButtonToHooksAndFunctions(new DefaultHook("Dump keychain",BurpExtender.PLATFORM_IOS,"iosdumpkeychain",false,new String[] {},null,false));
@@ -330,10 +309,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
         
         // Set our extension name
         callbacks.setExtensionName("Brida");
-        
-        //register to produce options for the context menu
-        callbacks.registerContextMenuFactory(this);
-        
+                
         // register to execute actions on unload
         callbacks.registerExtensionStateListener(this);
         
@@ -3011,39 +2987,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			} catch (IOException e) {
 				printException(e,"Error saving JS file");
 			}
-					
-		} else if(command.equals("contextcustom1") || command.equals("contextcustom2")) {
-			
-			IHttpRequestResponse[] selectedItems = currentInvocation.getSelectedMessages();
-			int[] selectedBounds = currentInvocation.getSelectionBounds();
-			byte selectedInvocationContext = currentInvocation.getInvocationContext();
-			
-			try {
-				
-				byte[] selectedRequestOrResponse = null;
-				if(selectedInvocationContext == IContextMenuInvocation.CONTEXT_MESSAGE_EDITOR_REQUEST) {
-					selectedRequestOrResponse = selectedItems[0].getRequest();
-				} else {
-					selectedRequestOrResponse = selectedItems[0].getResponse();
-				}
-				
-				byte[] preSelectedPortion = Arrays.copyOfRange(selectedRequestOrResponse, 0, selectedBounds[0]);
-				byte[] selectedPortion = Arrays.copyOfRange(selectedRequestOrResponse, selectedBounds[0], selectedBounds[1]);
-				byte[] postSelectedPortion = Arrays.copyOfRange(selectedRequestOrResponse, selectedBounds[1], selectedRequestOrResponse.length);
-				
-				String s = (String)(pyroBridaService.call("callexportfunction",command,new String[]{byteArrayToHexString(selectedPortion)}));
-				
-				byte[] newRequest = ArrayUtils.addAll(preSelectedPortion, hexStringToByteArray(s));
-				newRequest = ArrayUtils.addAll(newRequest, postSelectedPortion);
-				
-				selectedItems[0].setRequest(newRequest);
-			
-			} catch (Exception e) {
-				
-				printException(e,"Exception with custom context application");
-				
-			}
-				
 
 		} else if(command.equals("loadTree")) {
 			
@@ -3269,51 +3212,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 		} else if(command.equals("trapBacktrace")) {	
 			
 			trap(true);	
-			
-		} else if(command.equals("contextcustom3") || command.equals("contextcustom4")) {
-			
-			IHttpRequestResponse[] selectedItems = currentInvocation.getSelectedMessages();
-			int[] selectedBounds = currentInvocation.getSelectionBounds();
-			byte selectedInvocationContext = currentInvocation.getInvocationContext();
-			
-			try {
-				
-				byte[] selectedRequestOrResponse = null;
-				if(selectedInvocationContext == IContextMenuInvocation.CONTEXT_MESSAGE_VIEWER_REQUEST) {
-					selectedRequestOrResponse = selectedItems[0].getRequest();
-				} else {
-					selectedRequestOrResponse = selectedItems[0].getResponse();
-				}
-				
-				byte[] selectedPortion = Arrays.copyOfRange(selectedRequestOrResponse, selectedBounds[0], selectedBounds[1]);
-				
-				final String s = (String)(pyroBridaService.call("callexportfunction",command,new String[]{byteArrayToHexString(selectedPortion)}));
-				
-				SwingUtilities.invokeLater(new Runnable() {
-					
-		            @Override
-		            public void run() {
-		            	
-		            	JTextArea ta = new JTextArea(10, 10);
-		                ta.setText(new String(hexStringToByteArray(s)));
-		                ta.setWrapStyleWord(true);
-		                ta.setLineWrap(true);
-		                ta.setCaretPosition(0);
-		                ta.setEditable(false);
-
-		                JOptionPane.showMessageDialog(null, new JScrollPane(ta), "Custom invocation response", JOptionPane.INFORMATION_MESSAGE);
-					    
-		            }
-		            
-				});
-				
-			
-			} catch (Exception e) {
-
-				printException(e,"Exception with custom context application");
-				
-			}
-		
 
 		} else if(command.equals("pythonPathSelectFile")) {
 			
@@ -3959,57 +3857,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, IConte
 			
 		}
 				
-	}
-
-	public List<JMenuItem> createMenuItems(IContextMenuInvocation invocation) {
-		
-		if(invocation.getInvocationContext() == IContextMenuInvocation.CONTEXT_MESSAGE_EDITOR_REQUEST ||
-		   invocation.getInvocationContext() == IContextMenuInvocation.CONTEXT_MESSAGE_EDITOR_RESPONSE) {
-		
-			currentInvocation = invocation;
-			
-			List<JMenuItem> menu = new ArrayList<JMenuItem>();
-			
-			JMenuItem itemCustom1 = new JMenuItem("Brida Custom 1");
-			itemCustom1.setActionCommand("contextcustom1");
-			itemCustom1.addActionListener(this);
-			
-			JMenuItem itemCustom2 = new JMenuItem("Brida Custom 2");
-			itemCustom2.setActionCommand("contextcustom2");
-			itemCustom2.addActionListener(this);		
-			
-			menu.add(itemCustom1);
-			menu.add(itemCustom2);
-			
-			return menu;
-			
-		} else if(invocation.getInvocationContext() == IContextMenuInvocation.CONTEXT_MESSAGE_VIEWER_REQUEST ||
-				  invocation.getInvocationContext() == IContextMenuInvocation.CONTEXT_MESSAGE_VIEWER_RESPONSE) { 
-			
-			currentInvocation = invocation;
-			
-			List<JMenuItem> menu = new ArrayList<JMenuItem>();
-			
-			JMenuItem itemCustom3 = new JMenuItem("Brida Custom 3");
-			itemCustom3.setActionCommand("contextcustom3");
-			itemCustom3.addActionListener(this);
-			
-			JMenuItem itemCustom4 = new JMenuItem("Brida Custom 4");
-			itemCustom4.setActionCommand("contextcustom4");
-			itemCustom4.addActionListener(this);		
-			
-			menu.add(itemCustom3);
-			menu.add(itemCustom4);
-			
-			return menu;
-		
-		
-		} else {
-		
-			return null;
-			
-		}
-		
 	}
 	
 	public static String byteArrayToHexString(byte[] raw) {

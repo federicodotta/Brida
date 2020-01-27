@@ -1,7 +1,3 @@
-import { contextcustom1, contextcustom2, contextcustom3, contextcustom4 } from './bridaPlaceholders.js'
-import { customandroidhook1, customandroidhook2, customandroidhook3 } from './bridaPlaceholders.js'
-import { customioshook1, customioshook2, customioshook3 } from './bridaPlaceholders.js'
-import { customgenenrichook1, customgenenrichook2, customgenenrichook3 } from './bridaPlaceholders.js'
 import { androidpinningwithca1, androidpinningwithoutca1, androidrooting1, androiddumpkeystore1 } from './androidDefaultHooks.js'
 import { ios10pinning, ios11pinning, ios12pinning, iosbypasstouchid, iosjailbreak, iosdumpkeychain, iosdataprotectionkeys, iosdumpcurrentencryptedapp } from './iosDefaultHooks.js'
 import { getallclasses, getallmodules, getmoduleimports, getmoduleexports, getclassmethods, findobjcmethods } from './bridaFunctions.js'
@@ -11,10 +7,6 @@ import { findimports, findexports, detachall, trace, changereturnvalue, getplatf
 // Do not remove existing code (it is necessary for Brida)
 
 rpc.exports = {
-	contextcustom1, contextcustom2, contextcustom3, contextcustom4,
-	customandroidhook1, customandroidhook2, customandroidhook3,
-	customioshook1, customioshook2, customioshook3,
-	customgenenrichook1, customgenenrichook2, customgenenrichook3,
 	androidpinningwithca1, androidpinningwithoutca1, androidrooting1, androiddumpkeystore1,
 	ios10pinning, ios11pinning, ios12pinning, iosbypasstouchid, iosjailbreak, iosdumpkeychain, iosdataprotectionkeys, iosdumpcurrentencryptedapp,
 	getallclasses, getallmodules, getmoduleimports, getmoduleexports, getclassmethods, findobjcmethods,
