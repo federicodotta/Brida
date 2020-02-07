@@ -283,8 +283,16 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass with CA certificate, more reliable (requires CA public certificate in /data/local/tmp/cert-der.crt)",BurpExtender.PLATFORM_ANDROID,"androidpinningwithca1",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass without CA certificate, less reliable",BurpExtender.PLATFORM_ANDROID,"androidpinningwithoutca1",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Rooting check bypass",BurpExtender.PLATFORM_ANDROID,"androidrooting1",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Print keystores when they are opened",BurpExtender.PLATFORM_ANDROID,"androiddumpkeystore1",true,new String[] {},null,false));
-    	    	  
+    	addButtonToHooksAndFunctions(new DefaultHook("Hook keystore stuff",BurpExtender.PLATFORM_ANDROID,"tracekeystore",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Hook crypto stuff",BurpExtender.PLATFORM_ANDROID,"dumpcryptostuff",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 1",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass1",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 2",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass2hook",true,new String[] {},null,false));
+    	
+    	// Default Android functions
+    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 2 (Enable the corresponding hook, trigger fingerprint screen and then run this function)",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass2function",false,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump all aliases in keystore of predefined types",BurpExtender.PLATFORM_ANDROID,"listaliasesstatic",false,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump all aliases in keystore collected during runtime (through the \"Hook keystore stuff\" hook)",BurpExtender.PLATFORM_ANDROID,"listaliasesruntime",false,new String[] {},null,false));
+
     	// Default iOS hooks
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 10) *",BurpExtender.PLATFORM_IOS,"ios10pinning",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 11) *",BurpExtender.PLATFORM_IOS,"ios11pinning",true,new String[] {},null,false));
