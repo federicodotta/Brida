@@ -429,7 +429,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 documentApplicationStatus = new DefaultStyledDocument();
                 applicationStatus = new JTextPane(documentApplicationStatus);                      
                 try {
-                	documentApplicationStatus.insertString(0, "NOT running", redStyle);
+                	documentApplicationStatus.insertString(0, "NOT hooked", redStyle);
 				} catch (BadLocationException e) {
 					printException(e,"Error setting labels");
 				}
@@ -1232,7 +1232,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 documentApplicationStatusButtons = new DefaultStyledDocument();
                 applicationStatusButtons = new JTextPane(documentApplicationStatusButtons);                
                 try {
-                	documentApplicationStatusButtons.insertString(0, "App stopped", redStyle);
+                	documentApplicationStatusButtons.insertString(0, "App not hooked", redStyle);
 				} catch (BadLocationException e) {
 					printException(e,"Error setting labels");
 				}
@@ -1265,6 +1265,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 JButton killApplication = new JButton("Kill application");
                 killApplication.setActionCommand("killApplication");
                 killApplication.addActionListener(BurpExtender.this);
+                
+                JButton detachApplication = new JButton("Detach application");
+                detachApplication.setActionCommand("detachApplication");
+                detachApplication.addActionListener(BurpExtender.this);
                 
                 JButton reloadScript = new JButton("Reload JS");
                 reloadScript.setActionCommand("reloadScript");
@@ -1338,6 +1342,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 rightSplitPane.add(attachApplication,gbc);
                 rightSplitPane.add(compileAttachApplication,gbc);                
                 rightSplitPane.add(killApplication,gbc);
+                rightSplitPane.add(detachApplication,gbc);                
                 rightSplitPane.add(reloadScript,gbc);
                 rightSplitPane.add(compileReloadScript,gbc);                
                 rightSplitPane.add(clearConsoleButton,gbc);
@@ -2337,8 +2342,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 							            	try {
 							                	documentServerStatus.insertString(0, "running", greenStyle);
 							                	documentServerStatusButtons.insertString(0, "Server running", greenStyle);
-							                	documentApplicationStatus.insertString(0, "NOT running", redStyle);
-							                	documentApplicationStatusButtons.insertString(0, "App stopped", redStyle);							                	
+							                	documentApplicationStatus.insertString(0, "NOT hooked", redStyle);
+							                	documentApplicationStatusButtons.insertString(0, "App not hooked", redStyle);							                	
 											} catch (BadLocationException e) {
 												
 												printException(e,"Exception setting labels");
@@ -2688,7 +2693,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	            	
 	            	try {
 	                	documentApplicationStatus.insertString(0, "running", greenStyle);
-	                	documentApplicationStatusButtons.insertString(0, "App running", greenStyle);
+	                	documentApplicationStatusButtons.insertString(0, "App hooked", greenStyle);
 					} catch (BadLocationException e) {
 						printException(e,"Exception with labels");
 					}
@@ -2870,8 +2875,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	applicationStatus.setText("");
 		            	applicationStatusButtons.setText("");
 		            	try {
-		                	documentApplicationStatus.insertString(0, "NOT running", redStyle);
-		                	documentApplicationStatusButtons.insertString(0, "App stopped", redStyle);
+		                	documentApplicationStatus.insertString(0, "NOT hooked", redStyle);
+		                	documentApplicationStatusButtons.insertString(0, "App not hooked", redStyle);
 						} catch (BadLocationException e) {
 							printException(e,"Exception setting labels");
 						}
@@ -2884,6 +2889,37 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			} catch (final Exception e) {
 				
 				printException(e,"Exception killing application");
+				
+			}
+			
+		} else if(command.equals("detachApplication") && serverStarted && applicationSpawned) {
+			
+			try {
+				pyroBridaService.call("detach_application");
+				applicationSpawned = false;
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+		            	
+		            	applicationStatus.setText("");
+		            	applicationStatusButtons.setText("");
+		            	try {
+		                	documentApplicationStatus.insertString(0, "NOT hooked", redStyle);
+		                	documentApplicationStatusButtons.insertString(0, "App not hooked", redStyle);
+						} catch (BadLocationException e) {
+							printException(e,"Exception setting labels");
+						}
+						
+		            }
+				});
+				
+				printSuccessMessage("Detach application executed");
+				
+			} catch (final Exception e) {
+				
+				printException(e,"Exception detaching application");
 				
 			}
 			
@@ -2910,8 +2946,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	try {
 		                	documentServerStatus.insertString(0, "NOT running", redStyle);
 		                	documentServerStatusButtons.insertString(0, "Server stopped", redStyle);
-		                	documentApplicationStatus.insertString(0, "NOT running", redStyle);
-		                	documentApplicationStatusButtons.insertString(0, "App stopped", redStyle);			                	
+		                	documentApplicationStatus.insertString(0, "NOT hooked", redStyle);
+		                	documentApplicationStatusButtons.insertString(0, "App not hooked", redStyle);			                	
 						} catch (BadLocationException e) {
 							printException(e,"Exception setting labels");
 						}

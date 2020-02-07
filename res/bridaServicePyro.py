@@ -91,6 +91,11 @@ class BridaServicePyro:
         self.device.kill(self.pid)
         return
 
+    def detach_application(self):
+
+        self.session.detach()
+        return
+
     def callexportfunction(self, methodName, args):
         method_to_call = getattr(self.script.exports, methodName)
 
