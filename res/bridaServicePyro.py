@@ -24,15 +24,17 @@ class BridaServicePyro:
     def __init__(self, daemon):
         self.daemon = daemon
 
-    def attach_application(self,pid,frida_script,remote):
+    def attach_application(self,pid,frida_script,device):
 
         self.frida_script = frida_script
         self.pid = int(pid)
 
-        if remote == True:
+        if device == 'remote':
             self.device = frida.get_remote_device()
-        else:
+        elif device == 'usb':
             self.device = frida.get_usb_device()
+        else:
+            self.device = frida.get_local_device()
 
         self.session = self.device.attach(self.pid)
 
@@ -44,15 +46,17 @@ class BridaServicePyro:
 
         return    
 
-    def spawn_application(self,application_id,frida_script,remote):
+    def spawn_application(self,application_id,frida_script,device):
 
         self.application_id = application_id
         self.frida_script = frida_script
 
-        if remote == True:
+        if device == 'remote':
             self.device = frida.get_remote_device()
-        else:
+        elif device == 'usb':
             self.device = frida.get_usb_device()
+        else:
+            self.device = frida.get_local_device()
 
         self.pid = self.device.spawn([self.application_id])
 

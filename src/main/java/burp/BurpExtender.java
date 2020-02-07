@@ -111,6 +111,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     private JTextField applicationId;
     
     private JRadioButton remoteRadioButton;
+    private JRadioButton usbRadioButton;
     private JRadioButton localRadioButton;
     	
 	private Style redStyle;
@@ -549,10 +550,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 localRemotePanel.setLayout(new BoxLayout(localRemotePanel, BoxLayout.X_AXIS));
                 localRemotePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
                 remoteRadioButton = new JRadioButton("Frida Remote");
+                usbRadioButton =  new JRadioButton("Frida USB");
                 localRadioButton = new JRadioButton("Frida Local");
-                if(callbacks.loadExtensionSetting("remote") != null) {                	
-                	if(callbacks.loadExtensionSetting("remote").equals("true"))
+                if(callbacks.loadExtensionSetting("device") != null) {                	
+                	if(callbacks.loadExtensionSetting("device").equals("remote"))
                 		remoteRadioButton.setSelected(true);
+                	else if(callbacks.loadExtensionSetting("device").equals("usb"))
+                		usbRadioButton.setSelected(true);
                 	else
                 		localRadioButton.setSelected(true);                	
                 } else {
@@ -560,8 +564,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 }
                 ButtonGroup localRemoteButtonGroup = new ButtonGroup();
                 localRemoteButtonGroup.add(remoteRadioButton);
+                localRemoteButtonGroup.add(usbRadioButton);
                 localRemoteButtonGroup.add(localRadioButton);
                 localRemotePanel.add(remoteRadioButton);
+                localRemotePanel.add(usbRadioButton);
                 localRemotePanel.add(localRadioButton);
             	  
                 configurationConfPanel.add(serverStatusPanel);
@@ -2326,9 +2332,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 							            	
 							            	serverStatus.setText("");
 							            	serverStatusButtons.setText("");
+							            	applicationStatus.setText("");
+							            	applicationStatusButtons.setText("");
 							            	try {
 							                	documentServerStatus.insertString(0, "running", greenStyle);
 							                	documentServerStatusButtons.insertString(0, "Server running", greenStyle);
+							                	documentApplicationStatus.insertString(0, "NOT running", redStyle);
+							                	documentApplicationStatusButtons.insertString(0, "App stopped", redStyle);							                	
 											} catch (BadLocationException e) {
 												
 												printException(e,"Exception setting labels");
@@ -2435,10 +2445,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		callbacks.saveExtensionSetting("fridaCompilePath",fridaCompilePath.getText().trim());
 		callbacks.saveExtensionSetting("fridaPath",fridaPath.getText().trim());
 		callbacks.saveExtensionSetting("applicationId",applicationId.getText().trim());
-		if(remoteRadioButton.isSelected()) {
-			callbacks.saveExtensionSetting("remote","true");
+		if(remoteRadioButton.isSelected()) { 
+			callbacks.saveExtensionSetting("device","remote");
+		} else if(usbRadioButton.isSelected()) { 
+			callbacks.saveExtensionSetting("device","usb");
 		} else {
-			callbacks.saveExtensionSetting("remote","false");
+			callbacks.saveExtensionSetting("device","local");
 		}
 		callbacks.saveExtensionSetting("executeMethodName",executeMethodName.getText().trim());
 		int sizeArguments = executeMethodInsertedArgumentList.getSize();
@@ -2481,10 +2493,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				fw.write("fridaCompilePath:" + fridaCompilePath.getText().trim() + "\n");
 				fw.write("fridaPath:" + fridaPath.getText().trim() + "\n");
 				fw.write("applicationId:" + applicationId.getText().trim() + "\n");
-				if(remoteRadioButton.isSelected()) 
-					fw.write("remote:true\n");
+				if(remoteRadioButton.isSelected())  
+					fw.write("device:remote\n");
+				else if(usbRadioButton.isSelected())
+					fw.write("device:usb\n");
 				else
-					fw.write("remote:false\n");
+					fw.write("device:local\n");
 				fw.write("executeMethodName:" + executeMethodName.getText().trim() + "\n");
 				
 				int sizeArguments = executeMethodInsertedArgumentList.getSize();
@@ -2574,9 +2588,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 						case "applicationId":
 							applicationId.setText(lineParts[1]);
 							break;
-						case "remote":
-							if(lineParts[1].equals("true")) {
-								remoteRadioButton.setSelected(true);
+						case "device":
+							if(lineParts[1].equals("remote")) {
+								remoteRadioButton.setSelected(true); 
+							} else if (lineParts[1].equals("usb")) {
+								usbRadioButton.setSelected(true);
 							} else {
 								localRadioButton.setSelected(true);
 							}
@@ -2622,10 +2638,18 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		
 		try {
 			
+			String device = "";
+			if(remoteRadioButton.isSelected())
+				device = "remote";
+			else if(usbRadioButton.isSelected())
+				device = "usb";
+			else
+				device = "local";
+			
 			if(spawn) {
 				
 				// pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim(),remoteRadioButton.isSelected());
-				pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",remoteRadioButton.isSelected());
+				pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device);
 	
 				execute_startup_scripts();
 				
@@ -2636,10 +2660,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 			} else {
 				
-				pyroBridaService.call("attach_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",remoteRadioButton.isSelected());
+				pyroBridaService.call("attach_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device);
 				
 				execute_startup_scripts();
-				
+								
 			}
 			
 			applicationSpawned = true;
@@ -2881,9 +2905,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	
 		            	serverStatus.setText("");
 		            	serverStatusButtons.setText("");
+		            	applicationStatus.setText("");
+		            	applicationStatusButtons.setText("");
 		            	try {
 		                	documentServerStatus.insertString(0, "NOT running", redStyle);
 		                	documentServerStatusButtons.insertString(0, "Server stopped", redStyle);
+		                	documentApplicationStatus.insertString(0, "NOT running", redStyle);
+		                	documentApplicationStatusButtons.insertString(0, "App stopped", redStyle);			                	
 						} catch (BadLocationException e) {
 							printException(e,"Exception setting labels");
 						}
