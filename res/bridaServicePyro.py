@@ -23,6 +23,27 @@ class Unbuffered(object):
 class BridaServicePyro:
     def __init__(self, daemon):
         self.daemon = daemon
+
+    def attach_application(self,pid,frida_script,remote):
+
+        self.frida_script = frida_script
+        self.pid = int(pid)
+
+        if remote == True:
+            self.device = frida.get_remote_device()
+        else:
+            self.device = frida.get_usb_device()
+
+        self.session = self.device.attach(self.pid)
+
+        with codecs.open(self.frida_script, 'r', 'utf-8') as f:
+            source = f.read()
+
+        self.script = self.session.create_script(source)
+        self.script.load()
+
+        return    
+
     def spawn_application(self,application_id,frida_script,remote):
 
         self.application_id = application_id

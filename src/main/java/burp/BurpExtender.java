@@ -283,7 +283,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass without CA certificate, less reliable",BurpExtender.PLATFORM_ANDROID,"androidpinningwithoutca1",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Rooting check bypass",BurpExtender.PLATFORM_ANDROID,"androidrooting1",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Print keystores when they are opened",BurpExtender.PLATFORM_ANDROID,"androiddumpkeystore1",true,new String[] {},null,false));
-    	  
+    	    	  
     	// Default iOS hooks
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 10) *",BurpExtender.PLATFORM_IOS,"ios10pinning",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 11) *",BurpExtender.PLATFORM_IOS,"ios11pinning",true,new String[] {},null,false));
@@ -428,7 +428,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 documentApplicationStatus = new DefaultStyledDocument();
                 applicationStatus = new JTextPane(documentApplicationStatus);                      
                 try {
-                	documentApplicationStatus.insertString(0, "NOT spawned", redStyle);
+                	documentApplicationStatus.insertString(0, "NOT running", redStyle);
 				} catch (BadLocationException e) {
 					printException(e,"Error setting labels");
 				}
@@ -535,7 +535,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 JPanel applicationIdPanel = new JPanel();
                 applicationIdPanel.setLayout(new BoxLayout(applicationIdPanel, BoxLayout.X_AXIS));
                 applicationIdPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelApplicationId = new JLabel("Application ID: ");
+                JLabel labelApplicationId = new JLabel("Application ID (spawn) / PID (attach): ");
                 applicationId = new JTextField(200);                
                 if(callbacks.loadExtensionSetting("applicationId") != null)
                 	applicationId.setText(callbacks.loadExtensionSetting("applicationId"));
@@ -1248,6 +1248,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 compileSpawnApplication.setActionCommand("compileSpawnApplication");
                 compileSpawnApplication.addActionListener(BurpExtender.this);  
                 
+                JButton attachApplication = new JButton("Attach application");
+                attachApplication.setActionCommand("attachApplication");
+                attachApplication.addActionListener(BurpExtender.this);   
+                
+                JButton compileAttachApplication = new JButton("Compile & Attach");
+                compileAttachApplication.setActionCommand("compileAttachApplication");
+                compileAttachApplication.addActionListener(BurpExtender.this); 
+                
                 JButton killApplication = new JButton("Kill application");
                 killApplication.setActionCommand("killApplication");
                 killApplication.addActionListener(BurpExtender.this);
@@ -1321,6 +1329,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 rightSplitPane.add(killServer,gbc);
                 rightSplitPane.add(spawnApplication,gbc);
                 rightSplitPane.add(compileSpawnApplication,gbc);
+                rightSplitPane.add(attachApplication,gbc);
+                rightSplitPane.add(compileAttachApplication,gbc);                
                 rightSplitPane.add(killApplication,gbc);
                 rightSplitPane.add(reloadScript,gbc);
                 rightSplitPane.add(compileReloadScript,gbc);                
@@ -2608,19 +2618,29 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		}
 	}
 	
-	public void spawnApplication() {
+	public void spawnApplication(boolean spawn) {
 		
 		try {
 			
-			// pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim(),remoteRadioButton.isSelected());
-			pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",remoteRadioButton.isSelected());
-
-			execute_startup_scripts();
-			
-			// Wait for 3 seconds in order to load hooks
-			Thread.sleep(3000);
-			
-			pyroBridaService.call("resume_application");				
+			if(spawn) {
+				
+				// pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim(),remoteRadioButton.isSelected());
+				pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",remoteRadioButton.isSelected());
+	
+				execute_startup_scripts();
+				
+				// Wait for 3 seconds in order to load hooks
+				Thread.sleep(3000);
+				
+				pyroBridaService.call("resume_application");	
+				
+			} else {
+				
+				pyroBridaService.call("attach_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",remoteRadioButton.isSelected());
+				
+				execute_startup_scripts();
+				
+			}
 			
 			applicationSpawned = true;
 			
@@ -2643,7 +2663,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	                }
 	            	
 	            	try {
-	                	documentApplicationStatus.insertString(0, "spawned", greenStyle);
+	                	documentApplicationStatus.insertString(0, "running", greenStyle);
 	                	documentApplicationStatusButtons.insertString(0, "App running", greenStyle);
 					} catch (BadLocationException e) {
 						printException(e,"Exception with labels");
@@ -2652,7 +2672,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	            }
 			});
 			
-			printSuccessMessage("Application " + applicationId.getText().trim() + " spawned correctly");
+			if(spawn) {
+				printSuccessMessage("Application " + applicationId.getText().trim() + " spawned correctly");
+			} else {
+				printSuccessMessage("Application with PID " + applicationId.getText().trim() + " attached correctly");
+			}
 			
 			// GETTING PLAFORM INFO (ANDROID/IOS/GENERIC)			
 			try {
@@ -2670,7 +2694,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 		} catch (final Exception e) {
 			
-			printException(e,"Exception with spawn application");
+			printException(e,"Exception with " + (spawn ? "spawn" : "attach") + " application");
 			
 		}				
 		
@@ -2745,7 +2769,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 			}
 			
-			spawnApplication();
+			spawnApplication(true);
 			
 		} else if(command.equals("compileSpawnApplication") && serverStarted) {
 			
@@ -2753,7 +2777,28 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				return;
 			}
 			
-			spawnApplication();
+			spawnApplication(true);
+			
+		} else if(command.equals("attachApplication") && serverStarted) {
+			
+			if(!(new File(fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js")).exists()) {
+				
+				// Brida compiled file does not exist. Compiling it...
+				if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+					return;
+				}
+				
+			}
+			
+			spawnApplication(false);
+			
+		} else if(command.equals("compileAttachApplication") && serverStarted) {
+			
+			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+				return;
+			}
+			
+			spawnApplication(false);			
 			
 		} else if(command.equals("reloadScript") && serverStarted && applicationSpawned) {
 							
@@ -2801,7 +2846,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	applicationStatus.setText("");
 		            	applicationStatusButtons.setText("");
 		            	try {
-		                	documentApplicationStatus.insertString(0, "NOT spawned", redStyle);
+		                	documentApplicationStatus.insertString(0, "NOT running", redStyle);
 		                	documentApplicationStatusButtons.insertString(0, "App stopped", redStyle);
 						} catch (BadLocationException e) {
 							printException(e,"Exception setting labels");
@@ -3293,7 +3338,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			String[] bridaFiles = new String[] {
 				"brida.js",
 				"bridaFunctions.js",
-				"bridaPlaceholders.js",
 				"androidDefaultHooks.js",
 				"iosDefaultHooks.js"
 			};
