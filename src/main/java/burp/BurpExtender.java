@@ -1173,8 +1173,18 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                         		// Edit
                         		case 6:
                         			// If plugin is enabled, disable first
-                            		if(currentPlugin.isOn())
-                            			currentPlugin.disable();                              		
+                            		if(currentPlugin.isOn()) {
+                            			
+                            			// Ask user confirmation
+                            			JFrame parentDialogResult = new JFrame();
+            			        		int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "The plugin is currently enabled and must be disabled before it can be edited. Would you like to disable it and proceed?","Warning",JOptionPane.YES_NO_OPTION);
+            			        		if(dialogResult != JOptionPane.YES_OPTION){
+            			        			return;
+            			        		}	  
+                            			
+                            			currentPlugin.disable();
+                            			
+                            		}
                             		// Double check because unload button hooks may fail if the application is running
                             		if(!currentPlugin.isOn()) {
                             			
@@ -1191,8 +1201,18 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                         		// Remove
                         		case 7:
                         			// If plugin is enabled, disable first
-                            		if(currentPlugin.isOn())
-                            			currentPlugin.disable();                              		
+                            		if(currentPlugin.isOn()) {
+                            			
+                            			// Ask user confirmation
+                            			JFrame parentDialogResult = new JFrame();
+            			        		int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "The plugin is currently enabled and must be disabled before it can be removed. Would you like to disable it and proceed?","Warning",JOptionPane.YES_NO_OPTION);
+            			        		if(dialogResult != JOptionPane.YES_OPTION){
+            			        			return;
+            			        		}	 
+                            			
+                            			currentPlugin.disable();
+                            			
+                            		}
                             		// Double check because unload button hooks may fail if the application is running
                             		if(!currentPlugin.isOn()) {
             	                		synchronized(customPlugins) {                		
