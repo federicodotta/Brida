@@ -12,8 +12,13 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -21,9 +26,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -31,6 +38,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+import java.util.zip.InflaterInputStream;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -73,6 +84,9 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.binary.Hex;
 import org.fife.ui.rsyntaxtextarea.FileLocation;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rsyntaxtextarea.TextEditorPane;
@@ -194,28 +208,26 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     private ButtonGroup customPluginExecuteOnRadioButtonGroup;
     private ButtonGroup customPluginButtonPlatformRadioButtonGroup;
     private ButtonGroup customPluginButtonTypeRadioButtonGroup;
-    private ButtonGroup customPluginParameterEncodingRadioGroup;
-    private ButtonGroup customPluginOutputDecodingRadioGroup;
-    private ButtonGroup customPluginOutputEncodingRadioGroup;
-    private ButtonGroup customPluginMessageEditorModifiedEncodingInputFridaRadioGroup;
-    private ButtonGroup customPluginOutputMessageEditorModifiedDecodingRadioGroup;
-    private ButtonGroup customPluginMessageEditorModifiedOutputEncodingRadioGroup;
     private JTextField customPluginExecuteOnStringParameter;
     private JRadioButton customPluginButtonTypeRadioFunction;
     private JRadioButton customPluginButtonTypeRadioHook;
     private JRadioButton customPluginButtonTypeRadioIos;
     private JRadioButton customPluginButtonTypeRadioAndroid;
     private JRadioButton customPluginButtonTypeRadioGeneric;
-    private JRadioButton customPluginMessageEditorModifiedEncodingInputFridaRadioNone;
-    private JRadioButton customPluginMessageEditorModifiedEncodingInputFridaRadioBase64;
-    private JRadioButton customPluginMessageEditorModifiedEncodingInputFridaRadioAsciiHex;
-    private JRadioButton customPluginOutputMessageEditorModifiedDecodingRadioNone;
-    private JRadioButton customPluginOutputMessageEditorModifiedDecodingRadioBase64;
-    private JRadioButton customPluginOutputMessageEditorModifiedDecodingRadioAsciiHex;
     private JTextField customPluginMessageEditorModifiedFridaExportNameText;
-    private JRadioButton customPluginMessageEditorModifiedOutputEncodingRadioNone;
-    private JRadioButton customPluginMessageEditorModifiedOutputEncodingRadioBase64;
-    private JRadioButton customPluginMessageEditorModifiedOutputEncodingRadioAsciiHex;
+    
+    private JTextField customPluginParameterEncodingText;
+    private List<Transformation> customPluginParameterEncodingTransformationList;
+    private JTextField customPluginOutputDecodingText;
+    private List<Transformation> customPluginOutputDecodingTransformationList;
+    private JTextField customPluginOutputEncodingText;
+    private List<Transformation> customPluginOutputEncodingTransformationList;    
+    private JTextField customPluginMessageEditorModifiedEncodeInputText;
+    private List<Transformation> customPluginMessageEditorModifiedEncodeInputTransformationList;
+    private JTextField customPluginMessageEditorModifiedDecodingOutputText;
+    private List<Transformation> customPluginMessageEditorModifiedDecodingOutputTransformationList;
+    private JTextField customPluginMessageEditorModifiedOutputEncodingText;
+    private List<Transformation> customPluginMessageEditorModifiedOutputEncodingTransformationList;
     
     private JCheckBox customPluginToolsRepeater;
     private JCheckBox customPluginToolsProxy;
@@ -229,17 +241,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     private JTextField customPluginExecuteWhenText;
     private JComboBox<String> customPluginParametersOptions;
     private JTextField customPluginParametersText;
-    private JRadioButton customPluginParameterEncodingRadioPlain;
-    private JRadioButton customPluginParameterEncodingRadioBase64;
-    private JRadioButton customPluginParameterEncodingRadioAsciiHex;
-    private JRadioButton customPluginOutputDecodingRadioNone;
-    private JRadioButton customPluginOutputDecodingRadioBase64;
-    private JRadioButton customPluginOutputDecodingRadioAsciiHex;
     private JComboBox<String> customPluginOutputOptions;
     private JTextField customPluginOutputText;
-    private JRadioButton customPluginOutputEncodingRadioNone;
-    private JRadioButton customPluginOutputEncodingRadioBase64;
-    private JRadioButton customPluginOutputEncodingRadioAsciiHex;
     
     private JComboBox<String> customPluginMessageEditorModifiedOutputLocationOptions;
     private JTextField customPluginMessageEditorModifiedOutputLocationText;
@@ -342,6 +345,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     	defaultHooks = new ArrayList<DefaultHook>();
     	
     	customPluginPluginTypeListenerEnabled = true;
+    	
+    	customPluginParameterEncodingTransformationList = new ArrayList<Transformation>();
+    	customPluginOutputDecodingTransformationList = new ArrayList<Transformation>();
+        customPluginOutputEncodingTransformationList = new ArrayList<Transformation>();
+        customPluginMessageEditorModifiedEncodeInputTransformationList = new ArrayList<Transformation>();
+    	customPluginMessageEditorModifiedDecodingOutputTransformationList = new ArrayList<Transformation>();
+    	customPluginMessageEditorModifiedOutputEncodingTransformationList = new ArrayList<Transformation>();
     			
 		try {
 			InputStream inputStream = getClass().getClassLoader().getResourceAsStream("res/bridaServicePyro.py");
@@ -951,36 +961,30 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginParameterEncodingPanel = new JPanel();
                 customPluginParameterEncodingPanel.setLayout(new BoxLayout(customPluginParameterEncodingPanel, BoxLayout.X_AXIS));
                 customPluginParameterEncodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginParameterEncodinglabel = new JLabel("Encode function parameters: ");   
-                customPluginParameterEncodingRadioPlain = new JRadioButton("Plain (not advisable with non-ASCII parameters)");
-                customPluginParameterEncodingRadioBase64 = new JRadioButton("Base64");
-                customPluginParameterEncodingRadioAsciiHex = new JRadioButton("Ascii-Hex");
-                customPluginParameterEncodingRadioPlain.setSelected(true);                
-                customPluginParameterEncodingRadioGroup = new ButtonGroup();
-                customPluginParameterEncodingRadioGroup.add(customPluginParameterEncodingRadioPlain);
-                customPluginParameterEncodingRadioGroup.add(customPluginParameterEncodingRadioBase64);
-                customPluginParameterEncodingRadioGroup.add(customPluginParameterEncodingRadioAsciiHex);
+                JLabel customPluginParameterEncodinglabel = new JLabel("Encode function parameters: ");  
+                JButton customPluginParameterEncodingButton = new JButton("Choose encoding");
+                customPluginParameterEncodingButton.setActionCommand("customPluginParameterEncodingButton");
+                customPluginParameterEncodingButton.addActionListener(BurpExtender.this); 
+                customPluginParameterEncodingText = new JTextField(200);                
+                customPluginParameterEncodingText.setMaximumSize( customPluginParameterEncodingText.getPreferredSize() );
+                customPluginParameterEncodingText.setEditable(false);
                 customPluginParameterEncodingPanel.add(customPluginParameterEncodinglabel);
-                customPluginParameterEncodingPanel.add(customPluginParameterEncodingRadioPlain);
-                customPluginParameterEncodingPanel.add(customPluginParameterEncodingRadioBase64);
-                customPluginParameterEncodingPanel.add(customPluginParameterEncodingRadioAsciiHex);
+                customPluginParameterEncodingPanel.add(customPluginParameterEncodingButton);
+                customPluginParameterEncodingPanel.add(customPluginParameterEncodingText);
                 
                 customPluginOutputDecodingPanel = new JPanel();
                 customPluginOutputDecodingPanel.setLayout(new BoxLayout(customPluginOutputDecodingPanel, BoxLayout.X_AXIS));
                 customPluginOutputDecodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginOutputDecodingLabel = new JLabel("Decode function output: ");                
-                customPluginOutputDecodingRadioNone = new JRadioButton("None");
-                customPluginOutputDecodingRadioBase64 = new JRadioButton("Base64");
-                customPluginOutputDecodingRadioAsciiHex = new JRadioButton("Ascii-Hex");
-                customPluginOutputDecodingRadioNone.setSelected(true);                
-                customPluginOutputDecodingRadioGroup = new ButtonGroup();
-                customPluginOutputDecodingRadioGroup.add(customPluginOutputDecodingRadioNone);
-                customPluginOutputDecodingRadioGroup.add(customPluginOutputDecodingRadioBase64);
-                customPluginOutputDecodingRadioGroup.add(customPluginOutputDecodingRadioAsciiHex);
+                JLabel customPluginOutputDecodingLabel = new JLabel("Decode function output: ");  
+                JButton customPluginOutputDecodingButton = new JButton("Choose decoding");
+                customPluginOutputDecodingButton.setActionCommand("customPluginOutputDecodingButton");
+                customPluginOutputDecodingButton.addActionListener(BurpExtender.this); 
+                customPluginOutputDecodingText = new JTextField(200);                
+                customPluginOutputDecodingText.setMaximumSize( customPluginOutputDecodingText.getPreferredSize() );
+                customPluginOutputDecodingText.setEditable(false);
                 customPluginOutputDecodingPanel.add(customPluginOutputDecodingLabel);
-                customPluginOutputDecodingPanel.add(customPluginOutputDecodingRadioNone);
-                customPluginOutputDecodingPanel.add(customPluginOutputDecodingRadioBase64);
-                customPluginOutputDecodingPanel.add(customPluginOutputDecodingRadioAsciiHex);
+                customPluginOutputDecodingPanel.add(customPluginOutputDecodingButton);
+                customPluginOutputDecodingPanel.add(customPluginOutputDecodingText);
                 
                 JPanel customPluginOutputPanel = new JPanel();
                 customPluginOutputPanel.setLayout(new BoxLayout(customPluginOutputPanel, BoxLayout.X_AXIS));
@@ -999,19 +1003,16 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginOutputEncodingPanel = new JPanel();
                 customPluginOutputEncodingPanel.setLayout(new BoxLayout(customPluginOutputEncodingPanel, BoxLayout.X_AXIS));
                 customPluginOutputEncodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginOutputEncodingLabel = new JLabel("Plugin output encoding: ");                
-                customPluginOutputEncodingRadioNone = new JRadioButton("None");
-                customPluginOutputEncodingRadioBase64 = new JRadioButton("Base64");
-                customPluginOutputEncodingRadioAsciiHex = new JRadioButton("Ascii-Hex");
-                customPluginOutputEncodingRadioNone.setSelected(true);                
-                customPluginOutputEncodingRadioGroup = new ButtonGroup();
-                customPluginOutputEncodingRadioGroup.add(customPluginOutputEncodingRadioNone);
-                customPluginOutputEncodingRadioGroup.add(customPluginOutputEncodingRadioBase64);
-                customPluginOutputEncodingRadioGroup.add(customPluginOutputEncodingRadioAsciiHex);
+                JLabel customPluginOutputEncodingLabel = new JLabel("Plugin output encoding: ");
+                JButton customPluginOutputEncodingButton = new JButton("Choose encoding");
+                customPluginOutputEncodingButton.setActionCommand("customPluginOutputEncodingButton");
+                customPluginOutputEncodingButton.addActionListener(BurpExtender.this); 
+                customPluginOutputEncodingText = new JTextField(200);                
+                customPluginOutputEncodingText.setMaximumSize( customPluginOutputEncodingText.getPreferredSize() );
+                customPluginOutputEncodingText.setEditable(false);
                 customPluginOutputEncodingPanel.add(customPluginOutputEncodingLabel);
-                customPluginOutputEncodingPanel.add(customPluginOutputEncodingRadioNone);
-                customPluginOutputEncodingPanel.add(customPluginOutputEncodingRadioBase64);
-                customPluginOutputEncodingPanel.add(customPluginOutputEncodingRadioAsciiHex); 
+                customPluginOutputEncodingPanel.add(customPluginOutputEncodingButton);
+                customPluginOutputEncodingPanel.add(customPluginOutputEncodingText);
                 
                 customPluginMessageEditorModifiedFridaFunctioPanel = new JPanel();
                 customPluginMessageEditorModifiedFridaFunctioPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedFridaFunctioPanel, BoxLayout.X_AXIS));
@@ -1026,37 +1027,31 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginMessageEditorModifiedEncodeInputPanel = new JPanel();
                 customPluginMessageEditorModifiedEncodeInputPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedEncodeInputPanel, BoxLayout.X_AXIS));
                 customPluginMessageEditorModifiedEncodeInputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginMessageEditorModifiedEncodeInputLabel = new JLabel("Encode input passed to Frida function executed on edited content: ");                
-                customPluginMessageEditorModifiedEncodingInputFridaRadioNone = new JRadioButton("None");
-                customPluginMessageEditorModifiedEncodingInputFridaRadioBase64 = new JRadioButton("Base64");
-                customPluginMessageEditorModifiedEncodingInputFridaRadioAsciiHex = new JRadioButton("Ascii-Hex");
-                customPluginMessageEditorModifiedEncodingInputFridaRadioNone.setSelected(true);                
-                customPluginMessageEditorModifiedEncodingInputFridaRadioGroup = new ButtonGroup();
-                customPluginMessageEditorModifiedEncodingInputFridaRadioGroup.add(customPluginMessageEditorModifiedEncodingInputFridaRadioNone);
-                customPluginMessageEditorModifiedEncodingInputFridaRadioGroup.add(customPluginMessageEditorModifiedEncodingInputFridaRadioBase64);
-                customPluginMessageEditorModifiedEncodingInputFridaRadioGroup.add(customPluginMessageEditorModifiedEncodingInputFridaRadioAsciiHex);
+                JLabel customPluginMessageEditorModifiedEncodeInputLabel = new JLabel("Encode input passed to Frida function executed on edited content: ");   
+                JButton customPluginMessageEditorModifiedEncodeInputButton = new JButton("Choose encoding");
+                customPluginMessageEditorModifiedEncodeInputButton.setActionCommand("customPluginMessageEditorModifiedEncodeInputButton");
+                customPluginMessageEditorModifiedEncodeInputButton.addActionListener(BurpExtender.this); 
+                customPluginMessageEditorModifiedEncodeInputText = new JTextField(200);                
+                customPluginMessageEditorModifiedEncodeInputText.setMaximumSize( customPluginMessageEditorModifiedEncodeInputText.getPreferredSize() );
+                customPluginMessageEditorModifiedEncodeInputText.setEditable(false);
                 customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodeInputLabel);
-                customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodingInputFridaRadioNone);
-                customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodingInputFridaRadioBase64);
-                customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodingInputFridaRadioAsciiHex);
+                customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodeInputButton);
+                customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodeInputText);
                 customPluginMessageEditorModifiedEncodeInputPanel.setVisible(false);
                 
                 customPluginMessageEditorModifiedDecodingOutputPanel = new JPanel();
                 customPluginMessageEditorModifiedDecodingOutputPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedDecodingOutputPanel, BoxLayout.X_AXIS));
                 customPluginMessageEditorModifiedDecodingOutputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginMessageEditorModifiedDecodingOutputLabel = new JLabel("Decode output of Frida function executed on edited content: ");                
-                customPluginOutputMessageEditorModifiedDecodingRadioNone = new JRadioButton("None");
-                customPluginOutputMessageEditorModifiedDecodingRadioBase64 = new JRadioButton("Base64");
-                customPluginOutputMessageEditorModifiedDecodingRadioAsciiHex = new JRadioButton("Ascii-Hex");
-                customPluginOutputMessageEditorModifiedDecodingRadioNone.setSelected(true);                
-                customPluginOutputMessageEditorModifiedDecodingRadioGroup = new ButtonGroup();
-                customPluginOutputMessageEditorModifiedDecodingRadioGroup.add(customPluginOutputMessageEditorModifiedDecodingRadioNone);
-                customPluginOutputMessageEditorModifiedDecodingRadioGroup.add(customPluginOutputMessageEditorModifiedDecodingRadioBase64);
-                customPluginOutputMessageEditorModifiedDecodingRadioGroup.add(customPluginOutputMessageEditorModifiedDecodingRadioAsciiHex);
+                JLabel customPluginMessageEditorModifiedDecodingOutputLabel = new JLabel("Decode output of Frida function executed on edited content: ");                 
+                JButton customPluginMessageEditorModifiedDecodingOutputButton = new JButton("Choose decoding");
+                customPluginMessageEditorModifiedDecodingOutputButton.setActionCommand("customPluginMessageEditorModifiedDecodingOutputButton");
+                customPluginMessageEditorModifiedDecodingOutputButton.addActionListener(BurpExtender.this); 
+                customPluginMessageEditorModifiedDecodingOutputText = new JTextField(200);                
+                customPluginMessageEditorModifiedDecodingOutputText.setMaximumSize( customPluginMessageEditorModifiedDecodingOutputText.getPreferredSize() );
+                customPluginMessageEditorModifiedDecodingOutputText.setEditable(false);
                 customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginMessageEditorModifiedDecodingOutputLabel);
-                customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginOutputMessageEditorModifiedDecodingRadioNone);
-                customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginOutputMessageEditorModifiedDecodingRadioBase64);
-                customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginOutputMessageEditorModifiedDecodingRadioAsciiHex);
+                customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginMessageEditorModifiedDecodingOutputButton);
+                customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginMessageEditorModifiedDecodingOutputText);
                 customPluginMessageEditorModifiedDecodingOutputPanel.setVisible(false);
                 
                 customPluginMessageEditorModifiedOutputLocationPanel = new JPanel();
@@ -1077,19 +1072,17 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginMessageEditorModifiedOutputEncodingPanel = new JPanel();
                 customPluginMessageEditorModifiedOutputEncodingPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedOutputEncodingPanel, BoxLayout.X_AXIS));
                 customPluginMessageEditorModifiedOutputEncodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginMessageEditorModifiedOutputEncodingLabel = new JLabel("Encode output of edited content function: ");                
-                customPluginMessageEditorModifiedOutputEncodingRadioNone = new JRadioButton("None");
-                customPluginMessageEditorModifiedOutputEncodingRadioBase64 = new JRadioButton("Base64");
-                customPluginMessageEditorModifiedOutputEncodingRadioAsciiHex = new JRadioButton("Ascii-Hex");
-                customPluginMessageEditorModifiedOutputEncodingRadioNone.setSelected(true);                
-                customPluginMessageEditorModifiedOutputEncodingRadioGroup = new ButtonGroup();
-                customPluginMessageEditorModifiedOutputEncodingRadioGroup.add(customPluginMessageEditorModifiedOutputEncodingRadioNone);
-                customPluginMessageEditorModifiedOutputEncodingRadioGroup.add(customPluginMessageEditorModifiedOutputEncodingRadioBase64);
-                customPluginMessageEditorModifiedOutputEncodingRadioGroup.add(customPluginMessageEditorModifiedOutputEncodingRadioAsciiHex);
+                JLabel customPluginMessageEditorModifiedOutputEncodingLabel = new JLabel("Encode output of edited content function: ");  
+                
+                JButton customPluginMessageEditorModifiedOutputEncodingButton = new JButton("Choose encoding");
+                customPluginMessageEditorModifiedOutputEncodingButton.setActionCommand("customPluginMessageEditorModifiedOutputEncodingButton");
+                customPluginMessageEditorModifiedOutputEncodingButton.addActionListener(BurpExtender.this); 
+                customPluginMessageEditorModifiedOutputEncodingText = new JTextField(200);                
+                customPluginMessageEditorModifiedOutputEncodingText.setMaximumSize( customPluginMessageEditorModifiedOutputEncodingText.getPreferredSize() );
+                customPluginMessageEditorModifiedOutputEncodingText.setEditable(false);
                 customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingLabel);
-                customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingRadioNone);
-                customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingRadioBase64);
-                customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingRadioAsciiHex);     
+                customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingButton);
+                customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingText); 
                 customPluginMessageEditorModifiedOutputEncodingPanel.setVisible(false);
                 
                 customPluginPanel.add(customPluginNamePanel);
@@ -1289,7 +1282,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 clearConsoleButton = new JButton("Clear console");
                 clearConsoleButton.setActionCommand("clearConsole");
                 clearConsoleButton.addActionListener(BurpExtender.this);
-                
+                                
                 executeMethodButton = new JButton("Execute Method");
                 executeMethodButton.setActionCommand("executeMethod");
                 executeMethodButton.addActionListener(BurpExtender.this); 
@@ -1500,23 +1493,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	}
 		            	customPluginParametersText.setText(p.getCustomPluginParameterString());
 		            	
-		            	customPluginParameterEncodingRadioGroup.clearSelection();
-		            	if(p.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.PLAIN) {
-		            		customPluginParameterEncodingRadioPlain.setSelected(true);
-		            	} else if(p.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.BASE64) {
-		            		customPluginParameterEncodingRadioBase64.setSelected(true);
-		            	} else {
-		            		customPluginParameterEncodingRadioAsciiHex.setSelected(true);
-		            	}
+		            	customPluginParameterEncodingTransformationList = new ArrayList<Transformation>(p.getCustomPluginParameterEncoding());
+		            	customPluginParameterEncodingText.setText(customPluginParameterEncodingTransformationList.toString());
 		            	
-		            	customPluginOutputDecodingRadioGroup.clearSelection();
-		            	if(p.getCustomPluginOutputDecoding() == CustomPlugin.CustomPluginEncodingValues.PLAIN) {
-		            		customPluginOutputDecodingRadioNone.setSelected(true);
-		            	} else if(p.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.BASE64) {
-		            		customPluginOutputDecodingRadioBase64.setSelected(true);
-		            	} else {
-		            		customPluginOutputDecodingRadioAsciiHex.setSelected(true);
-		            	}
+		            	customPluginOutputDecodingTransformationList = new ArrayList<Transformation>(p.getCustomPluginOutputDecoding());
+		            	customPluginOutputDecodingText.setText(customPluginOutputDecodingTransformationList.toString());
 		            	
 		            	if(p.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.BRIDA) {
 		            		customPluginOutputOptions.setSelectedIndex(0);
@@ -1525,15 +1506,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	}
 		            	customPluginOutputText.setText(p.getCustomPluginFunctionOutputString());
 		            	
-		            	customPluginOutputEncodingRadioGroup.clearSelection();
-		            	if(p.getCustomPluginOutputEncoding() == CustomPlugin.CustomPluginEncodingValues.PLAIN) {
-		            		customPluginOutputEncodingRadioNone.setSelected(true);
-		            	} else if(p.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.BASE64) {
-		            		customPluginOutputEncodingRadioBase64.setSelected(true);
-		            	} else {
-		            		customPluginOutputEncodingRadioAsciiHex.setSelected(true);
-		            	}
-		            
+		            	customPluginOutputEncodingTransformationList = new ArrayList<Transformation>(p.getCustomPluginOutputEncoding());
+		            	customPluginOutputEncodingText.setText(customPluginOutputEncodingTransformationList.toString());
+		            			            
 		            }
 		            
 				});
@@ -1593,56 +1568,26 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	}
 		            	customPluginParametersText.setText(p2.getCustomPluginParameterString());
 		            	
-		            	customPluginParameterEncodingRadioGroup.clearSelection();
-		            	if(p2.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.PLAIN) {
-		            		customPluginParameterEncodingRadioPlain.setSelected(true);
-		            	} else if(p2.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.BASE64) {
-		            		customPluginParameterEncodingRadioBase64.setSelected(true);
-		            	} else {
-		            		customPluginParameterEncodingRadioAsciiHex.setSelected(true);
-		            	}
+		            	customPluginParameterEncodingTransformationList = new ArrayList<Transformation>(p2.getCustomPluginParameterEncoding());
+		            	customPluginParameterEncodingText.setText(customPluginParameterEncodingTransformationList.toString());
 		            	
-		            	customPluginOutputDecodingRadioGroup.clearSelection();
-		            	if(p2.getCustomPluginOutputDecoding() == CustomPlugin.CustomPluginEncodingValues.PLAIN) {
-		            		customPluginOutputDecodingRadioNone.setSelected(true);
-		            	} else if(p2.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.BASE64) {
-		            		customPluginOutputDecodingRadioBase64.setSelected(true);
-		            	} else {
-		            		customPluginOutputDecodingRadioAsciiHex.setSelected(true);
-		            	}
+		            	customPluginOutputDecodingTransformationList = new ArrayList<Transformation>(p2.getCustomPluginOutputDecoding());
+		            	customPluginOutputDecodingText.setText(customPluginOutputDecodingTransformationList.toString());
 		            	
 		            	customPluginOutputOptions.setSelectedIndex(0);
 		            	customPluginOutputText.setText(p2.getCustomPluginFunctionOutputString());
 		            	
-		            	customPluginOutputEncodingRadioGroup.clearSelection();
-		            	if(p2.getCustomPluginOutputEncoding() == CustomPlugin.CustomPluginEncodingValues.PLAIN) {
-		            		customPluginOutputEncodingRadioNone.setSelected(true);
-		            	} else if(p2.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.BASE64) {
-		            		customPluginOutputEncodingRadioBase64.setSelected(true);
-		            	} else {
-		            		customPluginOutputEncodingRadioAsciiHex.setSelected(true);
-		            	}
+		            	customPluginOutputEncodingTransformationList = new ArrayList<Transformation>(p2.getCustomPluginOutputEncoding());
+		            	customPluginOutputEncodingText.setText(customPluginOutputEncodingTransformationList.toString());
 		            	
 		            	customPluginMessageEditorModifiedFridaExportNameText.setText(p2.getCustomPluginEditedContentFridaFunctionName());
 		            	
-		            	customPluginMessageEditorModifiedEncodingInputFridaRadioGroup.clearSelection();
-		            	if(p2.getCustomPluginEditedContentEncodingFridaInput() == CustomPlugin.CustomPluginEncodingValues.PLAIN) {
-		            		customPluginMessageEditorModifiedEncodingInputFridaRadioNone.setSelected(true);
-		            	} else if(p2.getCustomPluginEditedContentEncodingFridaInput() == CustomPlugin.CustomPluginEncodingValues.BASE64) {
-		            		customPluginMessageEditorModifiedEncodingInputFridaRadioBase64.setSelected(true);
-		            	} else {
-		            		customPluginMessageEditorModifiedEncodingInputFridaRadioAsciiHex.setSelected(true);
-		            	}
+		            	customPluginMessageEditorModifiedEncodeInputTransformationList = new ArrayList<Transformation>(p2.getCustomPluginEditedContentEncodingFridaInput());
+		            	customPluginMessageEditorModifiedEncodeInputText.setText(customPluginMessageEditorModifiedEncodeInputTransformationList.toString());
 		            	
-		            	customPluginOutputMessageEditorModifiedDecodingRadioGroup.clearSelection();
-		            	if(p2.getCustomPluginEditedContentFridaOutputDecoding() == CustomPlugin.CustomPluginEncodingValues.PLAIN) {
-		            		customPluginOutputMessageEditorModifiedDecodingRadioNone.setSelected(true);
-		            	} else if(p2.getCustomPluginEditedContentFridaOutputDecoding() == CustomPlugin.CustomPluginEncodingValues.BASE64) {
-		            		customPluginOutputMessageEditorModifiedDecodingRadioBase64.setSelected(true);
-		            	} else {
-		            		customPluginOutputMessageEditorModifiedDecodingRadioAsciiHex.setSelected(true);
-		            	}
-		            	
+		            	customPluginMessageEditorModifiedDecodingOutputTransformationList = new ArrayList<Transformation>(p2.getCustomPluginEditedContentFridaOutputDecoding());
+		            	customPluginMessageEditorModifiedDecodingOutputText.setText(customPluginMessageEditorModifiedDecodingOutputTransformationList.toString());
+		            			            	
 		            	if(p2.getCustomPluginEditedContentLocation() == BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.NONE) {
 		            		customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(0);
 		            	} else if(p2.getCustomPluginEditedContentLocation() == BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.CONSOLE) {
@@ -1656,15 +1601,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	}
 		            	customPluginMessageEditorModifiedOutputLocationText.setText(p2.getCustomPluginEditedContentLocationString());
 		            	
-		            	customPluginMessageEditorModifiedOutputEncodingRadioGroup.clearSelection();
-		            	if(p2.getCustomPluginEditedContentOutputEncoding() == CustomPlugin.CustomPluginEncodingValues.PLAIN) {
-		            		customPluginMessageEditorModifiedOutputEncodingRadioNone.setSelected(true);
-		            	} else if(p2.getCustomPluginEditedContentOutputEncoding() == CustomPlugin.CustomPluginEncodingValues.BASE64) {
-		            		customPluginMessageEditorModifiedOutputEncodingRadioBase64.setSelected(true);
-		            	} else {
-		            		customPluginMessageEditorModifiedOutputEncodingRadioAsciiHex.setSelected(true);
-		            	}
-		            
+		            	customPluginMessageEditorModifiedOutputEncodingTransformationList = new ArrayList<Transformation>(p2.getCustomPluginEditedContentOutputEncoding());
+		            	customPluginMessageEditorModifiedOutputEncodingText.setText(customPluginMessageEditorModifiedOutputEncodingTransformationList.toString());
+		            			            
 		            }
 		            
 				});
@@ -1712,23 +1651,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	}
 		            	customPluginParametersText.setText(p3.getCustomPluginParameterString());
 		            	
-		            	customPluginParameterEncodingRadioGroup.clearSelection();
-		            	if(p3.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.PLAIN) {
-		            		customPluginParameterEncodingRadioPlain.setSelected(true);
-		            	} else if(p3.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.BASE64) {
-		            		customPluginParameterEncodingRadioBase64.setSelected(true);
-		            	} else {
-		            		customPluginParameterEncodingRadioAsciiHex.setSelected(true);
-		            	}
+		            	customPluginParameterEncodingTransformationList = new ArrayList<Transformation>(p3.getCustomPluginParameterEncoding());
+		            	customPluginParameterEncodingText.setText(customPluginParameterEncodingTransformationList.toString());
 		            	
-		            	customPluginOutputDecodingRadioGroup.clearSelection();
-		            	if(p3.getCustomPluginOutputDecoding() == CustomPlugin.CustomPluginEncodingValues.PLAIN) {
-		            		customPluginOutputDecodingRadioNone.setSelected(true);
-		            	} else if(p3.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.BASE64) {
-		            		customPluginOutputDecodingRadioBase64.setSelected(true);
-		            	} else {
-		            		customPluginOutputDecodingRadioAsciiHex.setSelected(true);
-		            	}
+		            	customPluginOutputDecodingTransformationList = new ArrayList<Transformation>(p3.getCustomPluginOutputDecoding());
+		            	customPluginOutputDecodingText.setText(customPluginOutputDecodingTransformationList.toString());
 		            	
 		            	if(p3.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.BRIDA) {
 		            		customPluginOutputOptions.setSelectedIndex(0);
@@ -1739,14 +1666,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	}
 		            	customPluginOutputText.setText(p3.getCustomPluginFunctionOutputString());
 		            	
-		            	customPluginOutputEncodingRadioGroup.clearSelection();
-		            	if(p3.getCustomPluginOutputEncoding() == CustomPlugin.CustomPluginEncodingValues.PLAIN) {
-		            		customPluginOutputEncodingRadioNone.setSelected(true);
-		            	} else if(p3.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.BASE64) {
-		            		customPluginOutputEncodingRadioBase64.setSelected(true);
-		            	} else {
-		            		customPluginOutputEncodingRadioAsciiHex.setSelected(true);
-		            	}
+		            	customPluginOutputEncodingTransformationList = new ArrayList<Transformation>(p3.getCustomPluginOutputEncoding());
+		            	customPluginOutputEncodingText.setText(customPluginOutputEncodingTransformationList.toString());
 		            
 		            }
 		            
@@ -1805,14 +1726,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	}
 		            	customPluginParametersText.setText(p4.getCustomPluginParameterString());
 		            	
-		            	customPluginParameterEncodingRadioGroup.clearSelection();
-		            	if(p4.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.PLAIN) {
-		            		customPluginParameterEncodingRadioPlain.setSelected(true);
-		            	} else if(p4.getCustomPluginParameterEncoding() == CustomPlugin.CustomPluginEncodingValues.BASE64) {
-		            		customPluginParameterEncodingRadioBase64.setSelected(true);
-		            	} else {
-		            		customPluginParameterEncodingRadioAsciiHex.setSelected(true);
-		            	}
+		            	customPluginParameterEncodingTransformationList = new ArrayList<Transformation>(p4.getCustomPluginParameterEncoding());
+		            	customPluginParameterEncodingText.setText(customPluginParameterEncodingTransformationList.toString());
 		            			            	
 		            	customPluginOutputOptions.setSelectedIndex(0);
 		            			            
@@ -2931,6 +2846,30 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 			}
 			
+		} else if(command.equals("customPluginParameterEncodingButton")) {
+			
+			popupEncoderWindow("Choose encode options",customPluginParameterEncodingText,customPluginParameterEncodingTransformationList);		
+			
+		} else if(command.equals("customPluginOutputDecodingButton")) {
+			
+			popupEncoderWindow("Choose decode options",customPluginOutputDecodingText,customPluginOutputDecodingTransformationList);	
+			
+		} else if(command.equals("customPluginOutputEncodingButton")) {
+	
+			popupEncoderWindow("Choose encode options",customPluginOutputEncodingText,customPluginOutputEncodingTransformationList);	
+
+		} else if(command.equals("customPluginMessageEditorModifiedEncodeInputButton")) {
+			
+			popupEncoderWindow("Choose encode options",customPluginMessageEditorModifiedEncodeInputText,customPluginMessageEditorModifiedEncodeInputTransformationList);	
+			
+		} else if(command.equals("customPluginMessageEditorModifiedDecodingOutputButton")) {
+			
+			popupEncoderWindow("Choose decode options",customPluginMessageEditorModifiedDecodingOutputText,customPluginMessageEditorModifiedDecodingOutputTransformationList);	
+			
+		} else if(command.equals("customPluginMessageEditorModifiedOutputEncodingButton")) {
+			
+			popupEncoderWindow("Choose encode options",customPluginMessageEditorModifiedOutputEncodingText,customPluginMessageEditorModifiedOutputEncodingTransformationList);	
+			
 		} else if(command.equals("killServer") && serverStarted) {
 			
 			stdoutThread.stop();
@@ -3101,6 +3040,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		
 			try {
 				jsEditorTextArea.save();
+				printSuccessMessage("File saved");
 			} catch (IOException e) {
 				printException(e,"Error saving JS file");
 			}
@@ -3597,24 +3537,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			}
 			
 			// Parameter encoding
-			CustomPlugin.CustomPluginEncodingValues customPluginParameterEncoding = null;
-			if(customPluginParameterEncodingRadioPlain.isSelected()) {
-				customPluginParameterEncoding = CustomPlugin.CustomPluginEncodingValues.PLAIN;
-			} else if(customPluginParameterEncodingRadioBase64.isSelected()) {
-				customPluginParameterEncoding = CustomPlugin.CustomPluginEncodingValues.BASE64;
-			} else {
-				customPluginParameterEncoding = CustomPlugin.CustomPluginEncodingValues.ASCII_HEX;
-			}
-			
+			List<Transformation> customPluginParameterEncoding = new ArrayList<Transformation>(customPluginParameterEncodingTransformationList);
+						
 			// Decode Frida output
-			CustomPlugin.CustomPluginEncodingValues customPluginOutputDecoding = null;
-			if(customPluginOutputDecodingRadioNone.isSelected()) {
-				customPluginOutputDecoding = CustomPlugin.CustomPluginEncodingValues.PLAIN;
-			} else if(customPluginOutputDecodingRadioBase64.isSelected()) {
-				customPluginOutputDecoding = CustomPlugin.CustomPluginEncodingValues.BASE64;
-			} else {
-				customPluginOutputDecoding = CustomPlugin.CustomPluginEncodingValues.ASCII_HEX;
-			}
+			List<Transformation> customPluginOutputDecoding = new ArrayList<Transformation>(customPluginOutputDecodingTransformationList);
 			
 			// Plugin output
 			CustomPluginFunctionOutputValues customPluginFunctionOutput = null;
@@ -3629,38 +3555,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			}
 			
 			// Encode output
-			CustomPlugin.CustomPluginEncodingValues customPluginOutputEncoding = null;
-			if(customPluginOutputEncodingRadioNone.isSelected()) {
-				customPluginOutputEncoding = CustomPlugin.CustomPluginEncodingValues.PLAIN;
-			} else if(customPluginOutputEncodingRadioBase64.isSelected()) {
-				customPluginOutputEncoding = CustomPlugin.CustomPluginEncodingValues.BASE64;
-			} else {
-				customPluginOutputEncoding = CustomPlugin.CustomPluginEncodingValues.ASCII_HEX;
-			}
+			List<Transformation> customPluginOutputEncoding = new ArrayList<Transformation>(customPluginOutputEncodingTransformationList);
 			
 			// Encode value edited message before passing to Frida function executed on edited content (IMessageEditorTab only)
-			CustomPlugin.CustomPluginEncodingValues customPluginFridaInputEncodingEditedContent = null;
-			if(pluginType == CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB) {
-				if(customPluginMessageEditorModifiedEncodingInputFridaRadioNone.isSelected()) {
-					customPluginFridaInputEncodingEditedContent = CustomPlugin.CustomPluginEncodingValues.PLAIN;
-				} else if(customPluginMessageEditorModifiedEncodingInputFridaRadioBase64.isSelected()) {
-					customPluginFridaInputEncodingEditedContent = CustomPlugin.CustomPluginEncodingValues.BASE64;
-				} else {
-					customPluginFridaInputEncodingEditedContent = CustomPlugin.CustomPluginEncodingValues.ASCII_HEX;
-				}
-			}
+			List<Transformation> customPluginFridaInputEncodingEditedContent = new ArrayList<Transformation>(customPluginMessageEditorModifiedEncodeInputTransformationList);
 			
 			// Decode output of Frida function executed on edited content (IMessageEditorTab only)
-			CustomPlugin.CustomPluginEncodingValues customPluginOutputDecodingEditedContent = null;
-			if(pluginType == CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB) {
-				if(customPluginOutputMessageEditorModifiedDecodingRadioNone.isSelected()) {
-					customPluginOutputDecodingEditedContent = CustomPlugin.CustomPluginEncodingValues.PLAIN;
-				} else if(customPluginOutputMessageEditorModifiedDecodingRadioBase64.isSelected()) {
-					customPluginOutputDecodingEditedContent = CustomPlugin.CustomPluginEncodingValues.BASE64;
-				} else {
-					customPluginOutputDecodingEditedContent = CustomPlugin.CustomPluginEncodingValues.ASCII_HEX;
-				}
-			}
+			List<Transformation> customPluginOutputDecodingEditedContent = new ArrayList<Transformation>(customPluginMessageEditorModifiedDecodingOutputTransformationList);
 			
 			// Message editor output location (IMessageEditorTab only)
 			BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation customPluginEditedMessageOutputLocation = null;
@@ -3679,16 +3580,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			}
 			
 			// Encode output of Frida function executed on edited content (IMessageEditorTab only)
-			CustomPlugin.CustomPluginEncodingValues customPluginEditedFunctionOutputEncoding = null;
-			if(pluginType == CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB) {
-				if(customPluginMessageEditorModifiedOutputEncodingRadioNone.isSelected()) {
-					customPluginEditedFunctionOutputEncoding = CustomPlugin.CustomPluginEncodingValues.PLAIN;
-				} else if(customPluginMessageEditorModifiedOutputEncodingRadioBase64.isSelected()) {
-					customPluginEditedFunctionOutputEncoding = CustomPlugin.CustomPluginEncodingValues.BASE64;
-				} else {
-					customPluginEditedFunctionOutputEncoding = CustomPlugin.CustomPluginEncodingValues.ASCII_HEX;
-				}
-			}
+			List<Transformation> customPluginEditedFunctionOutputEncoding = new ArrayList<Transformation>(customPluginMessageEditorModifiedOutputEncodingTransformationList);
 			
 			CustomPlugin newCustomPlugin;
 			if(pluginType == CustomPlugin.CustomPluginType.IHTTPLISTENER) {
@@ -3822,7 +3714,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			JFrame parentFrameImportPlugins = new JFrame();
 			JFileChooser fileChooserImportPlugins = new JFileChooser();
 			fileChooserImportPlugins.setDialogTitle("Import custom plugins from file");
-	        int userSelectionImportPlugins = fileChooserImportPlugins.showSaveDialog(parentFrameImportPlugins);
+	        int userSelectionImportPlugins = fileChooserImportPlugins.showOpenDialog(parentFrameImportPlugins);
 	        
 	        if (userSelectionImportPlugins == JFileChooser.APPROVE_OPTION) {
 	        	
@@ -3845,31 +3737,29 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	        		    currentRow++;
 	        		    
 	        		    if(data.length > 0) {
-	        		    	
-	        		    	Base64.Decoder b64Decoder = Base64.getDecoder();
-	        		    	
+	        		    		        		    	
 	        		    	if(CustomPlugin.CustomPluginType.values()[Integer.parseInt(data[0])] == CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB && data.length >= 20) {
 	        		    		
 	        		    		BridaMessageEditorPlugin importedPlugin = new BridaMessageEditorPlugin(BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.values()[Integer.parseInt(data[1])],
-	        		    				new String(b64Decoder.decode(data[2])),
-	        		    				CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[3])],
-	        		    				CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[4])],
-	        		    				new String(b64Decoder.decode(data[5])),
-	        		    				CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[6])],
+	        		    				new String(Base64.decodeBase64(data[2])),
+	        		    				importTransformations(data[3]),
+	        		    				importTransformations(data[4]),
+	        		    				new String(Base64.decodeBase64(data[5])),
+	        		    				importTransformations(data[6]),
 	        							this,
-	        							new String(b64Decoder.decode(data[7])),
-	        							new String(b64Decoder.decode(data[8])),
+	        							new String(Base64.decodeBase64(data[7])),
+	        							new String(Base64.decodeBase64(data[8])),
 	        							CustomPlugin.CustomPluginExecuteOnValues.values()[Integer.parseInt(data[9])],
-	        							new String(b64Decoder.decode(data[10])),
+	        							new String(Base64.decodeBase64(data[10])),
 	        							CustomPlugin.CustomPluginExecuteValues.values()[Integer.parseInt(data[11])],
-	        							new String(b64Decoder.decode(data[12])),
+	        							new String(Base64.decodeBase64(data[12])),
 	        							CustomPlugin.CustomPluginParameterValues.values()[Integer.parseInt(data[13])],
-	        							new String(b64Decoder.decode(data[14])),
-	        							CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[15])],
+	        							new String(Base64.decodeBase64(data[14])),
+	        							importTransformations(data[15]),
 	        							CustomPlugin.CustomPluginFunctionOutputValues.values()[Integer.parseInt(data[16])],
-	        							new String(b64Decoder.decode(data[17])),
-	        							CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[18])],
-	        							CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[19])]);
+	        							new String(Base64.decodeBase64(data[17])),
+	        							importTransformations(data[18]),
+										importTransformations(data[19]));
 	        		    		
 	        		    		synchronized(customPlugins) {
 	        						int customPluginsOldSize = customPlugins.size();
@@ -3883,17 +3773,17 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	        		    		BridaButtonPlugin importedPlugin = new BridaButtonPlugin(Integer.parseInt(data[1]),
 	        							(data[2].equals("true") ? true : false),
 	        							this,
-	        							new String(b64Decoder.decode(data[3])),
-		    							new String(b64Decoder.decode(data[4])),
+	        							new String(Base64.decodeBase64(data[3])),
+		    							new String(Base64.decodeBase64(data[4])),
 		    							CustomPlugin.CustomPluginExecuteOnValues.values()[Integer.parseInt(data[5])],
-		    							new String(b64Decoder.decode(data[6])),
+		    							new String(Base64.decodeBase64(data[6])),
 		    							CustomPlugin.CustomPluginParameterValues.values()[Integer.parseInt(data[7])],
-		    							new String(b64Decoder.decode(data[8])),
-		    							CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[9])],
+		    							new String(Base64.decodeBase64(data[8])),
+		    							importTransformations(data[9]),
 		    							CustomPlugin.CustomPluginFunctionOutputValues.values()[Integer.parseInt(data[10])],
-		    							new String(b64Decoder.decode(data[11])),
-		    							CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[12])],
-		    							CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[13])]);
+		    							new String(Base64.decodeBase64(data[11])),
+		    							importTransformations(data[12]),
+		    							importTransformations(data[13]));
 	        		    		
 	        		    		synchronized(customPlugins) {
 	        						int customPluginsOldSize = customPlugins.size();
@@ -3912,19 +3802,19 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	        		    		BridaHttpListenerPlugin importedPlugin = new BridaHttpListenerPlugin(importedPluginToolsList,
 	        		    				(data[2].equals("true") ? true : false),
 	        							this,
-	        							new String(b64Decoder.decode(data[3])),
-	        							new String(b64Decoder.decode(data[4])),
+	        							new String(Base64.decodeBase64(data[3])),
+	        							new String(Base64.decodeBase64(data[4])),
 	        							CustomPlugin.CustomPluginExecuteOnValues.values()[Integer.parseInt(data[5])],
-	        							new String(b64Decoder.decode(data[6])),
+	        							new String(Base64.decodeBase64(data[6])),
 	        							CustomPlugin.CustomPluginExecuteValues.values()[Integer.parseInt(data[7])],
-	        							new String(b64Decoder.decode(data[8])),
+	        							new String(Base64.decodeBase64(data[8])),
 	        							CustomPlugin.CustomPluginParameterValues.values()[Integer.parseInt(data[9])],
-	        							new String(b64Decoder.decode(data[10])),
-	        							CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[11])],
+	        							new String(Base64.decodeBase64(data[10])),
+	        							importTransformations(data[11]),
 	        							CustomPlugin.CustomPluginFunctionOutputValues.values()[Integer.parseInt(data[12])],
-	        							new String(b64Decoder.decode(data[13])),
-	        							CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[14])],
-	        							CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[15])]);
+	        							new String(Base64.decodeBase64(data[13])),
+	        							importTransformations(data[14]),
+	        							importTransformations(data[15]));
 	        		    		
 	        		    		synchronized(customPlugins) {
 	        						int customPluginsOldSize = customPlugins.size();
@@ -3935,17 +3825,17 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	        		    	} else if(CustomPlugin.CustomPluginType.values()[Integer.parseInt(data[0])] == CustomPlugin.CustomPluginType.ICONTEXTMENU && data.length >= 12) {
 	        		    		
 	        		    		BridaContextMenuPlugin importedPlugin = new BridaContextMenuPlugin(this,
-	        		    				new String(b64Decoder.decode(data[1])),
-		    							new String(b64Decoder.decode(data[2])),
+	        		    				new String(Base64.decodeBase64(data[1])),
+		    							new String(Base64.decodeBase64(data[2])),
 		    							CustomPlugin.CustomPluginExecuteOnValues.values()[Integer.parseInt(data[3])],
-		    							new String(b64Decoder.decode(data[4])),
+		    							new String(Base64.decodeBase64(data[4])),
 		    							CustomPlugin.CustomPluginParameterValues.values()[Integer.parseInt(data[5])],
-		    							new String(b64Decoder.decode(data[6])),
-		    							CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[7])],
+		    							new String(Base64.decodeBase64(data[6])),
+		    							importTransformations(data[7]),
 		    							CustomPlugin.CustomPluginFunctionOutputValues.values()[Integer.parseInt(data[8])],
-		    							new String(b64Decoder.decode(data[9])),
-		    							CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[10])],
-		    							CustomPlugin.CustomPluginEncodingValues.values()[Integer.parseInt(data[11])]);
+		    							new String(Base64.decodeBase64(data[9])),
+		    							importTransformations(data[10]),
+		    							importTransformations(data[11]));
 	        		    		
 	        		    		synchronized(customPlugins) {
 	        						int customPluginsOldSize = customPlugins.size();
@@ -3973,6 +3863,179 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 		}
 				
+	}
+		
+	public static List<Transformation> importTransformations(String encoding) {
+		List<Transformation> output = new ArrayList<Transformation>();
+		String toTokenize = encoding.replaceAll("\\[", "").replaceAll("\\]", "").replaceAll(" ","");
+		String[] tokens = toTokenize.split(",");
+		for(String t : tokens) {
+			for (Transformation tr : Transformation.values()) {
+				if(t.equals(tr.toString())) {
+					output.add(tr);
+					continue;
+				}
+			}
+		}		
+		return output;		
+	}
+	
+    protected enum Transformation {
+        GZIP {
+            public String toString() { return "GZIP"; }
+            protected OutputStream getCompressor(OutputStream os) throws IOException {
+                return new GZIPOutputStream(os);
+            }
+            protected InputStream getDecompressor(InputStream is) throws IOException {
+                return new GZIPInputStream(is);
+            }
+        },
+        ZLIB {
+            public String toString() { return "ZLIB"; }
+            protected OutputStream getCompressor(OutputStream os) throws IOException {
+                return new DeflaterOutputStream(os);
+            }
+            protected InputStream getDecompressor(InputStream is) throws IOException {
+                return new InflaterInputStream(is);
+            }
+        },
+        BASE64 {
+            public String toString() { return "Base64"; }
+            public byte[] encode(byte[] input) throws IOException { return Base64.encodeBase64(input); }
+            public byte[] decode(byte[] input) throws IOException { return Base64.decodeBase64(input); }
+        },
+        BASE64_URL_SAFE { 
+            public String toString() { return "Base64 URLsafe"; }
+            public byte[] encode(byte[] input) throws IOException { return Base64.encodeBase64URLSafe(input); }
+            public byte[] decode(byte[] input) throws IOException { return Base64.decodeBase64(input); }
+        },
+        ASCII_HEX {
+            public String toString() { return "ASCII-HEX"; }
+            public byte[] encode(byte[] input) throws IOException { return hex.encode(input); }
+            public byte[] decode(byte[] input) throws IOException,DecoderException { return hex.decode(input); }
+			private Hex hex = new Hex("ASCII");
+        },
+        URL_ENCODING {
+            public String toString() { return "URL"; }
+            public byte[] encode(byte[] input) throws IOException {
+                return URLEncoder.encode(new String(input, "ISO-8859-1"), "ISO-8859-1").getBytes();
+            }
+            public byte[] decode(byte[] input) throws IOException {
+                return URLDecoder.decode(new String(input, "ISO-8859-1"), "ISO-8859-1").getBytes();
+            }
+        };
+
+        protected OutputStream getCompressor(OutputStream os) throws IOException { return null; }
+        protected InputStream getDecompressor(InputStream is) throws IOException { return null; }
+        public byte[] encode(byte[] input) throws IOException {
+            ByteArrayOutputStream outbytes = new ByteArrayOutputStream(input.length);
+            OutputStream comp = getCompressor(outbytes);
+            comp.write(input);
+            comp.close();
+            return outbytes.toByteArray();
+        }
+        public byte[] decode(byte[] input) throws IOException,DecoderException {
+            ByteArrayOutputStream outbytes = new ByteArrayOutputStream();
+            ByteArrayInputStream inbytes =  new ByteArrayInputStream(input);
+            InputStream comp = getDecompressor(inbytes);
+            int len;
+            byte[] buffer = new byte[1024];
+            while ((len = comp.read(buffer)) > 0) {
+            	outbytes.write(buffer, 0, len);
+            }            
+            comp.close();
+            inbytes.close();
+            return outbytes.toByteArray();
+        }
+    }
+	
+	public static void popupEncoderWindow(String title, JTextField currentJTextField, List<Transformation> currentListTransformation) {
+		
+		JFrame frame = new JFrame(title);
+		
+		DefaultListModel<Transformation> addedTransformationsListModel = new DefaultListModel<Transformation>();  
+        JList addedTransformationsList = new JList(addedTransformationsListModel);    
+        JScrollPane addedTransformationsListScrollPane = new JScrollPane(addedTransformationsList);
+        addedTransformationsListScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        addedTransformationsListScrollPane.setBorder(new LineBorder(Color.BLACK));
+        addedTransformationsListScrollPane.setMaximumSize( addedTransformationsListScrollPane.getPreferredSize() );
+
+		//2. Optional: What happens when the frame closes?
+		frame.addWindowListener((WindowListener)new WindowAdapter() {
+		    @Override
+		    public void windowClosing(WindowEvent e) {
+		    	
+		    	currentListTransformation.clear();
+				
+				for(int i=0; i<addedTransformationsListModel.getSize();i++) {					
+					currentListTransformation.add(addedTransformationsListModel.getElementAt(i));
+				}
+				
+				currentJTextField.setText(currentListTransformation.toString());
+				
+		    	frame.setVisible(false);
+		    	frame.dispose(); 
+		    }
+		});
+		
+		DefaultListModel<Transformation> transformationsListModel = new DefaultListModel<Transformation>();                
+        JPanel tranformationListPanel = new JPanel();
+        tranformationListPanel.setLayout(new BoxLayout(tranformationListPanel, BoxLayout.X_AXIS)); 
+
+        JList transformationsList = new JList(transformationsListModel);    
+        JScrollPane transformationsListScrollPane = new JScrollPane(transformationsList);
+        transformationsListScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        transformationsListScrollPane.setBorder(new LineBorder(Color.BLACK));
+        transformationsListScrollPane.setMaximumSize( transformationsListScrollPane.getPreferredSize() );        
+        for (Transformation t : Transformation.values()) {
+        	transformationsListModel.addElement(t);
+        }   
+        
+        JPanel tranformationButtonPanel = new JPanel();
+        tranformationButtonPanel.setLayout(new BoxLayout(tranformationButtonPanel, BoxLayout.Y_AXIS));
+        JButton addTransformationButton = new JButton("Add -->");
+        addTransformationButton.addActionListener(new ActionListener() {
+        	public void actionPerformed(ActionEvent actionEvent) {
+        		SwingUtilities.invokeLater(new Runnable() {    				
+    	            @Override
+    	            public void run() {    	            		            	
+    	            	int index = transformationsList.getSelectedIndex();
+    	            	addedTransformationsListModel.addElement(transformationsListModel.elementAt(index));    					
+    	            }
+    			});
+        	}
+        });
+        JButton removeTransformationButton = new JButton("<-- Remove");
+        removeTransformationButton.addActionListener(new ActionListener() {
+        	public void actionPerformed(ActionEvent actionEvent) {
+        		SwingUtilities.invokeLater(new Runnable() {    				
+    	            @Override
+    	            public void run() {    	            		            	
+    	            	int index = addedTransformationsList.getSelectedIndex();
+    	            	if(index != -1) {
+    	            		addedTransformationsListModel.remove(index);
+    	            	}    	            						
+    	            }
+    			});
+        	}
+        });
+        tranformationButtonPanel.add(addTransformationButton);
+        tranformationButtonPanel.add(removeTransformationButton);
+        
+        tranformationListPanel.add(transformationsListScrollPane);
+        tranformationListPanel.add(tranformationButtonPanel);
+        tranformationListPanel.add(addedTransformationsListScrollPane);
+		
+        frame.getContentPane().add(tranformationListPanel, BorderLayout.CENTER);
+        
+        // Add old transformations
+        for (Transformation t : currentListTransformation) {
+        	addedTransformationsListModel.addElement(t);
+        }  
+        
+  		frame.pack();
+  		frame.setVisible(true);
+  		
 	}
 	
 	public static String byteArrayToHexString(byte[] raw) {
@@ -4682,7 +4745,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	    					String parametersPopup = JOptionPane.showInputDialog("Enter parameter(s), delimited by \"#,#\"");
 	    					currentParameters = parametersPopup.split("#,#");
 	    					for(int i=0;i<currentParameters.length;i++) {
-        						currentParameters[i] = CustomPlugin.encodeCustomPluginValue(currentParameters[i].getBytes(),dh.getParametersEncoding());
+        						currentParameters[i] = CustomPlugin.encodeCustomPluginValue(currentParameters[i].getBytes(),dh.getParametersEncoding(), BurpExtender.this);
         					}
 	    				} else {
         					// For cases different from POPUP parameters are already encoded	    					

@@ -1,5 +1,7 @@
 package burp;
 
+import java.util.List;
+
 public class DefaultHook {
 	
 	private String name;
@@ -8,10 +10,10 @@ public class DefaultHook {
 	private boolean isInterceptorHook;
 	private boolean isEnabled;
 	private String[] parameters;
-	private CustomPlugin.CustomPluginEncodingValues parametersEncoding;
+	private List<BurpExtender.Transformation> parametersEncoding;
 	private boolean popupParameters;
 		
-	public DefaultHook(String name, int os, String code, boolean isInterceptorHook, String[] parameters, CustomPlugin.CustomPluginEncodingValues parametersEncoding, boolean popupParameters) {
+	public DefaultHook(String name, int os, String code, boolean isInterceptorHook, String[] parameters, List<BurpExtender.Transformation> parametersEncoding, boolean popupParameters) {
 		this.name = name;
 		this.os = os;
 		this.fridaExportName = code;
@@ -63,10 +65,10 @@ public class DefaultHook {
 	public void setPopupParameters(boolean popupParameters) {
 		this.popupParameters = popupParameters;
 	}
-	public CustomPlugin.CustomPluginEncodingValues getParametersEncoding() {
+	public List<BurpExtender.Transformation> getParametersEncoding() {
 		return parametersEncoding;
 	}
-	public void setParametersEncoding(CustomPlugin.CustomPluginEncodingValues parametersEncoding) {
+	public void setParametersEncoding(List<BurpExtender.Transformation> parametersEncoding) {
 		this.parametersEncoding = parametersEncoding;
 	}	
 	

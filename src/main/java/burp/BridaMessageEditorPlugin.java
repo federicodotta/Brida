@@ -14,11 +14,11 @@ import net.razorvine.pyro.PyroURI;
 public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEditorTabFactory {
 	
 	private String tabCaption;	
-	private CustomPluginEncodingValues customPluginEditedContentEncodingFridaInput;
+	private List<BurpExtender.Transformation> customPluginEditedContentEncodingFridaInput;
 	private String customPluginEditedContentLocationString;
-	private CustomPluginEncodingValues customPluginEditedContentFridaOutputDecoding;
+	private List<BurpExtender.Transformation> customPluginEditedContentFridaOutputDecoding;
 	private String customPluginEditedContentFridaFunctionName;
-	private CustomPluginEncodingValues customPluginEditedContentOutputEncoding;
+	private List<BurpExtender.Transformation> customPluginEditedContentOutputEncoding;
 	private BridaMessageEditorPluginOutputLocation customPluginEditedContentLocation;
 	
     public static enum BridaMessageEditorPluginOutputLocation {
@@ -31,18 +31,18 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 		
 	public BridaMessageEditorPlugin(BridaMessageEditorPluginOutputLocation customPluginEditedContentLocation,
 									String customPluginEditedContentLocationString,
-									CustomPluginEncodingValues customPluginEditedContentEncodingFridaInput,
-									CustomPluginEncodingValues customPluginEditedContentFridaOutputDecoding,
+									List<BurpExtender.Transformation> customPluginEditedContentEncodingFridaInput,
+									List<BurpExtender.Transformation> customPluginEditedContentFridaOutputDecoding,
 									String customPluginEditedContentFridaFunctionName,
-									CustomPluginEncodingValues customPluginEditedContentOutputEncoding,
+									List<BurpExtender.Transformation> customPluginEditedContentOutputEncoding,
 									BurpExtender mainPlugin, String customPluginName, String customPluginExportedFunctionName,
 									CustomPluginExecuteOnValues customPluginExecuteOn, String customPluginExecuteOnContextName, 
 									CustomPluginExecuteValues customPluginExecute, String customPluginExecuteString,
 									CustomPluginParameterValues customPluginParameter, String customPluginParameterString,
-									CustomPluginEncodingValues customPluginParameterEncoding,
+									List<BurpExtender.Transformation> customPluginParameterEncoding,
 									CustomPluginFunctionOutputValues customPluginFunctionOutput, String customPluginFunctionOutputString,
-									CustomPluginEncodingValues customPluginOutputEncoding,
-									CustomPluginEncodingValues customPluginOutputDecoding)  {
+									List<BurpExtender.Transformation> customPluginOutputEncoding,
+									List<BurpExtender.Transformation> customPluginOutputDecoding)  {
 		
         super(mainPlugin, customPluginName, customPluginExportedFunctionName,
 				customPluginExecuteOn, customPluginExecuteOnContextName, 
@@ -73,10 +73,10 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 		result = result + getType().ordinal() + ";";
 		result = result + customPluginEditedContentLocation.ordinal() + ";";
 		result = result + Base64.getEncoder().encodeToString(customPluginEditedContentLocationString.getBytes()) + ";";
-		result = result + customPluginEditedContentEncodingFridaInput.ordinal() + ";";
-		result = result + customPluginEditedContentFridaOutputDecoding.ordinal() + ";";
+		result = result + customPluginEditedContentEncodingFridaInput.toString() + ";";
+		result = result + customPluginEditedContentFridaOutputDecoding.toString() + ";";
 		result = result + Base64.getEncoder().encodeToString(customPluginEditedContentFridaFunctionName.getBytes()) + ";";
-		result = result + customPluginEditedContentOutputEncoding.ordinal() + ";";
+		result = result + customPluginEditedContentOutputEncoding.toString() + ";";
 		result = result + Base64.getEncoder().encodeToString(getCustomPluginName().getBytes()) + ";";
 		result = result + Base64.getEncoder().encodeToString(getCustomPluginExportedFunctionName().getBytes()) + ";";
 		result = result + getCustomPluginExecuteOn().ordinal() + ";";
@@ -85,11 +85,11 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 		result = result + Base64.getEncoder().encodeToString(getCustomPluginExecuteString().getBytes()) + ";";
 		result = result + getCustomPluginParameter().ordinal() + ";";
 		result = result + Base64.getEncoder().encodeToString(getCustomPluginParameterString().getBytes()) + ";";
-		result = result + getCustomPluginParameterEncoding().ordinal() + ";";		
+		result = result + getCustomPluginParameterEncoding().toString() + ";";		
 		result = result + getCustomPluginFunctionOutput().ordinal() + ";";
 		result = result + Base64.getEncoder().encodeToString(getCustomPluginFunctionOutputString().getBytes()) + ";";
-		result = result + getCustomPluginOutputEncoding().ordinal() + ";";
-		result = result + getCustomPluginOutputDecoding().ordinal();
+		result = result + getCustomPluginOutputEncoding().toString() + ";";
+		result = result + getCustomPluginOutputDecoding().toString();
 				
 		return result;
 		
@@ -204,7 +204,7 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 				byte[] editedContent = txtInput.getText();
 				
 				// Encode parameter
-				String[] parameters = new String[] {encodeCustomPluginValue(editedContent,customPluginEditedContentEncodingFridaInput)};
+				String[] parameters = new String[] {encodeCustomPluginValue(editedContent,customPluginEditedContentEncodingFridaInput, getMainPlugin())};
 
 				// Call frida
 				if(getMainPlugin().serverStarted && getMainPlugin().applicationSpawned) {
@@ -231,10 +231,10 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 					if(ret != null) {
 						 
 						// Decode function output if requested
-						byte[] customPluginEditedContentOutputDecoded =  decodeCustomPluginOutput(ret,customPluginEditedContentFridaOutputDecoding);
+						byte[] customPluginEditedContentOutputDecoded =  decodeCustomPluginOutput(ret,customPluginEditedContentFridaOutputDecoding, getMainPlugin());
 						
 						// Encode plugin output if requested
-						String customPluginEditedContentOutputEncoded = encodeCustomPluginValue(customPluginEditedContentOutputDecoded, customPluginEditedContentOutputEncoding);
+						String customPluginEditedContentOutputEncoded = encodeCustomPluginValue(customPluginEditedContentOutputDecoded, customPluginEditedContentOutputEncoding, getMainPlugin());
 						
 						// DEBUG print
 						printToExternalDebugFrame("** Frida returned value (after deconding/encoding) on edited content\n");
@@ -338,12 +338,12 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 	
     }
 
-	public CustomPluginEncodingValues getCustomPluginEditedContentEncodingFridaInput() {
+	public List<BurpExtender.Transformation> getCustomPluginEditedContentEncodingFridaInput() {
 		return customPluginEditedContentEncodingFridaInput;
 	}
 
 	public void setCustomPluginEditedContentEncodingFridaInput(
-			CustomPluginEncodingValues customPluginEditedContentEncodingFridaInput) {
+			List<BurpExtender.Transformation> customPluginEditedContentEncodingFridaInput) {
 		this.customPluginEditedContentEncodingFridaInput = customPluginEditedContentEncodingFridaInput;
 	}
 
@@ -355,12 +355,12 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 		this.customPluginEditedContentLocationString = customPluginEditedContentLocationString;
 	}
 
-	public CustomPluginEncodingValues getCustomPluginEditedContentFridaOutputDecoding() {
+	public List<BurpExtender.Transformation> getCustomPluginEditedContentFridaOutputDecoding() {
 		return customPluginEditedContentFridaOutputDecoding;
 	}
 
 	public void setCustomPluginEditedContentFridaOutputDecoding(
-			CustomPluginEncodingValues customPluginEditedContentFridaOutputDecoding) {
+			List<BurpExtender.Transformation> customPluginEditedContentFridaOutputDecoding) {
 		this.customPluginEditedContentFridaOutputDecoding = customPluginEditedContentFridaOutputDecoding;
 	}
 
@@ -372,12 +372,12 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 		this.customPluginEditedContentFridaFunctionName = customPluginEditedContentFridaFunctionName;
 	}
 
-	public CustomPluginEncodingValues getCustomPluginEditedContentOutputEncoding() {
+	public List<BurpExtender.Transformation> getCustomPluginEditedContentOutputEncoding() {
 		return customPluginEditedContentOutputEncoding;
 	}
 
 	public void setCustomPluginEditedContentOutputEncoding(
-			CustomPluginEncodingValues customPluginEditedContentOutputEncoding) {
+			List<BurpExtender.Transformation> customPluginEditedContentOutputEncoding) {
 		this.customPluginEditedContentOutputEncoding = customPluginEditedContentOutputEncoding;
 	}
 

@@ -19,10 +19,10 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 	public BridaContextMenuPlugin(BurpExtender mainPlugin, String customPluginName, String customPluginExportedFunctionName,
 			CustomPluginExecuteOnValues customPluginExecuteOn, String customPluginExecuteOnContextName,
 			CustomPluginParameterValues customPluginParameter,
-			String customPluginParameterString, CustomPluginEncodingValues customPluginParameterEncoding,
+			String customPluginParameterString, List<BurpExtender.Transformation> customPluginParameterEncoding,
 			CustomPluginFunctionOutputValues customPluginFunctionOutput, String customPluginFunctionOutputString,
-			CustomPluginEncodingValues customPluginOutputEncoding,
-			CustomPluginEncodingValues customPluginOutputDecoding) {
+			List<BurpExtender.Transformation> customPluginOutputEncoding,
+			List<BurpExtender.Transformation> customPluginOutputDecoding) {
 		super(mainPlugin, customPluginName, customPluginExportedFunctionName, customPluginExecuteOn, customPluginExecuteOnContextName,
 				null, null, customPluginParameter,
 				customPluginParameterString, customPluginParameterEncoding, customPluginFunctionOutput,
@@ -45,11 +45,11 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 		result = result + Base64.getEncoder().encodeToString(getCustomPluginExecuteOnContextName().getBytes()) + ";";
 		result = result + getCustomPluginParameter().ordinal() + ";";
 		result = result + Base64.getEncoder().encodeToString(getCustomPluginParameterString().getBytes()) + ";";
-		result = result + getCustomPluginParameterEncoding().ordinal() + ";";		
+		result = result + getCustomPluginParameterEncoding().toString() + ";";		
 		result = result + getCustomPluginFunctionOutput().ordinal() + ";";
 		result = result + Base64.getEncoder().encodeToString(getCustomPluginFunctionOutputString().getBytes()) + ";";
-		result = result + getCustomPluginOutputEncoding().ordinal() + ";";
-		result = result + getCustomPluginOutputDecoding().ordinal();
+		result = result + getCustomPluginOutputEncoding().toString() + ";";
+		result = result + getCustomPluginOutputDecoding().toString();
 				
 		return result;
 		
@@ -123,7 +123,7 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 				
 				int[] selectedBounds = currentInvocation.getSelectionBounds();
 				byte[] selectedPortion = Arrays.copyOfRange(selectedRequestOrResponse, selectedBounds[0], selectedBounds[1]);
-				parameters = new String[] { encodeCustomPluginValue(selectedPortion,getCustomPluginParameterEncoding()) } ;
+				parameters = new String[] { encodeCustomPluginValue(selectedPortion,getCustomPluginParameterEncoding(), getMainPlugin()) } ;
 				
 			} else {
 				

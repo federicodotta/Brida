@@ -7,7 +7,7 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Base64;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.JFrame;
@@ -33,11 +33,11 @@ public abstract class CustomPlugin {
     private String customPluginExecuteString;
     private CustomPluginParameterValues customPluginParameter;
     private String customPluginParameterString;
-    private CustomPluginEncodingValues customPluginParameterEncoding;
+    private List<BurpExtender.Transformation> customPluginParameterEncoding;
     private CustomPluginFunctionOutputValues customPluginFunctionOutput;
     private String customPluginFunctionOutputString;
-    private CustomPluginEncodingValues customPluginOutputEncoding;
-    private CustomPluginEncodingValues customPluginOutputDecoding;
+    private List<BurpExtender.Transformation> customPluginOutputEncoding;
+    private List<BurpExtender.Transformation> customPluginOutputDecoding;    
     private CustomPluginType type;
     
     private JTextArea debugTextArea;
@@ -47,10 +47,10 @@ public abstract class CustomPlugin {
 			CustomPluginExecuteOnValues customPluginExecuteOn, String customPluginExecuteOnContextName, 
 			CustomPluginExecuteValues customPluginExecute, String customPluginExecuteString,
 			CustomPluginParameterValues customPluginParameter, String customPluginParameterString,
-			CustomPluginEncodingValues customPluginParameterEncoding,
+			List<BurpExtender.Transformation> customPluginParameterEncoding,
 			CustomPluginFunctionOutputValues customPluginFunctionOutput, String customPluginFunctionOutputString,
-			CustomPluginEncodingValues customPluginOutputEncoding,
-			CustomPluginEncodingValues customPluginOutputDecoding) {
+			List<BurpExtender.Transformation> customPluginOutputEncoding,
+			List<BurpExtender.Transformation> customPluginOutputDecoding) {
 		
 		this.mainPlugin = mainPlugin;
 		this.customPluginName = customPluginName;
@@ -106,11 +106,6 @@ public abstract class CustomPlugin {
     	REGEX,
     	FIXED,
     	POPUP
-    }
-    public static enum CustomPluginEncodingValues {
-    	PLAIN,
-    	BASE64,
-    	ASCII_HEX
     }
     public static enum CustomPluginFunctionOutputValues {
     	BRIDA,
@@ -174,11 +169,11 @@ public abstract class CustomPlugin {
 			if(ret != null) {
 				 
 				// Decode function output if requested
-				byte[] customPluginOutputDecoded =  decodeCustomPluginOutput(ret,customPluginOutputDecoding);
+				byte[] customPluginOutputDecoded =  decodeCustomPluginOutput(ret,customPluginOutputDecoding, mainPlugin);
 				
 				// Encode plugin output if requested
-				String customPluginOutputEncoded = encodeCustomPluginValue(customPluginOutputDecoded, customPluginOutputEncoding);
-				
+				String customPluginOutputEncoded = encodeCustomPluginValue(customPluginOutputDecoded, customPluginOutputEncoding, mainPlugin);
+					
 				return customPluginOutputEncoded;
 				
 			} else {
@@ -257,7 +252,7 @@ public abstract class CustomPlugin {
 		if(customPluginParameter == CustomPluginParameterValues.NONE) {							
 			parametersCustomPlugin = new String[0];							
 		} else if(customPluginParameter == CustomPluginParameterValues.COMPLETE) {							
-			parametersCustomPlugin = new String[] {encodeCustomPluginValue(requestResponseBytes,customPluginParameterEncoding)};
+			parametersCustomPlugin = new String[] {encodeCustomPluginValue(requestResponseBytes,customPluginParameterEncoding, mainPlugin)};
 		} else if(customPluginParameter == CustomPluginParameterValues.BODY) {
 			int curBodyIndex;
 			if(isRequest) {
@@ -267,7 +262,7 @@ public abstract class CustomPlugin {
 				IResponseInfo currentResponseInfo = mainPlugin.helpers.analyzeResponse(requestResponseBytes);
 				curBodyIndex = currentResponseInfo.getBodyOffset();
 			}
-			parametersCustomPlugin = new String[] {encodeCustomPluginValue(Arrays.copyOfRange(requestResponseBytes, curBodyIndex, requestResponseBytes.length),customPluginParameterEncoding)};
+			parametersCustomPlugin = new String[] {encodeCustomPluginValue(Arrays.copyOfRange(requestResponseBytes, curBodyIndex, requestResponseBytes.length),customPluginParameterEncoding, mainPlugin)};
 		} else if(customPluginParameter == CustomPluginParameterValues.HEADERS) {
 			int curBodyIndex;
 			if(isRequest) {
@@ -278,7 +273,7 @@ public abstract class CustomPlugin {
 				curBodyIndex = currentResponseInfo.getBodyOffset();
 			}
 			// TODO Check curBodyIndex-3
-			parametersCustomPlugin = new String[] {encodeCustomPluginValue(Arrays.copyOfRange(requestResponseBytes, 0, curBodyIndex-3),customPluginParameterEncoding)};
+			parametersCustomPlugin = new String[] {encodeCustomPluginValue(Arrays.copyOfRange(requestResponseBytes, 0, curBodyIndex-3),customPluginParameterEncoding, mainPlugin)};
 		/*} else if(customPluginParameter == CustomPluginParameterValues.CONTEXT) {
 			
 			IHttpRequestResponse[] selectedItems = mainPlugin.currentInvocation.getSelectedMessages();
@@ -301,7 +296,7 @@ public abstract class CustomPlugin {
 			if(matcherCustomPlugin.find()) {
 				parametersCustomPlugin = new String[matcherCustomPlugin.groupCount()];
 				for(int i=1;i<=matcherCustomPlugin.groupCount();i++) {
-					parametersCustomPlugin[i-1] = encodeCustomPluginValue(matcherCustomPlugin.group(i).getBytes(),customPluginParameterEncoding);
+					parametersCustomPlugin[i-1] = encodeCustomPluginValue(matcherCustomPlugin.group(i).getBytes(),customPluginParameterEncoding, mainPlugin);
 				}
 			} else {
 				mainPlugin.printException(null,"No parameter found in REGEX. Calling function without parameters");
@@ -310,13 +305,13 @@ public abstract class CustomPlugin {
 		} else if(customPluginParameter == CustomPluginParameterValues.FIXED) {
 			parametersCustomPlugin = customPluginParameterString.split("#,#");
 			for(int i=0;i<parametersCustomPlugin.length;i++) {
-				parametersCustomPlugin[i] = encodeCustomPluginValue(parametersCustomPlugin[i].getBytes(),customPluginParameterEncoding);
+				parametersCustomPlugin[i] = encodeCustomPluginValue(parametersCustomPlugin[i].getBytes(),customPluginParameterEncoding, mainPlugin);
 			}
 		} else if(customPluginParameter == CustomPluginParameterValues.POPUP) {
 			String parametersPopup = JOptionPane.showInputDialog("Enter parameter(s), delimited by \"#,#\"");
 			parametersCustomPlugin = parametersPopup.split("#,#");
 			for(int i=0;i<parametersCustomPlugin.length;i++) {
-				parametersCustomPlugin[i] = encodeCustomPluginValue(parametersCustomPlugin[i].getBytes(),customPluginParameterEncoding);
+				parametersCustomPlugin[i] = encodeCustomPluginValue(parametersCustomPlugin[i].getBytes(),customPluginParameterEncoding, mainPlugin);
 			}
 		}
 				
@@ -333,26 +328,28 @@ public abstract class CustomPlugin {
 	}
 	
 	// TODO: Change name and maybe change to byte[] as return value
-	public static String encodeCustomPluginValue(byte[] parameter, CustomPluginEncodingValues encoding) {
-		
-		if(encoding == CustomPluginEncodingValues.PLAIN) {
-			return new String(parameter);
-		} else if(encoding == CustomPluginEncodingValues.BASE64) {
-			return Base64.getEncoder().encodeToString(parameter);
-		} else {
-			return BurpExtender.byteArrayToHexString(parameter);
+	public static String encodeCustomPluginValue(byte[] parameter, List<BurpExtender.Transformation> encodingTransformations, BurpExtender mainPlugin) {
+		byte[] output = parameter;
+		for (BurpExtender.Transformation t : encodingTransformations) {
+			try {
+				output = t.encode(output);
+			} catch (Exception e) {
+				mainPlugin.printException(e,"Error while trying to encoding " + t.toString());
+			}
 		}
-		
+		return new String(output);		
 	}
 	
-	public static byte[] decodeCustomPluginOutput(String output, CustomPluginEncodingValues encoding) {
-		if(encoding == CustomPluginEncodingValues.PLAIN) {
-			return output.getBytes();
-		} else if(encoding == CustomPluginEncodingValues.BASE64) {
-			return Base64.getDecoder().decode(output);
-		} else {
-			return BurpExtender.hexStringToByteArray(output);
+	public static byte[] decodeCustomPluginOutput(String toDecode, List<BurpExtender.Transformation> decodingTransformations, BurpExtender mainPlugin) {
+		byte[] output = toDecode.getBytes();
+		for (BurpExtender.Transformation t : decodingTransformations) {
+			try {
+				output = t.decode(output);
+			} catch (Exception e) {
+				mainPlugin.printException(e,"Error while trying to decode " + t.toString());
+			}
 		}
+		return output;
 	}
 
 	public BurpExtender getMainPlugin() {
@@ -419,11 +416,11 @@ public abstract class CustomPlugin {
 		this.customPluginParameterString = customPluginParameterString;
 	}
 
-	public CustomPluginEncodingValues getCustomPluginParameterEncoding() {
+	public List<BurpExtender.Transformation> getCustomPluginParameterEncoding() {
 		return customPluginParameterEncoding;
 	}
 
-	public void setCustomPluginParameterEncoding(CustomPluginEncodingValues customPluginParameterEncoding) {
+	public void setCustomPluginParameterEncoding(List<BurpExtender.Transformation> customPluginParameterEncoding) {
 		this.customPluginParameterEncoding = customPluginParameterEncoding;
 	}
 
@@ -443,19 +440,19 @@ public abstract class CustomPlugin {
 		this.customPluginFunctionOutputString = customPluginFunctionOutputString;
 	}
 
-	public CustomPluginEncodingValues getCustomPluginOutputEncoding() {
+	public List<BurpExtender.Transformation> getCustomPluginOutputEncoding() {
 		return customPluginOutputEncoding;
 	}
 
-	public void setCustomPluginOutputEncoding(CustomPluginEncodingValues customPluginOutputEncoding) {
+	public void setCustomPluginOutputEncoding(List<BurpExtender.Transformation> customPluginOutputEncoding) {
 		this.customPluginOutputEncoding = customPluginOutputEncoding;
 	}
 
-	public CustomPluginEncodingValues getCustomPluginOutputDecoding() {
+	public List<BurpExtender.Transformation> getCustomPluginOutputDecoding() {
 		return customPluginOutputDecoding;
 	}
 
-	public void setCustomPluginOutputDecoding(CustomPluginEncodingValues customPluginOutputDecoding) {
+	public void setCustomPluginOutputDecoding(List<BurpExtender.Transformation> customPluginOutputDecoding) {
 		this.customPluginOutputDecoding = customPluginOutputDecoding;
 	}
 

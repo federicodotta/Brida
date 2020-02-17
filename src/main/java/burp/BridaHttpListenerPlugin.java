@@ -2,6 +2,7 @@ package burp;
 
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -15,10 +16,10 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 			CustomPluginExecuteOnValues customPluginExecuteOn, String customPluginExecuteOnContextName,
 			CustomPluginExecuteValues customPluginExecute,
 			String customPluginExecuteString, CustomPluginParameterValues customPluginParameter,
-			String customPluginParameterString, CustomPluginEncodingValues customPluginParameterEncoding,
+			String customPluginParameterString, List<BurpExtender.Transformation> customPluginParameterEncoding,
 			CustomPluginFunctionOutputValues customPluginFunctionOutput, String customPluginFunctionOutputString,
-			CustomPluginEncodingValues customPluginOutputEncoding,
-			CustomPluginEncodingValues customPluginOutputDecoding) {
+			List<BurpExtender.Transformation> customPluginOutputEncoding,
+			List<BurpExtender.Transformation> customPluginOutputDecoding) {
 		super(mainPlugin, customPluginName, customPluginExportedFunctionName, customPluginExecuteOn, customPluginExecuteOnContextName,
 				customPluginExecute, customPluginExecuteString, customPluginParameter,
 				customPluginParameterString, customPluginParameterEncoding, customPluginFunctionOutput,
@@ -57,11 +58,11 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 		result = result + Base64.getEncoder().encodeToString(getCustomPluginExecuteString().getBytes()) + ";";
 		result = result + getCustomPluginParameter().ordinal() + ";";
 		result = result + Base64.getEncoder().encodeToString(getCustomPluginParameterString().getBytes()) + ";";
-		result = result + getCustomPluginParameterEncoding().ordinal() + ";";		
+		result = result + getCustomPluginParameterEncoding().toString() + ";";		
 		result = result + getCustomPluginFunctionOutput().ordinal() + ";";
 		result = result + Base64.getEncoder().encodeToString(getCustomPluginFunctionOutputString().getBytes()) + ";";
-		result = result + getCustomPluginOutputEncoding().ordinal() + ";";
-		result = result + getCustomPluginOutputDecoding().ordinal();
+		result = result + getCustomPluginOutputEncoding().toString() + ";";
+		result = result + getCustomPluginOutputDecoding().toString();
 				
 		return result;
 		
