@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListener {
+public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListener, IProxyListener {
 	
 	private ArrayList<Integer> customPluginTools;
 	private boolean processOnlyInScope;
@@ -20,6 +20,7 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 			CustomPluginFunctionOutputValues customPluginFunctionOutput, String customPluginFunctionOutputString,
 			List<BurpExtender.Transformation> customPluginOutputEncoding,
 			List<BurpExtender.Transformation> customPluginOutputDecoding) {
+    	
 		super(mainPlugin, customPluginName, customPluginExportedFunctionName, customPluginExecuteOn, customPluginExecuteOnContextName,
 				customPluginExecute, customPluginExecuteString, customPluginParameter,
 				customPluginParameterString, customPluginParameterEncoding, customPluginFunctionOutput,
@@ -68,13 +69,34 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 		
 	}
     
-	public void enable() {
-    	getMainPlugin().callbacks.registerHttpListener(this);
+	public void enable() {		
+		
+		if(customPluginTools.contains(IBurpExtenderCallbacks.TOOL_PROXY) && customPluginTools.size() == 1) {
+			// Process only proxy requests/responses
+			getMainPlugin().callbacks.registerProxyListener(this);			
+		} else if(!customPluginTools.contains(IBurpExtenderCallbacks.TOOL_PROXY)) {
+			// Process only NON proxy requests/responses
+			getMainPlugin().callbacks.registerHttpListener(this);
+		} else {
+			getMainPlugin().callbacks.registerProxyListener(this);
+			getMainPlugin().callbacks.registerHttpListener(this);
+		}
+		
     	setOnOff(true);
+    	
     }
     
     public void disable() {
-    	getMainPlugin().callbacks.removeHttpListener(this);
+    	
+    	if(customPluginTools.contains(IBurpExtenderCallbacks.TOOL_PROXY) && customPluginTools.size() == 1) {
+			getMainPlugin().callbacks.removeProxyListener(this);			
+		} else if(!customPluginTools.contains(IBurpExtenderCallbacks.TOOL_PROXY)) {
+			getMainPlugin().callbacks.removeHttpListener(this);
+		} else {
+			getMainPlugin().callbacks.removeProxyListener(this);
+			getMainPlugin().callbacks.removeHttpListener(this);
+		}
+    	
     	setOnOff(false);
     }
     
@@ -89,70 +111,9 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 			scopeCheck = getMainPlugin().callbacks.isInScope(getMainPlugin().helpers.analyzeRequest(messageInfo).getUrl());
 		}
 		
-		if(scopeCheck && customPluginTools.contains(toolFlag) && isPluginEnabled(requestResponseBytes, messageIsRequest)) {
+		if(scopeCheck && customPluginTools.contains(toolFlag) && isPluginEnabled(requestResponseBytes, messageIsRequest) && toolFlag != IBurpExtenderCallbacks.TOOL_PROXY) {
 			
-			// DEBUG print
-			printToExternalDebugFrame("*** START ***\n\n");
-			printToExternalDebugFrame("** Original " + (messageIsRequest ? "request" : "response") + "\n");
-			printToExternalDebugFrame(new String(requestResponseBytes));
-			printToExternalDebugFrame("\n\n");
-			
-			String[] parameters = getParametersCustomPlugin(requestResponseBytes,messageIsRequest);
-			
-			// DEBUG print
-			if(parameters.length > 0) {
-				printToExternalDebugFrame("** Frida parameters (after encoding)\n");
-				for(int i=0;i<parameters.length;i++) {
-					printToExternalDebugFrame("* Parameter " + (i+1) + ": " + parameters[i] + "\n");
-				}
-				printToExternalDebugFrame("\n\n");
-			} else {
-				printToExternalDebugFrame("** NO Frida parameters\n\n");
-			}
-			
-			String ret = callFrida(parameters);
-			
-			// DEBUG print
-			printToExternalDebugFrame("** Frida returned value (after deconding/encoding)\n");
-			printToExternalDebugFrame(ret);
-			printToExternalDebugFrame("\n\n");
-			
-			if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.BRIDA) {
-				getMainPlugin().printSuccessMessage("* Brida exported function " + getCustomPluginExportedFunctionName() + " output: " + ret);
-				
-				// DEBUG print
-				printToExternalDebugFrame("** Output to Brida console\n\n");
-				
-			} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.REGEX) {
-				Pattern patternCustomPlugin = Pattern.compile(getCustomPluginFunctionOutputString());
-				Matcher matcherCustomPlugin = patternCustomPlugin.matcher(new String(requestResponseBytes));
-				if(matcherCustomPlugin.find()) {									
-					
-					String replacedRequestResponse = new StringBuilder(new String(requestResponseBytes)).replace(matcherCustomPlugin.start(1), matcherCustomPlugin.end(1), ret).toString();
-					if(messageIsRequest) {
-						messageInfo.setRequest(replacedRequestResponse.getBytes());
-					} else {
-						messageInfo.setResponse(replacedRequestResponse.getBytes());
-					}
-					
-					// DEBUG print
-					printToExternalDebugFrame("** Modified " + (messageIsRequest ? "request" : "response") + "\n");
-					printToExternalDebugFrame(replacedRequestResponse);
-					printToExternalDebugFrame("** \n\n");
-					
-				} else {
-					
-					getMainPlugin().printException(null,"No match found in supplied output REGEX. Outputting to Brida console.");
-					getMainPlugin().printSuccessMessage("* Brida exported function " + getCustomPluginExportedFunctionName() + " output: " + ret);
-					
-					// DEBUG print
-					printToExternalDebugFrame("** Output to Brida console because REGEX did not match\n\n");
-					
-				}								
-			}
-			
-			// DEBUG print
-			printToExternalDebugFrame("*** END ***\n\n");
+			executeBridaFunction(messageInfo, messageIsRequest);
 			
 		}		
 		
@@ -174,6 +135,94 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 
 	public void setProcessOnlyInScope(boolean processOnlyInScope) {
 		this.processOnlyInScope = processOnlyInScope;
+	}
+
+	@Override
+	public void processProxyMessage(boolean messageIsRequest, IInterceptedProxyMessage message) {
+		
+		IHttpRequestResponse messageInfo = message.getMessageInfo();
+		byte[] requestResponseBytes = (messageIsRequest ? messageInfo.getRequest() : messageInfo.getResponse());
+		
+		boolean scopeCheck = true;
+		if(processOnlyInScope) {
+			scopeCheck = getMainPlugin().callbacks.isInScope(getMainPlugin().helpers.analyzeRequest(messageInfo).getUrl());
+		}
+		
+		if(scopeCheck && customPluginTools.contains(IBurpExtenderCallbacks.TOOL_PROXY) && isPluginEnabled(requestResponseBytes, messageIsRequest)) {
+			
+			executeBridaFunction(messageInfo, messageIsRequest);
+			
+		}
+		
+	}
+	
+	public void executeBridaFunction(IHttpRequestResponse messageInfo, boolean messageIsRequest) {
+		
+		byte[] requestResponseBytes = (messageIsRequest ? messageInfo.getRequest() : messageInfo.getResponse());
+		
+		// DEBUG print
+		printToExternalDebugFrame("*** START ***\n\n");
+		printToExternalDebugFrame("** Original " + (messageIsRequest ? "request" : "response") + "\n");
+		printToExternalDebugFrame(new String(requestResponseBytes));
+		printToExternalDebugFrame("\n\n");
+		
+		String[] parameters = getParametersCustomPlugin(requestResponseBytes,messageIsRequest);
+		
+		// DEBUG print
+		if(parameters.length > 0) {
+			printToExternalDebugFrame("** Frida parameters (after encoding)\n");
+			for(int i=0;i<parameters.length;i++) {
+				printToExternalDebugFrame("* Parameter " + (i+1) + ": " + parameters[i] + "\n");
+			}
+			printToExternalDebugFrame("\n\n");
+		} else {
+			printToExternalDebugFrame("** NO Frida parameters\n\n");
+		}
+		
+		String ret = callFrida(parameters);
+		
+		// DEBUG print
+		printToExternalDebugFrame("** Frida returned value (after deconding/encoding)\n");
+		printToExternalDebugFrame(ret);
+		printToExternalDebugFrame("\n\n");
+		
+		if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.BRIDA) {
+			getMainPlugin().printSuccessMessage("* Brida exported function " + getCustomPluginExportedFunctionName() + " output: " + ret);
+			
+			// DEBUG print
+			printToExternalDebugFrame("** Output to Brida console\n\n");
+			
+		} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.REGEX) {
+			Pattern patternCustomPlugin = Pattern.compile(getCustomPluginFunctionOutputString());
+			Matcher matcherCustomPlugin = patternCustomPlugin.matcher(new String(requestResponseBytes));
+			if(matcherCustomPlugin.find()) {									
+				
+				String replacedRequestResponse = new StringBuilder(new String(requestResponseBytes)).replace(matcherCustomPlugin.start(1), matcherCustomPlugin.end(1), ret).toString();
+				if(messageIsRequest) {
+					messageInfo.setRequest(replacedRequestResponse.getBytes());
+				} else {
+					messageInfo.setResponse(replacedRequestResponse.getBytes());
+				}
+				
+				// DEBUG print
+				printToExternalDebugFrame("** Modified " + (messageIsRequest ? "request" : "response") + "\n");
+				printToExternalDebugFrame(replacedRequestResponse);
+				printToExternalDebugFrame("** \n\n");
+				
+			} else {
+				
+				getMainPlugin().printException(null,"No match found in supplied output REGEX. Outputting to Brida console.");
+				getMainPlugin().printSuccessMessage("* Brida exported function " + getCustomPluginExportedFunctionName() + " output: " + ret);
+				
+				// DEBUG print
+				printToExternalDebugFrame("** Output to Brida console because REGEX did not match\n\n");
+				
+			}								
+		}
+		
+		// DEBUG print
+		printToExternalDebugFrame("*** END ***\n\n");
+		
 	}
 	
 }
