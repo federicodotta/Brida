@@ -75,6 +75,7 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableCellRenderer;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultStyledDocument;
 import javax.swing.text.Style;
@@ -278,6 +279,34 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
      * - Trap/edit return value of custom methods
      * - Organize better JS file (maybe divide custom one from Brida one)
      */
+    
+    class JTableButtonRenderer implements TableCellRenderer {
+    	
+    	private TableCellRenderer defaultRenderer;
+    	public JTableButtonRenderer(TableCellRenderer renderer) {
+			defaultRenderer = renderer;
+    	}
+	   
+    	public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+    		if(value instanceof Component) {
+    			return (Component)value;
+    		} else {
+    			Component c = defaultRenderer.getTableCellRendererComponent(table, value, isSelected,hasFocus, row, column);    			
+    			if(column == 0) {
+    				List<CustomPlugin> customPlugins = ((CustomPluginsTableModel)(customPluginsTable.getModel())).getCustomPlugins();
+        			CustomPlugin currentPlugin = customPlugins.get(row);
+                   	if(currentPlugin.isOn()) {
+                   		c.setForeground(Color.GREEN);
+                   	} else {
+                   		c.setForeground(Color.RED);
+                   	}
+    			} else {
+    				c.setForeground(Color.BLACK);
+    			}
+    			return c;
+    		}
+    	}
+    }
     
     
     public void initializeDefaultHooks() {
@@ -1104,13 +1133,17 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginPanel.add(customPluginMessageEditorModifiedDecodingOutputPanel);
                 customPluginPanel.add(customPluginMessageEditorModifiedOutputLocationPanel);
                 customPluginPanel.add(customPluginMessageEditorModifiedOutputEncodingPanel);
-                                                
+
                 customPluginsTable = new JTable(new CustomPluginsTableModel());
+                TableCellRenderer tableRendererButton = customPluginsTable.getDefaultRenderer(JButton.class);
+                customPluginsTable.setDefaultRenderer(JButton.class, new JTableButtonRenderer(tableRendererButton));
+                TableCellRenderer tableRendererString = customPluginsTable.getDefaultRenderer(String.class);
+                customPluginsTable.setDefaultRenderer(String.class, new JTableButtonRenderer(tableRendererString));
                 JScrollPane customPluginsTableScrollPane = new JScrollPane(customPluginsTable);
                 customPluginsTableScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
                 customPluginsTableScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
                 customPluginsTable.setAutoCreateRowSorter(true);
-                
+     
                 // Handle buttons action in the table
                 customPluginsTable.addMouseListener(new MouseAdapter() {
                     @Override
@@ -1122,22 +1155,23 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 			CustomPlugin currentPlugin = customPlugins.get(row);
                         	switch(col) {
                         		// Enable/disable
-                        		case 0:                        			
+                        		case 4:                        			
                         			if(currentPlugin.isOn()) {
                         				currentPlugin.disable(); 
                         			} else {
                         				currentPlugin.enable(); 
                         			}
                         			((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableCellUpdated(row, col);
+                        			((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableCellUpdated(row, 0);
                         			break;
                         		// Debug
-                        		case 4:
+                        		case 5:
                         			if(currentPlugin.getType() != CustomPlugin.CustomPluginType.JBUTTON) {
                         				currentPlugin.enableDebugToExternalFrame();
                         			}
                         			break;
                         		// Edit
-                        		case 5:
+                        		case 6:
                         			// If plugin is enabled, disable first
                             		if(currentPlugin.isOn())
                             			currentPlugin.disable();                              		
@@ -1155,7 +1189,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                             		}
                         			break;
                         		// Remove
-                        		case 6:
+                        		case 7:
                         			// If plugin is enabled, disable first
                             		if(currentPlugin.isOn())
                             			currentPlugin.disable();                              		
@@ -1178,12 +1212,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 
                 // Center header
                 ((DefaultTableCellRenderer)customPluginsTable.getTableHeader().getDefaultRenderer()).setHorizontalAlignment(JLabel.CENTER);
-                               
-                // Center columns 0, 4, 5 and 6
-                customPluginsTable.getColumnModel().getColumn(0).setCellRenderer( centerRenderer );
-                customPluginsTable.getColumnModel().getColumn(4).setCellRenderer( centerRenderer );
-                customPluginsTable.getColumnModel().getColumn(5).setCellRenderer( centerRenderer );
-                customPluginsTable.getColumnModel().getColumn(6).setCellRenderer( centerRenderer );
                 
                 JSplitPane customPluginsplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
                 customPluginsplitPane.setTopComponent(customPluginPanel);

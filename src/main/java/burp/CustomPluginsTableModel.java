@@ -2,6 +2,8 @@ package burp;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.swing.JButton;
 import javax.swing.table.AbstractTableModel;
 
 public class CustomPluginsTableModel  extends AbstractTableModel {
@@ -20,7 +22,7 @@ public class CustomPluginsTableModel  extends AbstractTableModel {
 
 	@Override
 	public int getColumnCount() {
-		return 7;
+		return 8;
 	}
 
 	@Override
@@ -37,9 +39,9 @@ public class CustomPluginsTableModel  extends AbstractTableModel {
 		
 			case 0:
 				if(currentPlugin.isOn()) {
-					return "DISABLE";			
+					return "Enabled";				
 				} else {
-					return "ENABLE";			
+					return "Disabled";			
 				}
 			case 1:
 				return currentPlugin.getCustomPluginName();
@@ -48,15 +50,21 @@ public class CustomPluginsTableModel  extends AbstractTableModel {
 			case 3:
 				return currentPlugin.getCustomPluginExportedFunctionName();
 			case 4:
+				if(currentPlugin.isOn()) {
+					return new JButton("DISABLE");				
+				} else {
+					return new JButton("ENABLE");			
+				}				
+			case 5:
 				if(currentPlugin.getType() != CustomPlugin.CustomPluginType.JBUTTON) {
-					return "OPEN DEBUG WINDOW";
+					return new JButton("OPEN DEBUG WINDOW");
 				} else {
 					return null;
 				}
-			case 5:
-				return "EDIT";
 			case 6:
-				return "REMOVE";			
+				return new JButton("EDIT");
+			case 7:
+				return new JButton("REMOVE");		
 			default:
 				return "";
 				
@@ -83,7 +91,7 @@ public class CustomPluginsTableModel  extends AbstractTableModel {
     public String getColumnName(int columnIndex) {
 		switch (columnIndex)  {
 			case 0:
-				return "Enable";
+				return "Status";
 			case 1:
 				return "Plugin name";
 			case 2:
@@ -91,10 +99,12 @@ public class CustomPluginsTableModel  extends AbstractTableModel {
 			case 3:
                 return "Frida export name";
 			case 4:
+				return "Enable/Disable";
+			case 5:
 				return "Debug";
-            case 5:
-                return "Edit";
             case 6:
+                return "Edit";
+            case 7:
             	return "Remove";
             default:
                 return "";
@@ -103,7 +113,10 @@ public class CustomPluginsTableModel  extends AbstractTableModel {
 	
 	@Override
     public Class<?> getColumnClass(int columnIndex) {
-		return String.class;
+		if(columnIndex < 4)
+			return String.class;
+		else
+			return JButton.class;
 	}	
 	
 }
