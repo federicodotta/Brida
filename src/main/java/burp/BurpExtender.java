@@ -36,6 +36,12 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.DeflaterOutputStream;
@@ -96,6 +102,7 @@ import org.fife.ui.rtextarea.RTextScrollPane;
 import burp.CustomPlugin.CustomPluginExecuteValues;
 import burp.CustomPlugin.CustomPluginFunctionOutputValues;
 import burp.CustomPlugin.CustomPluginParameterValues;
+import net.razorvine.pickle.PickleException;
 import net.razorvine.pyro.*;
 
 public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseListener, IExtensionStateListener {
@@ -258,6 +265,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     		
     /*
      * TODO
+     * - 1 Select forlder default current folder
      * - Migrate from ASCII HEX to Base64 for defautl hooks?
      * - Android hooks keychain/touchID
      * - Swift demangle?
@@ -330,7 +338,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 11) *",BurpExtender.PLATFORM_IOS,"ios11pinning",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 12) *",BurpExtender.PLATFORM_IOS,"ios12pinning",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Jailbreaking check bypass **",BurpExtender.PLATFORM_IOS,"iosjailbreak",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Bypass TouchID (click \"Cancel\" when TouchID windows pops up)",BurpExtender.PLATFORM_IOS,"iosbypasstouchid",true,new String[] {},null,false));   	
+    	addButtonToHooksAndFunctions(new DefaultHook("Bypass TouchID (click \"Cancel\" when TouchID windows pops up)",BurpExtender.PLATFORM_IOS,"iosbypasstouchid",true,new String[] {},null,false));   
     	
     	// Default iOS functions
     	addButtonToHooksAndFunctions(new DefaultHook("Dump keychain",BurpExtender.PLATFORM_IOS,"iosdumpkeychain",false,new String[] {},null,false));
@@ -2233,7 +2241,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	}	
 	
 	private boolean compileFridaCode(String fridaCompilePath, String fridaJsFolder) {
-		
+				
 		Runtime rt = Runtime.getRuntime();
 
 		String[] fridaCompileCommand = {fridaCompilePath,"-x","-o",fridaJsFolder + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",fridaJsFolder + System.getProperty("file.separator") + "brida.js"};
@@ -2241,6 +2249,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		Process processCompilation = null;
 		try {
 			processCompilation = rt.exec(fridaCompileCommand);
+			
+			// With some types of error frida-compile remains stucked without returning errors. Killing the process after 30 seconds if blocked.
+			// if(!processCompilation.waitFor(1, TimeUnit.MINUTES)) {
+			if(!processCompilation.waitFor(30, TimeUnit.SECONDS)) {
+			    processCompilation.destroyForcibly();
+			    return false;
+			}
 			
 			BufferedReader stdInput = new BufferedReader(new InputStreamReader(processCompilation.getInputStream()));	
 			BufferedReader stdError = new BufferedReader(new InputStreamReader(processCompilation.getErrorStream()));
@@ -2265,7 +2280,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				return false;
 			}
 			
-		} catch (IOException e) {
+		} catch (Exception e) {
 			printException(e, "Exception during frida-compile");
 			return false;
 		}
@@ -2280,7 +2295,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 		try {
 			pyroServerProcess = rt.exec(startServerCommand);
-						
+									
 			final BufferedReader stdOutput = new BufferedReader(new InputStreamReader(pyroServerProcess.getInputStream()));
 			final BufferedReader stdError = new BufferedReader(new InputStreamReader(pyroServerProcess.getErrorStream()));
 		    
@@ -2509,7 +2524,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 				try {
 					
-					pyroBridaService.call("callexportfunction",currentHook.getFridaExportName(),new String[] {});
+					//pyroBridaService.call("callexportfunction",currentHook.getFridaExportName(),new String[] {});
+					executePyroCall("callexportfunction",new Object[] {currentHook.getFridaExportName(),new String[] {}});
 					
 				} catch (Exception e) {
 						
@@ -2610,6 +2626,48 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		}
 	}
 	
+	public Object executePyroCall(String name, Object[] arguments) throws Exception {
+		
+		final ArrayList<Object> threadReturn = new ArrayList<Object>(); 
+				
+		final Runnable stuffToDo = new Thread()  {
+		  @Override 
+		  public void run() { 
+			  try {
+				threadReturn.add(pyroBridaService.call(name, arguments));
+			} catch (PickleException | PyroException | IOException e) {
+				threadReturn.add(e);
+			}
+		  }
+		};
+
+		final ExecutorService executor = Executors.newSingleThreadExecutor();
+		final Future future = executor.submit(stuffToDo);
+		executor.shutdown(); 
+
+		try { 
+		  //future.get(1, TimeUnit.MINUTES); 
+			future.get(30, TimeUnit.SECONDS);
+		}
+		catch (InterruptedException | ExecutionException | TimeoutException ie) { 
+			threadReturn.add(ie);
+		}
+				
+		if (!executor.isTerminated())
+			executor.shutdownNow(); 
+		
+		if(threadReturn.size() > 0) {
+			if(threadReturn.get(0) instanceof Exception) {
+				throw (Exception)threadReturn.get(0);
+			} else {
+				return threadReturn.get(0);
+			}
+		} else {
+			return null; 
+		} 
+		
+	}
+	
 	public void spawnApplication(boolean spawn) {
 		
 		try {
@@ -2624,19 +2682,21 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 			if(spawn) {
 				
-				// pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim(),remoteRadioButton.isSelected());
-				pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device);
+				//pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device);
+				executePyroCall("spawn_application",new Object[] {applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device});
 	
 				execute_startup_scripts();
 				
 				// Wait for 3 seconds in order to load hooks
 				Thread.sleep(3000);
 				
-				pyroBridaService.call("resume_application");	
+				//pyroBridaService.call("resume_application");
+				executePyroCall("resume_application", new Object[] {});
 				
 			} else {
 				
-				pyroBridaService.call("attach_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device);
+				//pyroBridaService.call("attach_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device);
+				executePyroCall("attach_application",new Object[] {applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device});
 				
 				execute_startup_scripts();
 								
@@ -2680,7 +2740,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 			// GETTING PLAFORM INFO (ANDROID/IOS/GENERIC)			
 			try {
-				platform = (int)(pyroBridaService.call("callexportfunction","getplatform",new String[] {}));
+				//platform = (int)(pyroBridaService.call("callexportfunction","getplatform",new String[] {}));
+				platform = (int)(executePyroCall("callexportfunction",new Object[] {"getplatform",new String[] {}}));
 				if(platform == BurpExtender.PLATFORM_ANDROID) {
 					printSuccessMessage("Platform: Android");					
 				} else if(platform == BurpExtender.PLATFORM_IOS) {
@@ -2764,6 +2825,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 				// Brida compiled file does not exist. Compiling it...
 				if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+					printException(null, "Error during frida-compile. Aborting.");
 					return;
 				}
 				
@@ -2774,6 +2836,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		} else if(command.equals("compileSpawnApplication") && serverStarted) {
 			
 			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+				printException(null, "Error during frida-compile. Aborting.");
 				return;
 			}
 			
@@ -2785,6 +2848,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 				// Brida compiled file does not exist. Compiling it...
 				if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+					printException(null, "Error during frida-compile. Aborting.");
 					return;
 				}
 				
@@ -2795,6 +2859,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		} else if(command.equals("compileAttachApplication") && serverStarted) {
 			
 			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+				printException(null, "Error during frida-compile. Aborting.");
 				return;
 			}
 			
@@ -2804,7 +2869,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 							
 			try {
 				
-				pyroBridaService.call("reload_script");
+				//pyroBridaService.call("reload_script");
+				executePyroCall("reload_script",new Object[] {});
 				
 				printSuccessMessage("Reloading script executed");
 				
@@ -2822,7 +2888,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 			try {
 				
-				pyroBridaService.call("reload_script");
+				//pyroBridaService.call("reload_script");
+				executePyroCall("reload_script",new Object[] {});
 				
 				printSuccessMessage("Reloading script executed");
 				
@@ -2835,7 +2902,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		} else if(command.equals("killApplication") && serverStarted && applicationSpawned) {
 			
 			try {
-				pyroBridaService.call("disconnect_application");
+				//pyroBridaService.call("disconnect_application");
+				executePyroCall("disconnect_application",new Object[] {});
 				applicationSpawned = false;
 				
 				SwingUtilities.invokeLater(new Runnable() {
@@ -2866,7 +2934,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		} else if(command.equals("detachApplication") && serverStarted && applicationSpawned) {
 			
 			try {
-				pyroBridaService.call("detach_application");
+				//pyroBridaService.call("detach_application");
+				executePyroCall("detach_application",new Object[] {});
 				applicationSpawned = false;
 				
 				SwingUtilities.invokeLater(new Runnable() {
@@ -2924,7 +2993,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			stderrThread.stop();
 			
 			try {
-				pyroBridaService.call("shutdown");
+				//pyroBridaService.call("shutdown");
+				executePyroCall("shutdown",new Object[] {});
 				pyroServerProcess.destroy();
 				pyroBridaService.close();
 				serverStarted = false;
@@ -2984,7 +3054,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 					arguments[i] = (String)(executeMethodInsertedArgumentList.getElementAt(i));
 				}
 				
-				final String s = (String)(pyroBridaService.call("callexportfunction",executeMethodName.getText().trim(),arguments));
+				//final String s = (String)(pyroBridaService.call("callexportfunction",executeMethodName.getText().trim(),arguments));
+				final String s = (String)(executePyroCall("callexportfunction",new Object[] {executeMethodName.getText().trim(),arguments}));
 								
 				printJSMessage("*** Output " + executeMethodName.getText().trim() + ":");
 				printJSMessage(s);
@@ -3097,8 +3168,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 			try {
 				
-				ArrayList<String> allClasses = (ArrayList<String>)(pyroBridaService.call("callexportfunction","getallclasses",new String[0]));
-				HashMap<String, Integer> allModules = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getallmodules",new String[0]));
+				//ArrayList<String> allClasses = (ArrayList<String>)(pyroBridaService.call("callexportfunction","getallclasses",new String[0]));
+				ArrayList<String> allClasses = (ArrayList<String>)(executePyroCall("callexportfunction",new Object[] {"getallclasses",new String[0]}));
+				//HashMap<String, Integer> allModules = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getallmodules",new String[0]));
+				HashMap<String, Integer> allModules = (HashMap<String,Integer>)(executePyroCall("callexportfunction",new Object[] {"getallmodules",new String[0]}));
 				
 				// Sort classes
 				Collections.sort(allClasses, new Comparator<String>() {
@@ -3173,7 +3246,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			HashMap<String, Integer> foundObjcMethods = null;
 			if(platform == BurpExtender.PLATFORM_IOS) {
 				try {
-					foundObjcMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findobjcmethods",new String[] {toSearch}));
+					//foundObjcMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findobjcmethods",new String[] {toSearch}));
+					foundObjcMethods = (HashMap<String,Integer>)(executePyroCall("callexportfunction",new Object[] {"findobjcmethods",new String[] {toSearch}}));
 				} catch (Exception e) {
 					printException(e,"Exception searching OBJC methods");
 					return;
@@ -3182,7 +3256,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 			HashMap<String, Integer> foundImports = null;
 			try {
-				foundImports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findimports",new String[] {toSearch}));
+				//foundImports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findimports",new String[] {toSearch}));
+				foundImports = (HashMap<String,Integer>)(executePyroCall("callexportfunction",new Object[] {"findimports",new String[] {toSearch}}));
 			} catch (Exception e) {
 				printException(e,"Exception searching imports");
 				return;
@@ -3190,7 +3265,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 			HashMap<String, Integer> foundExports = null;
 			try {
-				foundExports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findexports",new String[] {toSearch}));
+				//foundExports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findexports",new String[] {toSearch}));
+				foundExports = (HashMap<String,Integer>)(executePyroCall("callexportfunction",new Object[] {"findexports",new String[] {toSearch}}));
 			} catch (Exception e) {
 				printException(e,"Exception searching exports");
 				return;
@@ -3292,7 +3368,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			int dialogResult = JOptionPane.showConfirmDialog(mainPanel, "Detach all will detach also custom interception methods defined in your JS file and hooks enabled in the hooks and functions section. Are you sure?", "Confirm detach all", dialogButton);
 			if(dialogResult == 0) {
 				try {
-					pyroBridaService.call("callexportfunction","detachAll",new String[] {});
+					//pyroBridaService.call("callexportfunction","detachAll",new String[] {});
+					executePyroCall("callexportfunction",new Object[] {"detachAll",new String[] {}});
 				} catch (Exception e) {					
 					printException(e,"Exception detaching all");
 					return;
@@ -4117,7 +4194,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 								
 				HashMap<String, Integer> currentImports;
 				try {
-					currentImports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getmoduleimports",new String[] {nodeContent}));
+					//currentImports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getmoduleimports",new String[] {nodeContent}));
+					currentImports = (HashMap<String,Integer>)(executePyroCall("callexportfunction",new Object[] {"getmoduleimports",new String[] {nodeContent}}));
 				} catch (Exception e) {
 					printException(e,"Exception retrieving module imports");
 					return;
@@ -4159,7 +4237,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 				HashMap<String, Integer> currentExports;
 				try {
-					currentExports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getmoduleexports",new String[] {nodeContent}));
+					//currentExports = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getmoduleexports",new String[] {nodeContent}));
+					currentExports = (HashMap<String,Integer>)(executePyroCall("callexportfunction",new Object[] {"getmoduleexports",new String[] {nodeContent}}));
 				} catch (Exception e) {
 					printException(e,"Exception retrieving module exports");
 					return;
@@ -4205,7 +4284,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				ArrayList<String> methodNames = null;
 
 				try {
-					currentClassMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getclassmethods",new String[] {nodeContent}));
+					//currentClassMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getclassmethods",new String[] {nodeContent}));
+					currentClassMethods = (HashMap<String,Integer>)(executePyroCall("callexportfunction",new Object[] {"getclassmethods",new String[] {nodeContent}}));
 				} catch (Exception e) {
 					printException(e,"Exception retrieving class methods");
 					return;
@@ -4351,7 +4431,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 			try {
 				
-				pyroBridaService.call("callexportfunction","trace",new String[] {pattern,type,(withBacktrace ? "true" : "false")});
+				//pyroBridaService.call("callexportfunction","trace",new String[] {pattern,type,(withBacktrace ? "true" : "false")});
+				executePyroCall("callexportfunction",new Object[] {"trace",new String[] {pattern,type,(withBacktrace ? "true" : "false")}});
 								
 				List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
 	
@@ -4359,7 +4440,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 				// Better outside synchronized block
 				if(type.equals("objc_class") || type.equals("java_class")) {
-	        		currentClassMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getclassmethods",new String[] {pattern}));
+	        		//currentClassMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getclassmethods",new String[] {pattern}));
+					currentClassMethods = (HashMap<String,Integer>)(executePyroCall("callexportfunction",new Object[] {"getclassmethods",new String[] {pattern}}));
 				}
 				
 	            synchronized(trapEntries) {
@@ -4458,7 +4540,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 			try {
 				
-				pyroBridaService.call("callexportfunction","changereturnvalue",new String[] {pattern,type,returnValueType,dialogResult});
+				//pyroBridaService.call("callexportfunction","changereturnvalue",new String[] {pattern,type,returnValueType,dialogResult});
+				executePyroCall("callexportfunction",new Object[] {"changereturnvalue",new String[] {pattern,type,returnValueType,dialogResult}});
 								
 				List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
 					
@@ -4662,7 +4745,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			stderrThread.stop();
 			
 			try {
-				pyroBridaService.call("shutdown");
+				//pyroBridaService.call("shutdown");
+				executePyroCall("shutdown", new Object[] {});
 				pyroServerProcess.destroy();
 				pyroBridaService.close();
 				
@@ -4745,7 +4829,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
             				            				
             				// Call hook
             				try {
-            					pyroBridaService.call("callexportfunction",dh.getFridaExportName(),new String[0]);
+            					//pyroBridaService.call("callexportfunction",dh.getFridaExportName(),new String[0]);
+            					executePyroCall("callexportfunction",new Object[] {dh.getFridaExportName(),new String[0]});
                 				printSuccessMessage("Hook " + dh.getName() + " ENABLED");
                 				dh.setEnabled(true);
 							} catch (Exception e) {
@@ -4802,7 +4887,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	    				// Call exported function
 	    				try {
 	    					printJSMessage("*** Output " + dh.getName() + ":");
-	    					String ret = (String)pyroBridaService.call("callexportfunction",dh.getFridaExportName(),currentParameters);
+	    					//String ret = (String)pyroBridaService.call("callexportfunction",dh.getFridaExportName(),currentParameters);
+	    					String ret = (String)executePyroCall("callexportfunction",new Object[] {dh.getFridaExportName(),currentParameters});
 	    					printJSMessage("* Ret value: " + ret);
 						} catch (Exception e) {
 							printException(e,"Error while running function " + dh.getName());
