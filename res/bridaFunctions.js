@@ -534,3 +534,4 @@ function getJavaMethodArguments(method) {
         return [];
     }
 }
+
