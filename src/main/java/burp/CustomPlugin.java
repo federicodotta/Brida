@@ -159,9 +159,10 @@ public abstract class CustomPlugin {
 			String ret = null;
 			try {
 				PyroProxy pp = new PyroProxy(new PyroURI(pyroUrl));
-				ret = (String)pp.call("callexportfunction",customPluginExportedFunctionName,parameters);
+				//ret = (String)pp.call("callexportfunction",customPluginExportedFunctionName,parameters);
+				ret = (String)mainPlugin.executePyroCall(pp,"callexportfunction",new Object[] {customPluginExportedFunctionName,parameters});
 				pp.close();
-			} catch(IOException e) {
+			} catch(Exception e) {
 				mainPlugin.printException(e,"Error when calling Frida exported function " + customPluginExportedFunctionName + " through Pyro in custom plugin");
 			}   
 			

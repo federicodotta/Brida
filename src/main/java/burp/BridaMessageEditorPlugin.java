@@ -220,9 +220,10 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 					String ret = null;
 					try {
 						PyroProxy pp = new PyroProxy(new PyroURI(pyroUrl));
-						ret = (String)pp.call("callexportfunction",customPluginEditedContentFridaFunctionName,parameters);
+						//ret = (String)pp.call("callexportfunction",customPluginEditedContentFridaFunctionName,parameters);
+						ret = (String)getMainPlugin().executePyroCall(pp,"callexportfunction",new Object[] {customPluginEditedContentFridaFunctionName,parameters});
 						pp.close();
-					} catch(IOException e) {
+					} catch(Exception e) {
 						getMainPlugin().printException(e,"Error when calling Frida exported function " + customPluginEditedContentFridaFunctionName + " through Pyro in custom plugin");
 						return currentMessage;
 					}
