@@ -165,7 +165,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     private JButton loadJSFileButton;
     private JButton saveJSFileButton; 
     private JButton loadTreeButton;
-    private JButton detachAllButton;
+    private JButton removeAllGraphicalHooksButton;
     private JButton clearConsoleButton;
     private JButton enableCustomPluginButton;
     private JButton exportCustomPluginsButton;
@@ -262,6 +262,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     private JTable customPluginsTable;
     
     private boolean customPluginPluginTypeListenerEnabled;
+    
+    private ArrayList<DefaultHook> treeHooks;
     		
     /*
      * TODO
@@ -302,9 +304,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     		} else {
     			Component c = defaultRenderer.getTableCellRendererComponent(table, value, isSelected,hasFocus, row, column);    			
     			if(column == 0) {
-    				List<CustomPlugin> customPlugins = ((CustomPluginsTableModel)(customPluginsTable.getModel())).getCustomPlugins();
-        			CustomPlugin currentPlugin = customPlugins.get(row);
-                   	if(currentPlugin.isOn()) {
+    				if(((String)value).equals("Enabled")) {
                    		c.setForeground(Color.GREEN);
                    	} else {
                    		c.setForeground(Color.RED);
@@ -382,6 +382,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     	lastPrintIsJS = false;
 
     	defaultHooks = new ArrayList<DefaultHook>();
+    	treeHooks = new ArrayList<DefaultHook>();
     	
     	customPluginPluginTypeListenerEnabled = true;
     	
@@ -761,6 +762,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 // **** BEGIN TRAPPING TAB
                 
                 trapTable = new JTable(new TrapTableModel());
+                TableCellRenderer trapTableRendererButton = trapTable.getDefaultRenderer(JButton.class);
+                trapTable.setDefaultRenderer(JButton.class, new JTableButtonRenderer(trapTableRendererButton));
+                TableCellRenderer trapTableRendererString = trapTable.getDefaultRenderer(String.class);
+                trapTable.setDefaultRenderer(String.class, new JTableButtonRenderer(trapTableRendererString));
                 JScrollPane trapTableScrollPane = new JScrollPane(trapTable);
                 trapTableScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
                 trapTableScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
@@ -772,8 +777,66 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 // Center columns 4 and 5
                 DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
                 centerRenderer.setHorizontalAlignment( JLabel.CENTER );
-                trapTable.getColumnModel().getColumn(4).setCellRenderer( centerRenderer );
                 trapTable.getColumnModel().getColumn(5).setCellRenderer( centerRenderer );
+                trapTable.getColumnModel().getColumn(6).setCellRenderer( centerRenderer );
+                
+                // Handle buttons action in the table
+                trapTable.addMouseListener(new MouseAdapter() {
+                	@Override
+                	public void mouseClicked(MouseEvent evt) {
+                		int row = trapTable.rowAtPoint(evt.getPoint());
+                		int col = trapTable.columnAtPoint(evt.getPoint());
+                		if (row >= 0 && col >= 0) {
+                			List<TrapTableItem> trapTableItems = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
+                			TrapTableItem currentTrapItem = trapTableItems.get(row);
+                			DefaultHook currentDefaultHook = currentTrapItem.getDefaultHook();
+                			switch(col) {
+                				// Enable/disable
+                				case 7:                        			
+                					if(currentDefaultHook.isEnabled()) {
+                						if(!applicationSpawned) {
+                							currentDefaultHook.setEnabled(false);
+                						} else {
+                							JOptionPane.showMessageDialog(null, "It is not possible to disable single hooks while application is running", "Warning", JOptionPane.WARNING_MESSAGE);
+                						}
+                					} else {
+                						currentDefaultHook.setEnabled(true); 
+                					}
+                					((TrapTableModel)(trapTable.getModel())).fireTableCellUpdated(row, col);
+                					((TrapTableModel)(trapTable.getModel())).fireTableCellUpdated(row, 0);
+                					break;
+                				// Remove
+                				case 8:
+                					
+                					if(!applicationSpawned) {
+                						
+                						// Ask user confirmation
+                						JFrame parentDialogResult = new JFrame();
+                						int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "Are you sure to want to remove \"" + currentDefaultHook.getName()  + "\" hook?","Warning",JOptionPane.YES_NO_OPTION);
+                						if(dialogResult != JOptionPane.YES_OPTION){
+                							return;
+                						}	
+                						
+                						treeHooks.remove(currentDefaultHook);
+                						
+                						synchronized(trapTableItems) {                		
+                							int trapTableIndex = trapTableItems.indexOf(currentTrapItem);
+                							trapTableItems.remove(currentTrapItem);
+                							((TrapTableModel)(trapTable.getModel())).fireTableRowsDeleted(trapTableIndex, trapTableIndex);
+                						}
+                						
+                						
+                					} else {
+                						JOptionPane.showMessageDialog(null, "It is not possible to remove single hooks while application is running", "Warning", JOptionPane.WARNING_MESSAGE);
+                					}
+                					
+                				default:
+                					break;
+                			}
+                			
+                		}
+                	}
+                });   
                 
                 // **** END TRAPPING TAB
                 
@@ -1337,6 +1400,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 compileReloadScript.setActionCommand("compileReloadScript");
                 compileReloadScript.addActionListener(BurpExtender.this); 
                 
+                JButton detachAllHooks = new JButton("Detach all hooks");
+                detachAllHooks.setActionCommand("detachAll");
+                detachAllHooks.addActionListener(BurpExtender.this); 
+                
                 clearConsoleButton = new JButton("Clear console");
                 clearConsoleButton.setActionCommand("clearConsole");
                 clearConsoleButton.addActionListener(BurpExtender.this);
@@ -1373,9 +1440,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 loadTreeButton.setActionCommand("loadTree");
                 loadTreeButton.addActionListener(BurpExtender.this);
                                 
-                detachAllButton = new JButton("Detach all");
-                detachAllButton.setActionCommand("detachAll");
-                detachAllButton.addActionListener(BurpExtender.this); 
+                removeAllGraphicalHooksButton = new JButton("Remove all");
+                removeAllGraphicalHooksButton.setActionCommand("removeAllGraphicalHooks");
+                removeAllGraphicalHooksButton.addActionListener(BurpExtender.this); 
                 
                 enableCustomPluginButton = new JButton("Add plugin");
                 enableCustomPluginButton.setActionCommand("enablePlugin");
@@ -1403,7 +1470,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 rightSplitPane.add(killApplication,gbc);
                 rightSplitPane.add(detachApplication,gbc);                
                 rightSplitPane.add(reloadScript,gbc);
-                rightSplitPane.add(compileReloadScript,gbc);                
+                rightSplitPane.add(compileReloadScript,gbc);  
+                rightSplitPane.add(detachAllHooks,gbc);                
                 rightSplitPane.add(clearConsoleButton,gbc);
 
                 rightSplitPane.add(separator,gbc);
@@ -1427,7 +1495,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 rightSplitPane.add(loadTreeButton,gbc);     
                 
                 // TRAP METHODS
-                rightSplitPane.add(detachAllButton,gbc);
+                rightSplitPane.add(removeAllGraphicalHooksButton,gbc);
                 
                 // CUSTOM PLUGINS
                 rightSplitPane.add(enableCustomPluginButton,gbc);
@@ -2033,7 +2101,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 						loadJSFileButton.setVisible(false);
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(false);
-						detachAllButton.setVisible(false);
+						removeAllGraphicalHooksButton.setVisible(false);
 						enableCustomPluginButton.setVisible(false);
 						exportCustomPluginsButton.setVisible(false);
 		                importCustomPluginsButton.setVisible(false);
@@ -2060,7 +2128,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 						loadJSFileButton.setVisible(true);
 						saveJSFileButton.setVisible(true);
 						loadTreeButton.setVisible(false);
-						detachAllButton.setVisible(false);
+						removeAllGraphicalHooksButton.setVisible(false);
 						enableCustomPluginButton.setVisible(false);
 						exportCustomPluginsButton.setVisible(false);
 		                importCustomPluginsButton.setVisible(false);
@@ -2087,7 +2155,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 						loadJSFileButton.setVisible(false);
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(true);
-						detachAllButton.setVisible(false);
+						removeAllGraphicalHooksButton.setVisible(false);
 						enableCustomPluginButton.setVisible(false);
 						exportCustomPluginsButton.setVisible(false);
 		                importCustomPluginsButton.setVisible(false);
@@ -2115,7 +2183,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 						loadJSFileButton.setVisible(false);
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(false);
-						detachAllButton.setVisible(false);
+						removeAllGraphicalHooksButton.setVisible(false);
 						enableCustomPluginButton.setVisible(false);
 						exportCustomPluginsButton.setVisible(false);
 		                importCustomPluginsButton.setVisible(false);
@@ -2142,7 +2210,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 						loadJSFileButton.setVisible(false);
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(false);
-						detachAllButton.setVisible(false);
+						removeAllGraphicalHooksButton.setVisible(false);
 						enableCustomPluginButton.setVisible(false);
 						exportCustomPluginsButton.setVisible(false);
 		                importCustomPluginsButton.setVisible(false);
@@ -2169,7 +2237,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 						loadJSFileButton.setVisible(false);
 						saveJSFileButton.setVisible(false);
 						loadTreeButton.setVisible(false);
-						detachAllButton.setVisible(true);
+						removeAllGraphicalHooksButton.setVisible(true);
 						enableCustomPluginButton.setVisible(false);
 						exportCustomPluginsButton.setVisible(false);
 		                importCustomPluginsButton.setVisible(false);
@@ -2196,7 +2264,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 							loadJSFileButton.setVisible(false);
 							saveJSFileButton.setVisible(false);
 							loadTreeButton.setVisible(false);
-							detachAllButton.setVisible(true);
+							removeAllGraphicalHooksButton.setVisible(true);
 							enableCustomPluginButton.setVisible(false);
 							exportCustomPluginsButton.setVisible(false);
 			                importCustomPluginsButton.setVisible(false);
@@ -2223,7 +2291,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 							loadJSFileButton.setVisible(false);
 							saveJSFileButton.setVisible(false);
 							loadTreeButton.setVisible(false);
-							detachAllButton.setVisible(false);
+							removeAllGraphicalHooksButton.setVisible(false);
 			                enableCustomPluginButton.setVisible(true);
 			                exportCustomPluginsButton.setVisible(true);
 			                importCustomPluginsButton.setVisible(true);
@@ -2518,25 +2586,26 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	private void execute_startup_scripts() {
 		
 		DefaultHook currentHook;
-		for(int i=0; i < defaultHooks.size();i++) {
-			
-			currentHook = defaultHooks.get(i);
-			
-			if(currentHook.isEnabled() && currentHook.getOs() == platform) {
-				
-				try {
-					
-					//pyroBridaService.call("callexportfunction",currentHook.getFridaExportName(),new String[] {});
-					executePyroCall(pyroBridaService, "callexportfunction",new Object[] {currentHook.getFridaExportName(),new String[] {}});
-					
-				} catch (Exception e) {
-						
-					 printException(e,"Exception running starting hook " + currentHook.getName());
-						
-				}
-				
-			}
-			
+		for(int i=0; i < defaultHooks.size();i++) {			
+			currentHook = defaultHooks.get(i);			
+			if(currentHook.isEnabled() && currentHook.getOs() == platform) {				
+				try {					
+					executePyroCall(pyroBridaService, "callexportfunction",new Object[] {currentHook.getFridaExportName(),new String[] {}});					
+				} catch (Exception e) {						
+					 printException(e,"Exception running starting hook " + currentHook.getName());						
+				}				
+			}			
+		}
+		
+		for(int i=0; i < treeHooks.size();i++) {
+			currentHook = treeHooks.get(i);			
+			if(currentHook.isEnabled()) {				
+				try {					
+					executePyroCall(pyroBridaService, "callexportfunction",new Object[] {currentHook.getFridaExportName(),currentHook.getParameters()});					
+				} catch (Exception e) {						
+					 printException(e,"Exception running starting tree hook " + currentHook.getName());						
+				}				
+			}	
 		}
 		
 	}
@@ -2713,16 +2782,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	            	
 	            	applicationStatus.setText("");
 	            	applicationStatusButtons.setText("");
-	            			            	
-	            	// Empty trapping table
-	            	List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
-	            	synchronized(trapEntries) {
-	            		int trapEntryOldSize = trapEntries.size();
-	            		if(trapEntryOldSize > 0) {
-	            			trapEntries.clear();
-	            			((TrapTableModel)(trapTable.getModel())).fireTableRowsDeleted(0, trapEntryOldSize - 1);
-	            		}
-	                }
 	            	
 	            	try {
 	                	documentApplicationStatus.insertString(0, "running", greenStyle);
@@ -3365,29 +3424,45 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 			trap(false);
 			
+		} else if(command.equals("removeAllGraphicalHooks")) {
+			
+			if(!applicationSpawned) {
+							
+				// Ask user confirmation
+				JFrame parentDialogResult = new JFrame();
+				int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "Are you sure to want to remove all graphical hook?","Warning",JOptionPane.YES_NO_OPTION);
+				if(dialogResult != JOptionPane.YES_OPTION){
+					return;
+				}	
+				
+				treeHooks.clear();
+				
+				List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
+	        	synchronized(trapEntries) {
+	        		int trapEntryOldSize = trapEntries.size();
+	        		if(trapEntryOldSize > 0) {
+	        			trapEntries.clear();
+	        			((TrapTableModel)(trapTable.getModel())).fireTableRowsDeleted(0, trapEntryOldSize - 1);
+	        		}
+	            }
+				
+				
+			} else {
+				JOptionPane.showMessageDialog(null, "It is not possible to remove single hooks while application is running", "Warning", JOptionPane.WARNING_MESSAGE);
+			}
+			
 		} else if(command.equals("detachAll")) {	
 			
 			int dialogButton = JOptionPane.YES_NO_OPTION;
-			int dialogResult = JOptionPane.showConfirmDialog(mainPanel, "Detach all will detach also custom interception methods defined in your JS file and hooks enabled in the hooks and functions section. Are you sure?", "Confirm detach all", dialogButton);
+			int dialogResult = JOptionPane.showConfirmDialog(mainPanel, "Are you sure to want to detach ALL Frida hooks (including graphical hooks, custom plugin hooks and Frida JS file hooks)? Enabled hooks will be enabled again on next application spawn.", "Confirm detach all", dialogButton);
 			if(dialogResult == 0) {
 				try {
-					//pyroBridaService.call("callexportfunction","detachAll",new String[] {});
 					executePyroCall(pyroBridaService, "callexportfunction",new Object[] {"detachAll",new String[] {}});
 				} catch (Exception e) {					
 					printException(e,"Exception detaching all");
 					return;
 				}
-				
-				// Empty trapping table
-            	List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
-            	synchronized(trapEntries) {
-            		int trapEntryOldSize = trapEntries.size();
-            		if(trapEntryOldSize > 0) {
-            			trapEntries.clear();
-            			((TrapTableModel)(trapTable.getModel())).fireTableRowsDeleted(0, trapEntryOldSize - 1);
-            		}
-                }
-				
+								
 				printSuccessMessage("Detaching all successfully executed");
 				
 			} else {
@@ -4434,35 +4509,30 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 			try {
 				
-				//pyroBridaService.call("callexportfunction","trace",new String[] {pattern,type,(withBacktrace ? "true" : "false")});
 				executePyroCall(pyroBridaService, "callexportfunction",new Object[] {"trace",new String[] {pattern,type,(withBacktrace ? "true" : "false")}});
-								
+
+				int defaultHookPlatform = BurpExtender.PLATFORM_GENERIC;
+				if(type.startsWith("java")) {
+					defaultHookPlatform = BurpExtender.PLATFORM_ANDROID;
+				} else if(type.startsWith("java")) {
+					defaultHookPlatform = BurpExtender.PLATFORM_IOS;
+				}
+				DefaultHook treeHook = new DefaultHook("Tree hook trace " +  type + ": " + pattern,defaultHookPlatform,"trace",true,new String[] {pattern,type,(withBacktrace ? "true" : "false")},null,false);
+				treeHook.setEnabled(true);
+				treeHooks.add(treeHook);
+				
 				List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
 	
 				HashMap<String,Integer> currentClassMethods = null;
-				
-				// Better outside synchronized block
-				if(type.equals("objc_class") || type.equals("java_class")) {
-	        		//currentClassMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","getclassmethods",new String[] {pattern}));
-					currentClassMethods = (HashMap<String,Integer>)(executePyroCall(pyroBridaService, "callexportfunction",new Object[] {"getclassmethods",new String[] {pattern}}));
-				}
-				
-	            synchronized(trapEntries) {
+
+				synchronized(trapEntries) {
 	            	int trapEntryOldSize = trapEntries.size();
 	            	if(type.equals("objc_class")  || type.equals("java_class")) {
-	            		if(currentClassMethods != null) {    					
-	    					ArrayList<String> methodNames = new ArrayList<String>(currentClassMethods.keySet());
-	    					Iterator<String> currentClassMethodsIterator = methodNames.iterator();     					
-	    					String currentMethodName;
-	    					while(currentClassMethodsIterator.hasNext()) {    						
-	    						currentMethodName = currentClassMethodsIterator.next();    										
-	    						trapEntries.add(new TrapTableItem("Inspect",(platform == BurpExtender.PLATFORM_ANDROID ? "Java" : "OBJ-C"),currentMethodName, withBacktrace,"-","-"));    						
-	    					}    					
-	    				}            		
+	            		trapEntries.add(new TrapTableItem("Inspect",(platform == BurpExtender.PLATFORM_ANDROID ? "Java class" : "OBJ-C class"),pattern, withBacktrace,"-","-",treeHook));
 	            	} else if(type.equals("objc_method") || type.equals("java_method")) {
-	            		trapEntries.add(new TrapTableItem("Inspect",(platform == BurpExtender.PLATFORM_ANDROID ? "Java" : "OBJ-C"),pattern, withBacktrace,"-","-"));
+	            		trapEntries.add(new TrapTableItem("Inspect",(platform == BurpExtender.PLATFORM_ANDROID ? "Java method" : "OBJ-C method"),pattern, withBacktrace,"-","-",treeHook));
 	            	} else {
-	            		trapEntries.add(new TrapTableItem("Inspect","Export",pattern, withBacktrace,"-","-"));
+	            		trapEntries.add(new TrapTableItem("Inspect","Export",pattern, withBacktrace,"-","-",treeHook));
 	            	}
 	            	((TrapTableModel)(trapTable.getModel())).fireTableRowsInserted(trapEntryOldSize, trapEntries.size() - 1);
 	            } 
@@ -4543,19 +4613,28 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 			try {
 				
-				//pyroBridaService.call("callexportfunction","changereturnvalue",new String[] {pattern,type,returnValueType,dialogResult});
 				executePyroCall(pyroBridaService, "callexportfunction",new Object[] {"changereturnvalue",new String[] {pattern,type,returnValueType,dialogResult}});
+								
+				int defaultHookPlatform = BurpExtender.PLATFORM_GENERIC;
+				if(type.startsWith("java")) {
+					defaultHookPlatform = BurpExtender.PLATFORM_ANDROID;
+				} else if(type.startsWith("java")) {
+					defaultHookPlatform = BurpExtender.PLATFORM_IOS;
+				}
+				DefaultHook treeHook = new DefaultHook("Tree hook changereturnvalue " +  type + ": " + pattern,defaultHookPlatform,"changereturnvalue",true,new String[] {pattern,type,returnValueType,dialogResult},null,false);
+				treeHook.setEnabled(true);
+				treeHooks.add(treeHook);
 								
 				List<TrapTableItem> trapEntries = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
 					
 	            synchronized(trapEntries) {
 	            	int trapEntryOldSize = trapEntries.size();
 	            	if(type.equals("objc_method")) {
-	            		trapEntries.add(new TrapTableItem("Edit return","OBJ-C",pattern, false,returnValueType,dialogResult));
+	            		trapEntries.add(new TrapTableItem("Edit return","OBJ-C method",pattern, false,returnValueType,dialogResult,treeHook));
 	            	} else if(type.equals("java_method")) {
-	            		trapEntries.add(new TrapTableItem("Edit return","Java",pattern, false,returnValueType,dialogResult));
+	            		trapEntries.add(new TrapTableItem("Edit return","Java method",pattern, false,returnValueType,dialogResult,treeHook));
 	            	} else {
-	            		trapEntries.add(new TrapTableItem("Edit return","Export",pattern, false,returnValueType,dialogResult));
+	            		trapEntries.add(new TrapTableItem("Edit return","Export",pattern, false,returnValueType,dialogResult,treeHook));
 	            	}
 	            	((TrapTableModel)(trapTable.getModel())).fireTableRowsInserted(trapEntryOldSize, trapEntries.size() - 1);
 	            } 

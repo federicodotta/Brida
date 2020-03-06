@@ -8,8 +8,9 @@ public class TrapTableItem {
 	private boolean backtrace;
 	private String returnValueType;
 	private String newReturnValue;
+	private DefaultHook defaultHook;
 	
-	public TrapTableItem(String hook, String type, String name, boolean backtrace, String returnValueType, String newReturnValue) {
+	public TrapTableItem(String hook, String type, String name, boolean backtrace, String returnValueType, String newReturnValue, DefaultHook defaultHook) {
 		
 		this.hook = hook;
 		this.type = type;
@@ -17,6 +18,7 @@ public class TrapTableItem {
 		this.backtrace = backtrace;
 		this.returnValueType = returnValueType;
 		this.newReturnValue = newReturnValue;
+		this.defaultHook = defaultHook;
 		
 	}
 
@@ -66,6 +68,14 @@ public class TrapTableItem {
 
 	public void setNewReturnValue(String newReturnValue) {
 		this.newReturnValue = newReturnValue;
+	}
+
+	public DefaultHook getDefaultHook() {
+		return defaultHook;
+	}
+
+	public void setDefaultHook(DefaultHook defaultHook) {
+		this.defaultHook = defaultHook;
 	}
 	
 	
