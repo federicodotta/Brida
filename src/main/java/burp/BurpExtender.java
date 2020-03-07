@@ -267,21 +267,16 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     		
     /*
      * TODO
-     * - Make persistent tree hooks
+     * - Tab with helps on Brid and on Frida     * 
      * - 1 Select forlder default current folder
      * - Migrate from ASCII HEX to Base64 for defautl hooks?
-     * - Android hooks keychain/touchID
      * - Swift demangle?
      * - "Execute method" -> "Run export"
      * - Merge commits
-     * - Add hooks/functions
      * - Fix char Python
      * - Search in HEAP
-     * - Tab with helps on Brid and on Frida
-     * - GUI restyle
      * - Code restyle
      * - Bugfixes
-     * - Check Burp 2
      * - Add references to README and update README
      * - Add base address to main view?
      * - Trap by name/address (addressing base address issues)?
@@ -1315,13 +1310,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 // **** END CUSTOM PLUGINS
                 
             	tabbedPanel.add("Configurations",configurationConfPanel);
-            	tabbedPanel.add("JS Editor",sp); 
-            	tabbedPanel.add("Analyze binary",treeSearchPanel);
-            	tabbedPanel.add("Generate stubs",stubTextEditor.getComponent());            	
-            	tabbedPanel.add("Execute method",executeMethodPanel);
-            	tabbedPanel.add("Trap methods",trapTableScrollPane);
+            	tabbedPanel.add("JS Editor",sp);
             	tabbedPanel.add("Hooks and functions",tabbedPanelHooks);
+            	tabbedPanel.add("Graphical analysis",treeSearchPanel);
+            	tabbedPanel.add("Graphical hooks",trapTableScrollPane);
             	tabbedPanel.add("Custom plugins",customPluginsplitPane);
+            	tabbedPanel.add("Generate stubs",stubTextEditor.getComponent());
+            	tabbedPanel.add("Debug export",executeMethodPanel);
             	            	
             	// *** CONSOLE            	
             	pluginConsoleTextArea = new JEditorPane("text/html", "<font color=\"green\"><b>*** Brida Console ***</b></font><br/><br/>");
@@ -1408,7 +1403,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 clearConsoleButton.setActionCommand("clearConsole");
                 clearConsoleButton.addActionListener(BurpExtender.this);
                                 
-                executeMethodButton = new JButton("Execute Method");
+                executeMethodButton = new JButton("Run export");
                 executeMethodButton.setActionCommand("executeMethod");
                 executeMethodButton.addActionListener(BurpExtender.this); 
                 
@@ -2138,9 +2133,37 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				});
 				
 				break;	
+
+			//DEFAULT HOOKS	
+			case 2:
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+				
+						executeMethodButton.setVisible(false);
+						saveSettingsToFileButton.setVisible(false);
+						loadSettingsFromFileButton.setVisible(false);
+						generateJavaStubButton.setVisible(false);
+						generatePythonStubButton.setVisible(false);
+						loadJSFileButton.setVisible(false);
+						saveJSFileButton.setVisible(false);
+						loadTreeButton.setVisible(false);
+						removeAllGraphicalHooksButton.setVisible(false);
+						enableCustomPluginButton.setVisible(false);
+						exportCustomPluginsButton.setVisible(false);
+		                importCustomPluginsButton.setVisible(false);
+						
+		            }
+		            
+				});
+				
+				break;					
+				
 				
 			// Tree view	
-			case 2:
+			case 3:
 								
 				SwingUtilities.invokeLater(new Runnable() {
 					
@@ -2164,11 +2187,64 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            
 				});
 				
-				break;					
+				break;	
 				
+			// Graphical hooks	
+			case 4:
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+				
+						executeMethodButton.setVisible(false);
+						saveSettingsToFileButton.setVisible(false);
+						loadSettingsFromFileButton.setVisible(false);
+						generateJavaStubButton.setVisible(false);
+						generatePythonStubButton.setVisible(false);
+						loadJSFileButton.setVisible(false);
+						saveJSFileButton.setVisible(false);
+						loadTreeButton.setVisible(false);
+						removeAllGraphicalHooksButton.setVisible(true);
+						enableCustomPluginButton.setVisible(false);
+						exportCustomPluginsButton.setVisible(false);
+		                importCustomPluginsButton.setVisible(false);
+
+		            }
+		            
+				});
+				
+				break;	
+				
+			//CUSTOM PLUGIN	
+			case 5:
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+				
+						executeMethodButton.setVisible(false);
+						saveSettingsToFileButton.setVisible(false);
+						loadSettingsFromFileButton.setVisible(false);
+						generateJavaStubButton.setVisible(false);
+						generatePythonStubButton.setVisible(false);
+						loadJSFileButton.setVisible(false);
+						saveJSFileButton.setVisible(false);
+						loadTreeButton.setVisible(false);
+						removeAllGraphicalHooksButton.setVisible(false);
+		                enableCustomPluginButton.setVisible(true);
+		                exportCustomPluginsButton.setVisible(true);
+		                importCustomPluginsButton.setVisible(true);
+
+		            }
+		            
+				});
+				
+				break;
 				
 			// GENERATE STUBS	
-			case 3:
+			case 6:
 				
 				SwingUtilities.invokeLater(new Runnable() {
 					
@@ -2194,8 +2270,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 				break;
 			
-			// EXECUTE METHODS	
-			case 4:
+			// DEBUG EXPORT
+			case 7:
 				
 				SwingUtilities.invokeLater(new Runnable() {
 					
@@ -2220,88 +2296,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				});
 				
 				break;
-				
-			//TRAP METHODS	
-			case 5:
-				
-				SwingUtilities.invokeLater(new Runnable() {
-					
-		            @Override
-		            public void run() {
-				
-						executeMethodButton.setVisible(false);
-						saveSettingsToFileButton.setVisible(false);
-						loadSettingsFromFileButton.setVisible(false);
-						generateJavaStubButton.setVisible(false);
-						generatePythonStubButton.setVisible(false);
-						loadJSFileButton.setVisible(false);
-						saveJSFileButton.setVisible(false);
-						loadTreeButton.setVisible(false);
-						removeAllGraphicalHooksButton.setVisible(true);
-						enableCustomPluginButton.setVisible(false);
-						exportCustomPluginsButton.setVisible(false);
-		                importCustomPluginsButton.setVisible(false);
-
-		            }
-		            
-				});
-				
-				break;
-
-				//DEFAULT HOOKS	
-				case 6:
-					
-					SwingUtilities.invokeLater(new Runnable() {
-						
-			            @Override
-			            public void run() {
-					
-							executeMethodButton.setVisible(false);
-							saveSettingsToFileButton.setVisible(false);
-							loadSettingsFromFileButton.setVisible(false);
-							generateJavaStubButton.setVisible(false);
-							generatePythonStubButton.setVisible(false);
-							loadJSFileButton.setVisible(false);
-							saveJSFileButton.setVisible(false);
-							loadTreeButton.setVisible(false);
-							removeAllGraphicalHooksButton.setVisible(true);
-							enableCustomPluginButton.setVisible(false);
-							exportCustomPluginsButton.setVisible(false);
-			                importCustomPluginsButton.setVisible(false);
-							
-			            }
-			            
-					});
-					
-					break;	
-					
-				//CUSTOM PLUGIN	
-				case 7:
-					
-					SwingUtilities.invokeLater(new Runnable() {
-						
-			            @Override
-			            public void run() {
-					
-							executeMethodButton.setVisible(false);
-							saveSettingsToFileButton.setVisible(false);
-							loadSettingsFromFileButton.setVisible(false);
-							generateJavaStubButton.setVisible(false);
-							generatePythonStubButton.setVisible(false);
-							loadJSFileButton.setVisible(false);
-							saveJSFileButton.setVisible(false);
-							loadTreeButton.setVisible(false);
-							removeAllGraphicalHooksButton.setVisible(false);
-			                enableCustomPluginButton.setVisible(true);
-			                exportCustomPluginsButton.setVisible(true);
-			                importCustomPluginsButton.setVisible(true);
-
-			            }
-			            
-					});
-					
-					break;						
-			
+	
 			default:			
 				printException(null,"ShowHideButtons: index not found");				
 				break;	
