@@ -267,6 +267,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     		
     /*
      * TODO
+     * - Frida-gadget
      * - Tab with helps on Brid and on Frida     * 
      * - 1 Select forlder default current folder
      * - Migrate from ASCII HEX to Base64 for defautl hooks?
@@ -3190,7 +3191,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            public void run() {
 		            			            	
 		            	try {
-							jsEditorTextArea.load(fl, null);
+							jsEditorTextArea.load(fl,null);
 						} catch (IOException e) {
 							printException(e,"Exception loading JS file");
 						}

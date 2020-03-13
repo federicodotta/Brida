@@ -9,6 +9,9 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 
 import org.apache.commons.lang3.ArrayUtils;
 
@@ -222,11 +225,16 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 					
 				} else {
 					
-					getMainPlugin().printException(null,"Can't replace a non-editable content. Outputting to Brida console.");
-					getMainPlugin().printSuccessMessage("* Brida exported function " + getCustomPluginExportedFunctionName() + " output: " + ret);
+					getMainPlugin().printException(null,"Can't replace a non-editable content. Outputting to popup.");
+					
+					JTextArea ta = new JTextArea(20, 60);
+					ta.setLineWrap(true);
+					ta.setText(ret);
+					
+					JOptionPane.showMessageDialog(null, new JScrollPane(ta), getCustomPluginExportedFunctionName() + " output", JOptionPane.INFORMATION_MESSAGE);
 					
 					// DEBUG print
-					printToExternalDebugFrame("** Output to Brida console because the message is NON-editable\n\n");
+					printToExternalDebugFrame("** Output to popup because the message is NON-editable\n\n");
 					printToExternalDebugFrame("*** END ***\n\n");
 					
 				}								
