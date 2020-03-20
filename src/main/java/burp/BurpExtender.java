@@ -267,7 +267,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     		
     /*
      * TODO
-     * - Frida-gadget
+     * - Pop-up in Context menu
      * - Tab with helps on Brid and on Frida     * 
      * - 1 Select forlder default current folder
      * - Migrate from ASCII HEX to Base64 for defautl hooks?
@@ -564,7 +564,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 JPanel fridaPathPanel = new JPanel();
                 fridaPathPanel.setLayout(new BoxLayout(fridaPathPanel, BoxLayout.X_AXIS));
                 fridaPathPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelFridaPath = new JLabel("Frida JS file folder: ");
+                JLabel labelFridaPath = new JLabel("Frida JS files folder: ");
                 fridaPath = new JTextField(200);                
                 if(callbacks.loadExtensionSetting("fridaPath") != null)
                 	fridaPath.setText(callbacks.loadExtensionSetting("fridaPath"));
@@ -1997,7 +1997,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	                	// Parameter encoding
 	                	customPluginParameterEncodingPanel.setVisible(true);
 	                	// Plugin output
-	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console","replace in request/response with regex (with parenthesys)","replace highlighted value in request/response"});
+	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console","print in popup","replace in request/response with regex (with parenthesys)","replace highlighted value in request/response"});
 	                	customPluginOutputOptions.setModel(customPluginOutputModel);
 	                	customPluginOutputText.setVisible(true);
 	                	// Frida output decoding
@@ -2527,7 +2527,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		int userSelection = fileChooser.showSaveDialog(parentFrame);
 		
 		if(userSelection == JFileChooser.APPROVE_OPTION) {
-
 			
 			File outputFile = fileChooser.getSelectedFile();
 			
@@ -3745,6 +3744,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			CustomPluginFunctionOutputValues customPluginFunctionOutput = null;
 			if(customPluginOutputOptions.getSelectedItem().toString().equals("print in Brida console")) {
 				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.BRIDA;
+			} else if(customPluginOutputOptions.getSelectedItem().toString().equals("print in popup")) {
+				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.POPUP;				
 			} else if(customPluginOutputOptions.getSelectedItem().toString().equals("replace highlighted value in request/response")) {
 				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.CONTEXT;
 			} else if(customPluginOutputOptions.getSelectedItem().toString().equals("replace in request/response with regex (with parenthesys)")) {

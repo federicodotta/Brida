@@ -12,6 +12,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
 
 import org.apache.commons.lang3.ArrayUtils;
 
@@ -162,6 +163,22 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 				printToExternalDebugFrame("** Output to Brida console\n\n");
 				printToExternalDebugFrame("*** END ***\n\n");
 				
+			} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.POPUP) {
+				
+				SwingUtilities.invokeLater(new Runnable()  {
+		        	
+		            @Override
+		            public void run()  { 
+				
+		            	JTextArea ta = new JTextArea(20, 60);
+						ta.setLineWrap(true);
+						ta.setText(ret);
+		            	JOptionPane.showMessageDialog(null, new JScrollPane(ta), getCustomPluginExportedFunctionName() + " output", JOptionPane.INFORMATION_MESSAGE);
+		            	
+		            }
+		            
+				});
+				
 			} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.REGEX) {
 				
 				if(currentInvocation.getInvocationContext() == IContextMenuInvocation.CONTEXT_MESSAGE_EDITOR_REQUEST ||
@@ -227,12 +244,20 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 					
 					getMainPlugin().printException(null,"Can't replace a non-editable content. Outputting to popup.");
 					
-					JTextArea ta = new JTextArea(20, 60);
-					ta.setLineWrap(true);
-					ta.setText(ret);
+					SwingUtilities.invokeLater(new Runnable()  {
+			        	
+			            @Override
+			            public void run()  { 
+			            	
+			            	JTextArea ta = new JTextArea(20, 60);
+							ta.setLineWrap(true);
+							ta.setText(ret);
+			            	JOptionPane.showMessageDialog(null, new JScrollPane(ta), getCustomPluginExportedFunctionName() + " output", JOptionPane.INFORMATION_MESSAGE);
 					
-					JOptionPane.showMessageDialog(null, new JScrollPane(ta), getCustomPluginExportedFunctionName() + " output", JOptionPane.INFORMATION_MESSAGE);
-					
+			            }
+			            
+					});	
+			            	
 					// DEBUG print
 					printToExternalDebugFrame("** Output to popup because the message is NON-editable\n\n");
 					printToExternalDebugFrame("*** END ***\n\n");

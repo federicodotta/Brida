@@ -6,14 +6,17 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import net.razorvine.pyro.PyroProxy;
 import net.razorvine.pyro.PyroURI;
@@ -109,6 +112,7 @@ public abstract class CustomPlugin {
     }
     public static enum CustomPluginFunctionOutputValues {
     	BRIDA,
+    	POPUP,
     	CONTEXT,
     	REGEX,
     	MESSAGE_EDITOR
@@ -309,8 +313,20 @@ public abstract class CustomPlugin {
 				parametersCustomPlugin[i] = encodeCustomPluginValue(parametersCustomPlugin[i].getBytes(),customPluginParameterEncoding, mainPlugin);
 			}
 		} else if(customPluginParameter == CustomPluginParameterValues.POPUP) {
-			String parametersPopup = JOptionPane.showInputDialog("Enter parameter(s), delimited by \"#,#\"");
-			parametersCustomPlugin = parametersPopup.split("#,#");
+			
+			final AtomicReference<String> parametersPopup = new AtomicReference<String>();			
+			try {
+				SwingUtilities.invokeAndWait(new Runnable()  {
+				    @Override
+				    public void run()  { 
+				    	parametersPopup.set(JOptionPane.showInputDialog("Enter parameter(s), delimited by \"#,#\""));
+				    }
+				});
+			} catch (Exception e) {
+				getMainPlugin().printException(e, "Error getting parameters from popup");
+				return parametersCustomPlugin;
+			}			
+			parametersCustomPlugin = parametersPopup.get().split("#,#");
 			for(int i=0;i<parametersCustomPlugin.length;i++) {
 				parametersCustomPlugin[i] = encodeCustomPluginValue(parametersCustomPlugin[i].getBytes(),customPluginParameterEncoding, mainPlugin);
 			}
