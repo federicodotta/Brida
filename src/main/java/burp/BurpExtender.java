@@ -3622,7 +3622,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     		if(changeType != null) {
     			
     			String dialogResult = JOptionPane.showInputDialog(mainPanel, "Insert the new " + changeType + " return value","Return value",JOptionPane.QUESTION_MESSAGE);
-    			changeReturnValue(changeType,dialogResult);
+
+    			if(dialogResult != null) {
+    				changeReturnValue(changeType,dialogResult);
+    			}
     			
     		}
 			
