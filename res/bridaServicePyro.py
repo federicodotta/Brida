@@ -115,6 +115,7 @@ class BridaServicePyro:
 
 # Disable python buffering (cause issues when communicating with Java...)
 sys.stdout = Unbuffered(sys.stdout)
+sys.stderr = Unbuffered(sys.stderr)
 
 host = sys.argv[1]
 port = int(sys.argv[2])
