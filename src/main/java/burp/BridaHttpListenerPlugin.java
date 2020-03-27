@@ -197,7 +197,7 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 			Matcher matcherCustomPlugin = patternCustomPlugin.matcher(new String(requestResponseBytes));
 			if(matcherCustomPlugin.find()) {									
 				
-				String replacedRequestResponse = new StringBuilder(new String(requestResponseBytes)).replace(matcherCustomPlugin.start(1), matcherCustomPlugin.end(1), ret).toString();
+				String replacedRequestResponse = new StringBuilder(new String(requestResponseBytes)).replace(matcherCustomPlugin.start(1), matcherCustomPlugin.end(1), ((ret != null) ? ret : "")).toString();
 				if(messageIsRequest) {
 					messageInfo.setRequest(replacedRequestResponse.getBytes());
 				} else {

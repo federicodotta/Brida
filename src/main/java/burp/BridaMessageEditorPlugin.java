@@ -183,7 +183,7 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 				printToExternalDebugFrame("\n\n");
 				printToExternalDebugFrame("*** END ***\n\n");
 			
-				txtInput.setText(ret.getBytes());	
+				txtInput.setText(((ret != null) ? ret.getBytes() : new byte[0]));	
 				currentMessage = content;
 				
 			}

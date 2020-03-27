@@ -869,7 +869,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                
                 tabbedPanelHooks.add("Android",androidHooksPanel);
                 tabbedPanelHooks.add("iOS",iOSHooksPanelWithTips);
-                tabbedPanelHooks.add("Generic",genericHooksPanel);
+                tabbedPanelHooks.add("Other",genericHooksPanel);
                 // **** END FRIDA DEFAULT HOOKS TAB    
                 
                 
@@ -949,7 +949,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 JLabel customPluginButtonPlatformLabel = new JLabel("Platform: ");                
                 customPluginButtonTypeRadioIos = new JRadioButton("iOS");
                 customPluginButtonTypeRadioAndroid = new JRadioButton("Android");
-                customPluginButtonTypeRadioGeneric = new JRadioButton("Generic");
+                customPluginButtonTypeRadioGeneric = new JRadioButton("Other");
                 customPluginButtonTypeRadioIos.setSelected(true);     
                 customPluginButtonPlatformRadioButtonGroup = new ButtonGroup();
                 customPluginButtonPlatformRadioButtonGroup.add(customPluginButtonTypeRadioIos);
@@ -1781,10 +1781,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	
 		            	if(p3.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.BRIDA) {
 		            		customPluginOutputOptions.setSelectedIndex(0);
-		            	} else if(p3.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.REGEX) {
+		            	} else if(p3.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.POPUP) {
 		            		customPluginOutputOptions.setSelectedIndex(1);
+		            	} else if(p3.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.REGEX) {
+		            		customPluginOutputOptions.setSelectedIndex(2);	
 		            	} else {
-		            		customPluginOutputOptions.setSelectedIndex(2);
+		            		customPluginOutputOptions.setSelectedIndex(3);
 		            	}
 		            	customPluginOutputText.setText(p3.getCustomPluginFunctionOutputString());
 		            	

@@ -358,15 +358,19 @@ public abstract class CustomPlugin {
 	}
 	
 	public static byte[] decodeCustomPluginOutput(String toDecode, List<BurpExtender.Transformation> decodingTransformations, BurpExtender mainPlugin) {
-		byte[] output = toDecode.getBytes();
-		for (BurpExtender.Transformation t : decodingTransformations) {
-			try {
-				output = t.decode(output);
-			} catch (Exception e) {
-				mainPlugin.printException(e,"Error while trying to decode " + t.toString());
+		if(toDecode != null) {		
+			byte[] output = toDecode.getBytes();
+			for (BurpExtender.Transformation t : decodingTransformations) {
+				try {
+					output = t.decode(output);
+				} catch (Exception e) {
+					mainPlugin.printException(e,"Error while trying to decode " + t.toString());
+				}
 			}
+			return output;
+		} else {
+			return new byte[0];
 		}
-		return output;
 	}
 
 	public BurpExtender getMainPlugin() {

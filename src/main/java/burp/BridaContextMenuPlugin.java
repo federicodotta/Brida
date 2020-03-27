@@ -187,7 +187,7 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 					Pattern patternCustomPlugin = Pattern.compile(getCustomPluginFunctionOutputString());
 					Matcher matcherCustomPlugin = patternCustomPlugin.matcher(new String(selectedRequestOrResponse));
 					if(matcherCustomPlugin.find()) {									
-						String replacedRequestResponse = new StringBuilder(new String(selectedRequestOrResponse)).replace(matcherCustomPlugin.start(1), matcherCustomPlugin.end(1), ret).toString();
+						String replacedRequestResponse = new StringBuilder(new String(selectedRequestOrResponse)).replace(matcherCustomPlugin.start(1), matcherCustomPlugin.end(1), ((ret != null) ? ret : "")).toString();
 						
 						// DEBUG print
 						printToExternalDebugFrame("** Modified " + (isRequest ? "request" : "response") + " (with REGEX) \n");
@@ -229,7 +229,7 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 					
 					byte[] preSelectedPortion = Arrays.copyOfRange(selectedRequestOrResponse, 0, selectedBounds[0]);
 					byte[] postSelectedPortion = Arrays.copyOfRange(selectedRequestOrResponse, selectedBounds[1], selectedRequestOrResponse.length);
-					byte[] newRequestResponse = ArrayUtils.addAll(preSelectedPortion, ret.getBytes());
+					byte[] newRequestResponse = ArrayUtils.addAll(preSelectedPortion, ((ret != null) ? ret.getBytes() : new byte[0]));
 					newRequestResponse = ArrayUtils.addAll(newRequestResponse, postSelectedPortion);
 					
 					// DEBUG print
