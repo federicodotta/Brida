@@ -1122,7 +1122,7 @@ export function tracekeystore() {
 	});
 	console.log("KeyStore hooks loaded!");
 
-	var keystoreList = [];
+	global.keystoreList = [];
 	var StringCls = null;
 	Java.perform(function () {
 		StringCls = Java.use('java.lang.String');
@@ -1146,7 +1146,7 @@ export function tracekeystore() {
 			//console.log("[Call] Keystore.getInstance(java.lang.String )")
 			console.log("[Keystore.getInstance()]: type: " + type);
 			var tmp = this.getInstance(type);
-			keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
+			global.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
 			return tmp;
 		}
 	}
@@ -1157,7 +1157,7 @@ export function tracekeystore() {
 			//console.log("[Call] Keystore.getInstance(java.lang.String, java.lang.String )")
 			console.log("[Keystore.getInstance2()]: type: " + type + ", provider: " + provider);
 			var tmp = this.getInstance(type, proivder);
-			keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
+			global.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
 			return tmp;
 		}
 	}
@@ -1168,7 +1168,7 @@ export function tracekeystore() {
 			//console.log("[Call] Keystore.getInstance(java.lang.String, java.security.Provider )")
 			console.log("[Keystore.getInstance2()]: type: " + type + ", provider: " + provider);
 			var tmp = this.getInstance(type, proivder);
-			keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
+			global.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
 			return tmp;
 		}
 	}
