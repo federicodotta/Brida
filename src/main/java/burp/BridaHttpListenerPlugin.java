@@ -1,6 +1,7 @@
 package burp;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -198,16 +199,32 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 			if(matcherCustomPlugin.find()) {									
 				
 				String replacedRequestResponse = new StringBuilder(new String(requestResponseBytes)).replace(matcherCustomPlugin.start(1), matcherCustomPlugin.end(1), ((ret != null) ? ret : "")).toString();
+				byte[] replacedRequestResponseBytes = replacedRequestResponse.getBytes();
+				
 				if(messageIsRequest) {
-					messageInfo.setRequest(replacedRequestResponse.getBytes());
-				} else {
+					
+					// Replacing values in the body cause incorrect content length. By rebuilding the request with the Burp API the content length is fixed					
+					IRequestInfo analyzedRequest = getMainPlugin().helpers.analyzeRequest(replacedRequestResponseBytes);					
+					byte[] requestWithCorrectContentLength = getMainPlugin().helpers.buildHttpMessage(analyzedRequest.getHeaders(), Arrays.copyOfRange(replacedRequestResponseBytes, analyzedRequest.getBodyOffset(), replacedRequestResponseBytes.length));
+					
+					messageInfo.setRequest(requestWithCorrectContentLength);
+					replacedRequestResponse = new String(requestWithCorrectContentLength);
+					
+				} else {					
+					
+					// Replacing values in the body cause incorrect content length. By rebuilding the response with the Burp API the content length is fixed
+					IResponseInfo analyzedResponse = getMainPlugin().helpers.analyzeResponse(replacedRequestResponseBytes);
+					byte[] responseWithCorrectContentLength = getMainPlugin().helpers.buildHttpMessage(analyzedResponse.getHeaders(), Arrays.copyOfRange(replacedRequestResponseBytes, analyzedResponse.getBodyOffset(), replacedRequestResponseBytes.length));
+										
 					messageInfo.setResponse(replacedRequestResponse.getBytes());
+					replacedRequestResponse = new String(responseWithCorrectContentLength);
+					
 				}
 				
 				// DEBUG print
 				printToExternalDebugFrame("** Modified " + (messageIsRequest ? "request" : "response") + "\n");
 				printToExternalDebugFrame(replacedRequestResponse);
-				printToExternalDebugFrame("** \n\n");
+				printToExternalDebugFrame("\n\n** \n\n");
 				
 			} else {
 				

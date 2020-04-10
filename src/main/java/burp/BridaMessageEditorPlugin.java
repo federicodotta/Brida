@@ -257,7 +257,7 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 							// DEBUG print
 							printToExternalDebugFrame("** Replacing entire " + (isRequest ? "request" : "response") + ". Modified one:\n");
 							printToExternalDebugFrame(customPluginEditedContentOutputEncoded);
-							printToExternalDebugFrame("** \n\n");
+							printToExternalDebugFrame("\n\n** \n\n");
 							printToExternalDebugFrame("*** END EDITED TAB ***\n\n");
 							
 							return customPluginEditedContentOutputEncoded.getBytes();
@@ -278,7 +278,7 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 							// DEBUG print
 							printToExternalDebugFrame("** Replacing the body of the message. Modified " + (isRequest ? "request" : "response") + ":\n");
 							printToExternalDebugFrame(new String(newHttpMessage));
-							printToExternalDebugFrame("** \n\n");
+							printToExternalDebugFrame("\n\n** \n\n");
 							printToExternalDebugFrame("*** END EDITED TAB ***\n\n");
 							
 							return newHttpMessage;
@@ -295,7 +295,7 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 								// DEBUG print
 								printToExternalDebugFrame("** Modified " + (isRequest ? "request" : "response") + " after REGEX substitution:\n");
 								printToExternalDebugFrame(newHttpMessage);
-								printToExternalDebugFrame("** \n\n");
+								printToExternalDebugFrame("\n\n** \n\n");
 								printToExternalDebugFrame("*** END EDITED TAB ***\n\n");
 								
 								return newHttpMessage.getBytes();
