@@ -908,7 +908,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 JPanel customPluginExportNamePanel = new JPanel();
                 customPluginExportNamePanel.setLayout(new BoxLayout(customPluginExportNamePanel, BoxLayout.X_AXIS));
                 customPluginExportNamePanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel customPluginExportNameLabel = new JLabel("Name of the Frida exported function (*): ");
+                JLabel customPluginExportNameLabel = new JLabel("Name of the Frida exported function: ");
                 customPluginExportNameText = new JTextField(200);                
                 customPluginExportNameText.setMaximumSize( customPluginExportNameText.getPreferredSize() );
                 customPluginExportNamePanel.add(customPluginExportNameLabel);
@@ -921,7 +921,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginExecuteOnRadioRequest = new JRadioButton("Requests");
                 customPluginExecuteOnRadioResponse = new JRadioButton("Responses");
                 customPluginExecuteOnRadioAll = new JRadioButton("All");
-                customPluginExecuteOnRadioContext = new JRadioButton("Context menu options named: ");
+                customPluginExecuteOnRadioContext = new JRadioButton("Context menu option named: ");
                 customPluginExecuteOnRadioContext.setVisible(false);
                 customPluginExecuteOnRadioButton = new JRadioButton("Button named: ");
                 customPluginExecuteOnRadioButton.setVisible(false);
@@ -1115,7 +1115,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginMessageEditorModifiedFridaFunctioPanel = new JPanel();
                 customPluginMessageEditorModifiedFridaFunctioPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedFridaFunctioPanel, BoxLayout.X_AXIS));
                 customPluginMessageEditorModifiedFridaFunctioPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel customPluginMessageEditorModifiedFridaExportNameLabel = new JLabel("Name of the Frida exported function for the edited content (*): ");
+                JLabel customPluginMessageEditorModifiedFridaExportNameLabel = new JLabel("Name of the Frida exported function for the edited content: ");
                 customPluginMessageEditorModifiedFridaExportNameText = new JTextField(200);                
                 customPluginMessageEditorModifiedFridaExportNameText.setMaximumSize( customPluginMessageEditorModifiedFridaExportNameText.getPreferredSize() );
                 customPluginMessageEditorModifiedFridaFunctioPanel.add(customPluginMessageEditorModifiedFridaExportNameLabel);
