@@ -39,11 +39,11 @@ This idea is a need that is born during the analysis of some mobile application 
 # Brida 0.2
 Brida 0.2 was presented at Hack In The Box 2018 Amsterdam and includes some new features that speed up dynamical analysis of mobile applications, including:
 - An integrated console in which output from all Frida and Brida hooks are printed
-- An integrated JS editor with Javascript syntax highlighting, in order to be able to add your own Frida exports and Frida hooks directly from Burp Suite. The JS editor is based on the great [RSyntaxTextArea](https://github.com/bobbylight/RSyntaxTextArea) of bobbylight
-- An analysis tab, in which you have a tree rapresentation of the binary (Java/OBJC classes and methods, inports/exports) and from which you can graphically add inspection hoooks (that print arguments and return value every time that the hooked function is executed) and tamper hooks (that dinamically change the return value of the hooked function every time that it is executed)
+- An integrated JS editor with JavaScript syntax highlighting, in order to be able to add your own Frida exports and Frida hooks directly from Burp Suite. The JS editor is based on the great [RSyntaxTextArea](https://github.com/bobbylight/RSyntaxTextArea) of bobbylight
+- An analysis tab, in which you have a tree representation of the binary (Java/OBJC classes and methods, inports/exports) and from which you can graphically add inspection hoooks (that print arguments and return value every time that the hooked function is executed) and tamper hooks (that dinamically change the return value of the hooked function every time that it is executed)
 
 # Brida 0.4
-Brida 0.4 should have been presented at Hack In paris 2020 but, due to the postponement of the conference for the COVID-19 global situation, the tool has been released before the conference (but we will still present it to HackInParis 2020 in February 2021!). Brida 0.4 speeds up furhter the dynamic analysis process with the introduction of the following features:
+Brida 0.4 should have been presented at Hack In Paris 2020 but, due to the postponement of the conference for the COVID-19 global situation, the tool has been released before the conference (but we will still present it to Hack In Paris 2020 in February 2021). Brida 0.4 speeds up further the dynamic analysis process with the introduction of the following features:
 - Many Frida hooks for common tasks have been included, directly callable from the GUI of the tool with a click of the mouse! These scripts include the most recent hooks for Android and iOS platforms to bypass and inspect security features
 - A new highly-customizable engine will allow to graphically create custom plugins to: 
 	* Process requests/responses that pass through every Burp Suite tool, in order to be able to encrypt/decrypt/resign elements of requests and responses using Frida exported functions
@@ -75,7 +75,7 @@ In order to be able to use Brida, you need:
 3.	Open Burp -> Extender -> BApp Store -> Brida, Burp to Frida bridge -> Install
 
 # Build
-You can build Brida using Maven. Brida uses a modified version of RSyntaxTextArea, that you can find in this [fork](https://github.com/federicodotta/RSyntaxTextArea). In order to be ablet to build Brida you have to download the [last release](https://github.com/federicodotta/RSyntaxTextArea/releases) of the modified version of RSyntaxTextArea or build it and then install it locally with Maven using the following parameters:
+You can build Brida using Maven. Brida uses a modified version of RSyntaxTextArea, that you can find in this [fork](https://github.com/federicodotta/RSyntaxTextArea). In order to be able to build Brida you have to download the [last release](https://github.com/federicodotta/RSyntaxTextArea/releases) of the modified version of RSyntaxTextArea or build it and then install it locally with Maven using the following parameters:
 
 - groupId: com.fifesoft
 - artifactId: rsyntaxtextarea
@@ -88,7 +88,7 @@ The slides and the video of our conference presented at Hack In The Box 2018 Ams
 - https://conference.hitb.org/hitbsecconf2018ams/materials/D1T1%20-%20Federico%20Dotta%20and%20Piergiovanni%20Cipolloni%20-%20Brida%20When%20Burp%20Suite%20Meets%20Frida.pdf
 - https://www.youtube.com/watch?v=wPepicuHDzs&t=18s
 
-We will present Brida at HackInParis 2020. After the conference we will add here the links to the slides and to the video!
+We will present Brida at Hack In Paris 2020. After the conference we will add here the links to the slides and to the video!
 
 # Screenshot
 ![Brida Screenshot](https://raw.githubusercontent.com/federicodotta/Brida/master/BridaScreen1.PNG)
