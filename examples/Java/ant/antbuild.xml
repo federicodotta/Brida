@@ -1,7 +1,0 @@
-<project default="jar">
-	<target name="jar">
-		<jar destfile="../output/SignalInjection_dev.jar" basedir="../bin">
-			<zipgroupfileset dir="../libs" includes="*.jar"/>
-		</jar>
-	</target>
-</project>
