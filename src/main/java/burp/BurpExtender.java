@@ -796,7 +796,15 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 							JOptionPane.showMessageDialog(null, "It is not possible to disable single hooks while application is running", "Warning", JOptionPane.WARNING_MESSAGE);
                 						}
                 					} else {
-                						currentDefaultHook.setEnabled(true); 
+                						currentDefaultHook.setEnabled(true);
+                						if(applicationSpawned) {
+	                						try {					
+	                							executePyroCall(pyroBridaService, "callexportfunction",new Object[] {currentDefaultHook.getFridaExportName(),currentDefaultHook.getParameters()});					
+	                						} catch (Exception e) {						
+	                							 printException(e,"Exception running starting tree hook " + currentDefaultHook.getName());						
+	                						}	
+                						}
+                						
                 					}
                 					((TrapTableModel)(trapTable.getModel())).fireTableCellUpdated(row, col);
                 					((TrapTableModel)(trapTable.getModel())).fireTableCellUpdated(row, 0);
