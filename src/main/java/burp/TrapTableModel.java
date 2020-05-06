@@ -2,6 +2,8 @@ package burp;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.swing.JButton;
 import javax.swing.table.AbstractTableModel;
 
 public class TrapTableModel extends AbstractTableModel {
@@ -26,7 +28,7 @@ public class TrapTableModel extends AbstractTableModel {
 
 	@Override
 	public int getColumnCount() {
-		return 6;
+		return 9;
 	}
 
 	@Override
@@ -37,17 +39,31 @@ public class TrapTableModel extends AbstractTableModel {
 		switch (columnIndex) {
 		
 			case 0:
-				return currentItem.getHook();
+				if(currentItem.getDefaultHook().isEnabled()) {
+					return "Enabled";				
+				} else {
+					return "Disabled";			
+				}
 			case 1:
-				return currentItem.getType();
+				return currentItem.getHook();
 			case 2:
-				return currentItem.getName();
+				return currentItem.getType();
 			case 3:
-				return currentItem.hasBacktrace();
+				return currentItem.getName();
 			case 4:
-				return currentItem.getReturnValueType();
+				return currentItem.hasBacktrace();
 			case 5:
+				return currentItem.getReturnValueType();
+			case 6:
 				return currentItem.getNewReturnValue();	
+			case 7:
+				if(currentItem.getDefaultHook().isEnabled()) {
+					return new JButton("DISABLE");				
+				} else {
+					return new JButton("ENABLE");			
+				}	
+			case 8:
+				return new JButton("REMOVE");					
 			default:
 				return "";
 		
@@ -59,17 +75,23 @@ public class TrapTableModel extends AbstractTableModel {
     public String getColumnName(int columnIndex) {
 		switch (columnIndex)  {
 			case 0:
-	            return "Hook";    
+				return "Status";
 			case 1:
+	            return "Category";    
+			case 2:
                 return "Type";
-            case 2:
-                return "Name";
             case 3:
-            	return "Backtrace";            	
+                return "Method/Class";
             case 4:
-                return "Return value type";
+            	return "Backtrace";            	
             case 5:
-                return "New return value";       	
+                return "Return value type";
+            case 6:
+                return "New return value";      
+            case 7:
+                return "Enable/Disable";  
+            case 8:
+                return "Remove";                  
             default:
                 return "";
         }
@@ -85,11 +107,17 @@ public class TrapTableModel extends AbstractTableModel {
             case 2:
             	return String.class;
             case 3:
-                return Boolean.class;
-            case 4:
                 return String.class;
+            case 4:
+                return Boolean.class;
             case 5:
             	return String.class;
+            case 6:
+            	return String.class;
+            case 7:
+            	return JButton.class;
+            case 8:
+            	return JButton.class;            	
             default:
                 return String.class;
         }
