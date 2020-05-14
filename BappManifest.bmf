@@ -9,4 +9,4 @@ ProOnly: False
 Author: Federico Dotta, Piergiovanni Cipolloni
 ShortDescription: A bridge between Burp Suite and Frida to help test Android applications.
 EntryPoint: build/libs/brida-all.jar
-BuildCommand: gradle fatJar
+BuildCommand: ./build.sh

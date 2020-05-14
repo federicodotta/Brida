@@ -5,6 +5,9 @@ repositories {
     mavenLocal() 
 }
 
+targetCompatibility = 1.8
+sourceCompatibility = 1.8
+
 dependencies {
     compile 'net.portswigger.burp.extender:burp-extender-api:1.7.22'
     compile group: 'commons-io', name: 'commons-io', version: '2.5'
