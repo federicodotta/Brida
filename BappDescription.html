@@ -14,21 +14,39 @@
     re-writing the routines we're interested in, why don't we let the application do the dirty work for us?
 </p>
 
-<p>The last version of Brida adds a lot of different tools that help
-    pentesters during mobile application analysis, among which an integrated
-    console in which output from all the Frida and Brida hooks are printed, an
-    integrated JS editor with JavaScript syntax highlighting and an analysis
-    tab, in which there is a tree representation of the binary (Java/OBJC
-    classes and methods, imports/exports) and from which it is possible to
-    graphically add inspection hooks (that print arguments and return value
-    every time that the hooked function is executed) and tamper hooks (that
-    dynamically change the return value of the hooked function every time that
-    it is executed).</p>
+<p>Brida integrates many different tools that help pentesters during mobile
+application analysis, among which an integrated console in which output
+from all the Frida and Brida hooks are printed, an integrated JS editor
+with JavaScript syntax highlighting and an analysis tab, in which there is
+a tree representation of the binary (Java/OBJC classes and methods,
+imports/exports) and from which it is possible to graphically add
+inspection hooks (that print arguments and return value every time that the
+hooked function is executed) and tamper hooks (that dynamically change the
+return value of the hooked function every time that it is executed).</p>
+
+<p>Last
+version introduces the most recent Frida hooks developed by the community
+for Android and iOS platforms to bypass and inspect security features and a
+new highly-customizable engine that allows to graphically create custom
+plugins to:</p>
+
+<ul>
+	<li>Process requests/responses that pass through every Burp Suite tool, in
+order to be able to encrypt/decrypt/resign elements of requests and
+responses using Frida exported functions</li>
+	<li>Add custom tab to Burp Suite request/response pane, in order to be able
+to decrypt/decode/process requests/responses (or portion of them) using
+Frida exported functions (and then encrypt/encode/process modifications and
+replacing the original request/response, if any)</li>
+	<li>Add custom context menu options to invoke Frida exported functions on
+requests and responses</li>
+	<li>Add buttons that invoke/enable Frida exported functions</li>
+</ul>
 
 <p><b>Requirements:</b></p>
 
 <ul>
-    <li>Python 2.7 and the frida and pyro4 modules</li>
+    <li>Python 2.7 or 3 with pyro4 module, frida client and frida-compile</li>
     <li>An iOS or Android device with the frida-server running on it (root
     privileges on the device required) or an application patched with the
         Frida's Gadget (root privileges on the device not required).</li>
@@ -37,7 +55,8 @@
 <p><b>Further information:</b></p>
 
 <ul>
-    <li>Step-by-step <a href="https://techblog.mediaservice.net/2018/04/brida-a-step-by-step-user-guide/">tutorial</a></li>
-    <li>Hack in The Box 2018 Amsterdam presentation: <a href="https://conference.hitb.org/hitbsecconf2018ams/materials/D1T1%20-%20Federico%20Dotta%20and%20Piergiovanni%20Cipolloni%20-%20Brida%20When%20Burp%20Suite%20Meets%20Frida.pdf">slides</a> and
+    <li><a href="https://github.com/federicodotta/Brida/wiki">Brida Wiki!</a></li>
+    <li>Hack in The Box 2018 Amsterdam presentation (on the previous version of
+Brida): <a href="https://conference.hitb.org/hitbsecconf2018ams/materials/D1T1%20-%20Federico%20Dotta%20and%20Piergiovanni%20Cipolloni%20-%20Brida%20When%20Burp%20Suite%20Meets%20Frida.pdf">slides</a> and
         <a href="https://www.youtube.com/watch?v=wPepicuHDzs&t=18s">video</a></li>
 </ul>
