@@ -3607,16 +3607,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 						}
 						reader.close();
 						br.close();
-						
-						SwingUtilities.invokeLater(new Runnable() {
-							
-				            @Override
-				            public void run() {
-				            	fridaPath.setText(fridaPathFolder.getAbsolutePath());
-				            }
-						
-						});
-						
+					
 					} catch(Exception e) {
 						
 						printException(e,"Error copying Frida " + bridaFiles[i] + " JS file");
@@ -3624,6 +3615,15 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 					}
 					
 				}
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+		            	fridaPath.setText(fridaPathFolder.getAbsolutePath());
+		            }
+				
+				});
 				
 			}
 			
