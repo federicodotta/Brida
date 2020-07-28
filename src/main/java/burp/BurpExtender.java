@@ -3540,6 +3540,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			JFileChooser fileChooser = new JFileChooser();
 			fileChooser.setDialogTitle("Frida JS folder");
 			fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+			fileChooser.setCurrentDirectory(new File(fridaPath.getText().trim()));
 			
 			int userSelection = fileChooser.showOpenDialog(parentFrame);
 			
@@ -3564,6 +3565,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			JFileChooser fileChooser = new JFileChooser();
 			fileChooser.setDialogTitle("Select location for Frida default JS file");
 			fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+			fileChooser.setCurrentDirectory(new File(fridaPath.getText().trim()));
 			
 			String[] bridaFiles = new String[] {
 				"brida.js",
@@ -3899,6 +3901,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			JFrame parentFrameExportPlugins = new JFrame();
 			JFileChooser fileChooserExportPlugins = new JFileChooser();
 			fileChooserExportPlugins.setDialogTitle("Export custom plugins to file");
+			fileChooserExportPlugins.setCurrentDirectory(new File(fridaPath.getText().trim()));
 	        int userSelectionExportPlugins = fileChooserExportPlugins.showSaveDialog(parentFrameExportPlugins);
 	        
 	        if (userSelectionExportPlugins == JFileChooser.APPROVE_OPTION) {
@@ -3937,6 +3940,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			JFrame parentFrameImportPlugins = new JFrame();
 			JFileChooser fileChooserImportPlugins = new JFileChooser();
 			fileChooserImportPlugins.setDialogTitle("Import custom plugins from file");
+			fileChooserImportPlugins.setCurrentDirectory(new File(fridaPath.getText().trim()));
 	        int userSelectionImportPlugins = fileChooserImportPlugins.showOpenDialog(parentFrameImportPlugins);
 	        
 	        if (userSelectionImportPlugins == JFileChooser.APPROVE_OPTION) {
