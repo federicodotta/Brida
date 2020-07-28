@@ -1289,7 +1289,17 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                             			
                             			currentPlugin.disable();
                             			
+                            		} else {
+                            			
+                            			// Ask user confirmation
+                            			JFrame parentDialogResult = new JFrame();
+            			        		int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "Are you sure that you want to remove the plugin?","Warning",JOptionPane.YES_NO_OPTION);
+            			        		if(dialogResult != JOptionPane.YES_OPTION){
+            			        			return;
+            			        		}
+                            			
                             		}
+                            		
                             		// Double check because unload button hooks may fail if the application is running
                             		if(!currentPlugin.isOn()) {
             	                		synchronized(customPlugins) {                		
