@@ -334,6 +334,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 10) *",BurpExtender.PLATFORM_IOS,"ios10pinning",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 11) *",BurpExtender.PLATFORM_IOS,"ios11pinning",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 12) *",BurpExtender.PLATFORM_IOS,"ios12pinning",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 13) *",BurpExtender.PLATFORM_IOS,"ios13pinning",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Jailbreaking check bypass **",BurpExtender.PLATFORM_IOS,"iosjailbreak",true,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Bypass TouchID (click \"Cancel\" when TouchID windows pops up)",BurpExtender.PLATFORM_IOS,"iosbypasstouchid",true,new String[] {},null,false));   
     	addButtonToHooksAndFunctions(new DefaultHook("Dump crypto stuff",BurpExtender.PLATFORM_IOS,"dumpcryptostuffios",true,new String[] {},null,false));
