@@ -1791,44 +1791,98 @@ export function dumpcryptostuff() {
 
 function auxiliary_android_pinning_hooks() {
 
-    // okhttp3 (double bypass)
-    try {
-        var okhttp3_Activity = Java.use('okhttp3.CertificatePinner');
-        okhttp3_Activity.check.overload('java.lang.String', 'java.util.List').implementation = function (str) {
-            console.log('[+] Intercepted OkHTTP3 {1}: ' + str);
-            return true;
-        };
-        // This method of CertificatePinner.check could be found in some old Android app
-        okhttp3_Activity.check.overload('java.lang.String', 'java.security.cert.Certificate').implementation = function (str) {
-            console.log('[+] Intercepted OkHTTP3 {2}: ' + str);
-            return true;
-        };
-
-        console.log('[+] Setup OkHTTP3 pinning')
+	var okhttp3_CertificatePinner_class = null;
+	try {
+        okhttp3_CertificatePinner_class = Java.use('okhttp3.CertificatePinner');    
     } catch (err) {
-        console.log('[-] OkHTTP3 pinner not found')
+        console.log('[-] OkHTTPv3 CertificatePinner class not found. Skipping.');
+        okhttp3_CertificatePinner_class = null;
     }
 
+    if(okhttp3_CertificatePinner_class != null) {
+
+        try{
+            okhttp3_CertificatePinner_class.check.overload('java.lang.String', 'java.util.List').implementation = function (str,list) {
+                console.log('[+] Bypassing OkHTTPv3 1: ' + str);
+                return true;
+            };
+            console.log('[+] Loaded OkHTTPv3 hook 1');
+        } catch(err) {
+        	console.log('[-] Skipping OkHTTPv3 hook 1');
+        }
+
+        try{
+            okhttp3_CertificatePinner_class.check.overload('java.lang.String', 'java.security.cert.Certificate').implementation = function (str,cert) {
+                console.log('[+] Bypassing OkHTTPv3 2: ' + str);
+                return true;
+            };
+            console.log('[+] Loaded OkHTTPv3 hook 2');
+        } catch(err) {
+        	console.log('[-] Skipping OkHTTPv3 hook 2');
+        }
+
+        try {
+            okhttp3_CertificatePinner_class.check.overload('java.lang.String', '[Ljava.security.cert.Certificate;').implementation = function (str,cert_array) {
+                console.log('[+] Bypassing OkHTTPv3 3: ' + str);
+                return true;
+            };
+            console.log('[+] Loaded OkHTTPv3 hook 3');
+        } catch(err) {
+        	console.log('[-] Skipping OkHTTPv3 hook 3');
+        }
+
+        try {
+            okhttp3_CertificatePinner_class['check$okhttp'].implementation = function (str,obj) {
+	            console.log('[+] Bypassing OkHTTPv3 4 (4.2+): ' + str);
+	        };
+	        console.log('[+] Loaded OkHTTPv3 hook 4 (4.2+)');
+	    } catch(err) {
+        	console.log('[-] Skipping OkHTTPv3 hook 4 (4.2+)');
+        }
+
+	}
+
     // Trustkit (triple bypass)
+    var trustkit_Activity = null;
     try {
-        var trustkit_Activity = Java.use('com.datatheorem.android.trustkit.pinning.OkHostnameVerifier');
-        trustkit_Activity.verify.overload('java.lang.String', 'javax.net.ssl.SSLSession').implementation = function (str) {
-            console.log('[+] Intercepted Trustkit {1}: ' + str);
-            return true;
-        };
-        trustkit_Activity.verify.overload('java.lang.String', 'java.security.cert.X509Certificate').implementation = function (str) {
-            console.log('[+] Intercepted Trustkit {2}: ' + str);
-            return true;
-        };
+        trustkit_Activity = Java.use('com.datatheorem.android.trustkit.pinning.OkHostnameVerifier');
+        console.log('[+] Setup Trustkit pinning (first class)')
+    } catch (err) {
+        console.log('[-] Trustkit first class not found. Skipping.');
+        trustkit_Activity = null;
+    }
+
+    if(trustkit_Activity != null) {
+
+	    try {
+	        trustkit_Activity.verify.overload('java.lang.String', 'javax.net.ssl.SSLSession').implementation = function (str,b) {
+	            console.log('[+] Intercepted Trustkit {1}: ' + str);
+	            return true;
+	        };
+	    } catch(err) {
+	    	console.log('[-] Skipping Trustkit {1}');
+	    }
+
+	    try {
+	        trustkit_Activity.verify.overload('java.lang.String', 'java.security.cert.X509Certificate').implementation = function (str,b) {
+	            console.log('[+] Intercepted Trustkit {2}: ' + str);
+	            return true;
+	        };
+	    } catch(err) {
+	    	console.log('[-] Skipping Trustkit {2}');
+	    }
+
+	}
+
+    try {  
         var trustkit_PinningTrustManager = Java.use('com.datatheorem.android.trustkit.pinning.PinningTrustManager');
         trustkit_PinningTrustManager.checkServerTrusted.implementation = function () {
             console.log('[+] Intercepted Trustkit {3}');
         }
-
-        console.log('[+] Setup Trustkit pinning')
+        console.log('[+] Setup Trustkit pinning (second class)')
     } catch (err) {
-        console.log('[-] Trustkit pinner not found')
-    }
+        console.log('[-] Trustkit second class not found. Skipping.');
+    }	
 
     // TrustManagerImpl (Android > 7)
     try {
@@ -1897,29 +1951,55 @@ function auxiliary_android_pinning_hooks() {
     }
     
     // IBM WorkLight (ancestor of MobileFirst) HostNameVerifierWithCertificatePinning (quadruple bypass)
+    var worklight_Activity = null;
     try {
-        var worklight_Activity = Java.use('com.worklight.wlclient.certificatepinning.HostNameVerifierWithCertificatePinning');
-        worklight_Activity.verify.overload('java.lang.String', 'javax.net.ssl.SSLSocket').implementation = function (str) {
-            console.log('[+] Intercepted IBM WorkLight HostNameVerifierWithCertificatePinning {1}: ' + str);
-            return;
-        };
-        worklight_Activity.verify.overload('java.lang.String', 'java.security.cert.X509Certificate').implementation = function (str) {
-            console.log('[+] Intercepted IBM WorkLight HostNameVerifierWithCertificatePinning {2}: ' + str);
-            return;
-        };
-        worklight_Activity.verify.overload('java.lang.String', 'java.util.List', 'java.util.List').implementation = function (str) {
-            console.log('[+] Intercepted IBM WorkLight HostNameVerifierWithCertificatePinning {3}: ' + str);
-            return;
-        };
-        worklight_Activity.verify.overload('java.lang.String', 'javax.net.ssl.SSLSession').implementation = function (str) {
-            console.log('[+] Intercepted IBM WorkLight HostNameVerifierWithCertificatePinning {4}: ' + str);
-            return true;
-        };
+        worklight_Activity = Java.use('com.worklight.wlclient.certificatepinning.HostNameVerifierWithCertificatePinning');
+    } catch (err) {
+        console.log('[-] IBM WorkLight HostNameVerifierWithCertificatePinning class not found. Skipping.');
+        worklight_Activity = null;
+    }
+
+    if(worklight_Activity != null) {
+
+    	try {
+	        worklight_Activity.verify.overload('java.lang.String', 'javax.net.ssl.SSLSocket').implementation = function (str,b) {
+	            console.log('[+] Intercepted IBM WorkLight HostNameVerifierWithCertificatePinning {1}: ' + str);
+	            return;
+	        };
+		} catch(err) {
+        	console.log('[-] Skipping IBM WorkLight hook 1');
+        }
+
+        try {
+	        worklight_Activity.verify.overload('java.lang.String', 'java.security.cert.X509Certificate').implementation = function (str,b) {
+	            console.log('[+] Intercepted IBM WorkLight HostNameVerifierWithCertificatePinning {2}: ' + str);
+	            return;
+	        };
+		} catch(err) {
+        	console.log('[-] Skipping IBM WorkLight hook 2');
+        }	       
+
+        try {
+	        worklight_Activity.verify.overload('java.lang.String', 'java.util.List', 'java.util.List').implementation = function (str,b,c) {
+	            console.log('[+] Intercepted IBM WorkLight HostNameVerifierWithCertificatePinning {3}: ' + str);
+	            return;
+	        };
+		} catch(err) {
+        	console.log('[-] Skipping IBM WorkLight hook 3');
+        }		        
+
+        try {
+	        worklight_Activity.verify.overload('java.lang.String', 'javax.net.ssl.SSLSession').implementation = function (str,b) {
+	            console.log('[+] Intercepted IBM WorkLight HostNameVerifierWithCertificatePinning {4}: ' + str);
+	            return true;
+	        };
+		} catch(err) {
+        	console.log('[-] Skipping IBM WorkLight hook 4');
+        }
 
         console.log('[+] Setup IBM WorkLight HostNameVerifierWithCertificatePinning pinning')
-    } catch (err) {
-        console.log('[-] IBM WorkLight HostNameVerifierWithCertificatePinning pinner not found')
-    }
+
+	}
 
 }
 
