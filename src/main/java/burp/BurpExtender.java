@@ -131,6 +131,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	private JTextPane applicationStatus;
 	private JTextField fridaPath;
     private JTextField applicationId;
+    private JCheckBox fridaCompileOldCheckBox; 
     
     private JRadioButton remoteRadioButton;
     private JRadioButton usbRadioButton;
@@ -268,7 +269,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     /*
      * TODO
      * - Pop-up in Context menu
-     * - Tab with helps on Brid and on Frida     * 
+     * - Tab with helps on Brida and on Frida     * 
      * - 1 Select forlder default current folder
      * - Migrate from ASCII HEX to Base64 for defautl hooks?
      * - Swift demangle?
@@ -284,7 +285,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
      * - Add tab with Frida hooks that can be enabled/disabled (pinning, etc.)
      * - Add addresses to tree view (export and iOS)
      * - Trap/edit return value of custom methods
-     * - Organize better JS file (maybe divide custom one from Brida one)
+     * - Add host/port attach/spawn modes
      */
     
     class JTableButtonRenderer implements TableCellRenderer {
@@ -561,6 +562,18 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 fridaCompilePathPanel.add(labelFridaCompilePath);
                 fridaCompilePathPanel.add(fridaCompilePath);
                 fridaCompilePathPanel.add(fridaCompilePathButton);
+                
+                JPanel fridaCompilePanel = new JPanel();
+                fridaCompilePanel.setLayout(new BoxLayout(fridaCompilePanel, BoxLayout.X_AXIS));
+                fridaCompilePanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
+                JLabel labelFridaCompileVersion = new JLabel("Use old version of frida-compile (< 10): ");
+                fridaCompileOldCheckBox = new JCheckBox();                
+                if(callbacks.loadExtensionSetting("fridaCompileOldCheckBox") != null)
+                	fridaCompileOldCheckBox.setSelected(callbacks.loadExtensionSetting("fridaCompileOldCheckBox").equals("true"));
+                else
+                	fridaCompileOldCheckBox.setSelected(false);
+                fridaCompilePanel.add(labelFridaCompileVersion);
+                fridaCompilePanel.add(fridaCompileOldCheckBox);
  
                 JPanel fridaPathPanel = new JPanel();
                 fridaPathPanel.setLayout(new BoxLayout(fridaPathPanel, BoxLayout.X_AXIS));
@@ -631,8 +644,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 configurationConfPanel.add(pyroHostPanel);
                 configurationConfPanel.add(pyroPortPanel);
                 configurationConfPanel.add(fridaCompilePathPanel);
+                configurationConfPanel.add(fridaCompilePanel);
                 configurationConfPanel.add(fridaPathPanel);
-                configurationConfPanel.add(applicationIdPanel);  
+                configurationConfPanel.add(applicationIdPanel); 
                 configurationConfPanel.add(localRemotePanel);
                 
                 // **** END CONFIGURATION PANEL
@@ -2331,7 +2345,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 		Runtime rt = Runtime.getRuntime();
 
-		String[] fridaCompileCommand = {fridaCompilePath,"-x","-o",fridaJsFolder + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",fridaJsFolder + System.getProperty("file.separator") + "brida.js"};
+		String[] fridaCompileCommand;
+		if(fridaCompileOldCheckBox.isSelected()) {
+			fridaCompileCommand = new String[]{fridaCompilePath,"-x","-o",fridaJsFolder + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",fridaJsFolder + System.getProperty("file.separator") + "brida.js"};
+		} else {
+			fridaCompileCommand = new String[]{fridaCompilePath,"-o",fridaJsFolder + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",fridaJsFolder + System.getProperty("file.separator") + "brida.js"};
+		}
 		
 		Process processCompilation = null;
 		try {
@@ -2521,8 +2540,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		callbacks.saveExtensionSetting("pyroHost",pyroHost.getText().trim());
 		callbacks.saveExtensionSetting("pyroPort",pyroPort.getText().trim());
 		callbacks.saveExtensionSetting("fridaCompilePath",fridaCompilePath.getText().trim());
+		callbacks.saveExtensionSetting("fridaCompileOldCheckBox",(fridaCompileOldCheckBox.isSelected() ? "true" : "false"));	
 		callbacks.saveExtensionSetting("fridaPath",fridaPath.getText().trim());
-		callbacks.saveExtensionSetting("applicationId",applicationId.getText().trim());
+		callbacks.saveExtensionSetting("applicationId",applicationId.getText().trim());			
 		if(remoteRadioButton.isSelected()) { 
 			callbacks.saveExtensionSetting("device","remote");
 		} else if(usbRadioButton.isSelected()) { 
@@ -2568,6 +2588,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				fw.write("pyroHost:" + pyroHost.getText().trim() + "\n");
 				fw.write("pyroPort:" + pyroPort.getText().trim() + "\n");
 				fw.write("fridaCompilePath:" + fridaCompilePath.getText().trim() + "\n");
+				fw.write("fridaCompileOldCheckBox:" + (fridaCompileOldCheckBox.isSelected() ? "true" : "false") + "\n");
 				fw.write("fridaPath:" + fridaPath.getText().trim() + "\n");
 				fw.write("applicationId:" + applicationId.getText().trim() + "\n");
 				if(remoteRadioButton.isSelected())  
@@ -2660,7 +2681,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 							break;
 						case "fridaCompilePath":
 							fridaCompilePath.setText(lineParts[1]);
-							break;							
+							break;			
+						case "fridaCompileOldCheckBox":
+							fridaCompileOldCheckBox.setSelected(lineParts[1].equals("true"));
+							break;
 						case "fridaPath":
 							fridaPath.setText(lineParts[1]);
 							break;

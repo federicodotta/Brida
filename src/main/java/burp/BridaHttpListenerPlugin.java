@@ -203,7 +203,7 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 				
 				if(messageIsRequest) {
 					
-					// Replacing values in the body cause incorrect content length. By rebuilding the request with the Burp API the content length is fixed					
+					// Replacing values in the body causes incorrect content length. By rebuilding the request with the Burp API the content length is fixed					
 					IRequestInfo analyzedRequest = getMainPlugin().helpers.analyzeRequest(replacedRequestResponseBytes);					
 					byte[] requestWithCorrectContentLength = getMainPlugin().helpers.buildHttpMessage(analyzedRequest.getHeaders(), Arrays.copyOfRange(replacedRequestResponseBytes, analyzedRequest.getBodyOffset(), replacedRequestResponseBytes.length));
 					
@@ -212,7 +212,7 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 					
 				} else {					
 					
-					// Replacing values in the body cause incorrect content length. By rebuilding the response with the Burp API the content length is fixed
+					// Replacing values in the body causes incorrect content length. By rebuilding the response with the Burp API the content length is fixed
 					IResponseInfo analyzedResponse = getMainPlugin().helpers.analyzeResponse(replacedRequestResponseBytes);
 					byte[] responseWithCorrectContentLength = getMainPlugin().helpers.buildHttpMessage(analyzedResponse.getHeaders(), Arrays.copyOfRange(replacedRequestResponseBytes, analyzedResponse.getBodyOffset(), replacedRequestResponseBytes.length));
 										
