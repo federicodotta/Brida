@@ -612,7 +612,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 if(callbacks.loadExtensionSetting("fridaCompileOldCheckBox") != null)
                 	fridaCompileOldCheckBox.setSelected(callbacks.loadExtensionSetting("fridaCompileOldCheckBox").equals("true"));
                 else
-                	fridaCompileOldCheckBox.setSelected(false);
+                	fridaCompileOldCheckBox.setSelected(true);
                 fridaCompilePanel.add(labelFridaCompileVersion);
                 fridaCompilePanel.add(fridaCompileOldCheckBox);
  
@@ -2444,7 +2444,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		String debugCommandToPrint;
 		
 		if(useVirtualEnvCheckBox.isSelected()) {			
-									
+				
 			// Add / or \\ if not present
 			pythonPathEnv = pythonPathEnv.trim().endsWith(System.getProperty("file.separator")) ? pythonPathEnv.trim() : pythonPathEnv.trim() + System.getProperty("file.separator");
 			
@@ -2467,7 +2467,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 			/*
 			// Instead of manually setting the ENV variables it is possible to run the activate script of the venv in the following way:
-			 * 			
+			 			
 			if(System.getProperty("os.name").trim().toLowerCase().startsWith("win")) {
 				
 				startServerCommand= new String[]{pythonPathEnv,"&&","python","-i",pyroServicePath,pyroHost.getText().trim(),pyroPort.getText().trim()};
