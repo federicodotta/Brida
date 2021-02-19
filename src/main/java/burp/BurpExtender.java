@@ -9,6 +9,8 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
@@ -31,6 +33,7 @@ import java.io.PrintWriter;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -122,7 +125,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     private PyroProxy pyroBridaService;
     private Process pyroServerProcess;
     	
-	private JTextField pythonPath;
+	private JTextField pythonPathVenv;
 	private String pythonScript;
 	public JTextField pyroHost;
 	public JTextField pyroPort;
@@ -132,6 +135,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	private JTextField fridaPath;
     private JTextField applicationId;
     private JCheckBox fridaCompileOldCheckBox; 
+    private JCheckBox useVirtualEnvCheckBox;
     
     private JRadioButton remoteRadioButton;
     private JRadioButton usbRadioButton;
@@ -151,6 +155,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	private JTextField executeMethodArgument;
 	private DefaultListModel executeMethodInsertedArgumentList;
 	private JList executeMethodInsertedArgument;
+	private JLabel labelPythonPathVenv;
 	
 	public boolean serverStarted;
 	public boolean applicationSpawned;
@@ -286,6 +291,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
      * - Add addresses to tree view (export and iOS)
      * - Trap/edit return value of custom methods
      * - Add host/port attach/spawn modes
+     * - Add attach with app name instead of PID
+     * - Add headers, body and full request to plugin output
+     * - Check frida-compile 10
      */
     
     class JTableButtonRenderer implements TableCellRenderer {
@@ -492,28 +500,61 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 applicationStatus.setMaximumSize( applicationStatus.getPreferredSize() );
                 applicationStatusPanel.add(labelApplicationStatus);
                 applicationStatusPanel.add(applicationStatus);
-             
-                JPanel pythonPathPanel = new JPanel();
-                pythonPathPanel.setLayout(new BoxLayout(pythonPathPanel, BoxLayout.X_AXIS));
-                pythonPathPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelPythonPath = new JLabel("Python binary path: ");
-                pythonPath = new JTextField(200);                
+                                
+                JPanel virtualEnvPanel = new JPanel();
+                virtualEnvPanel.setLayout(new BoxLayout(virtualEnvPanel, BoxLayout.X_AXIS));
+                virtualEnvPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
+                JLabel labelUseVirtualEnv = new JLabel("Use virtual env: ");
+                useVirtualEnvCheckBox = new JCheckBox();                
+                if(callbacks.loadExtensionSetting("useVirtualEnvCheckBox") != null)
+                	useVirtualEnvCheckBox.setSelected(callbacks.loadExtensionSetting("useVirtualEnvCheckBox").equals("true"));
+                else
+                	useVirtualEnvCheckBox.setSelected(false);
+                useVirtualEnvCheckBox.addItemListener(new ItemListener() {
+                    @Override
+                    public void itemStateChanged(ItemEvent e) {                        
+                    	if(e.getStateChange() == ItemEvent.SELECTED) {
+                    		//labelPythonPathVenv.setText("Virtual env activation command: ");
+                    		labelPythonPathVenv.setText("Virtual env folder: ");
+                        } else {
+                        	labelPythonPathVenv.setText("Python binary path: ");
+                        }                            
+                    }
+                });
+                virtualEnvPanel.add(labelUseVirtualEnv);
+                virtualEnvPanel.add(useVirtualEnvCheckBox);
+                  
+                // The same field is used to take the virtual env folder, if virtual env checkbox is selected
+                JPanel pythonPathVenvPanel = new JPanel();
+                pythonPathVenvPanel.setLayout(new BoxLayout(pythonPathVenvPanel, BoxLayout.X_AXIS));
+                pythonPathVenvPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
+                if(callbacks.loadExtensionSetting("useVirtualEnvCheckBox") != null && callbacks.loadExtensionSetting("useVirtualEnvCheckBox").equals("true")) {
+                	//labelPythonPathVenv = new JLabel("Virtual env activation command: ");
+                	labelPythonPathVenv = new JLabel("Virtual env folder: ");
+                } else {
+                	labelPythonPathVenv = new JLabel("Python binary path: ");
+                }
+                pythonPathVenv = new JTextField(200);                
                 if(callbacks.loadExtensionSetting("pythonPath") != null)
-                	pythonPath.setText(callbacks.loadExtensionSetting("pythonPath"));
+                	pythonPathVenv.setText(callbacks.loadExtensionSetting("pythonPath"));
                 else {
-                	if(System.getProperty("os.name").startsWith("Windows")) {
-                		pythonPath.setText("C:\\python27\\python");
+                	if(callbacks.loadExtensionSetting("useVirtualEnvCheckBox") != null && callbacks.loadExtensionSetting("useVirtualEnvCheckBox").equals("true")) {
+                		pythonPathVenv.setText("");
                 	} else {
-                		pythonPath.setText("/usr/bin/python");
+	                	if(System.getProperty("os.name").startsWith("Windows")) {
+	                		pythonPathVenv.setText("C:\\python27\\python");
+	                	} else {
+	                		pythonPathVenv.setText("/usr/bin/python");
+	                	}
                 	}
                 }
-                pythonPath.setMaximumSize( pythonPath.getPreferredSize() );
-                JButton pythonPathButton = new JButton("Select file");
-                pythonPathButton.setActionCommand("pythonPathSelectFile");
-                pythonPathButton.addActionListener(BurpExtender.this);
-                pythonPathPanel.add(labelPythonPath);
-                pythonPathPanel.add(pythonPath);
-                pythonPathPanel.add(pythonPathButton);
+                pythonPathVenv.setMaximumSize( pythonPathVenv.getPreferredSize() );
+                JButton pythonPathVenvButton = new JButton("Select file");
+                pythonPathVenvButton.setActionCommand("pythonPathSelectFile");
+                pythonPathVenvButton.addActionListener(BurpExtender.this);
+                pythonPathVenvPanel.add(labelPythonPathVenv);
+                pythonPathVenvPanel.add(pythonPathVenv);
+                pythonPathVenvPanel.add(pythonPathVenvButton);
                                 
                 JPanel pyroHostPanel = new JPanel();
                 pyroHostPanel.setLayout(new BoxLayout(pyroHostPanel, BoxLayout.X_AXIS));
@@ -640,7 +681,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
             	  
                 configurationConfPanel.add(serverStatusPanel);
                 configurationConfPanel.add(applicationStatusPanel);
-                configurationConfPanel.add(pythonPathPanel);
+                configurationConfPanel.add(virtualEnvPanel);
+                configurationConfPanel.add(pythonPathVenvPanel);
                 configurationConfPanel.add(pyroHostPanel);
                 configurationConfPanel.add(pyroPortPanel);
                 configurationConfPanel.add(fridaCompilePathPanel);
@@ -2393,14 +2435,72 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		
 	}
 	
-	private void launchPyroServer(String pythonPath, String pyroServicePath) {
+	private void launchPyroServer(String pythonPathEnv, String pyroServicePath) {
 		
 		Runtime rt = Runtime.getRuntime();
 		
-		String[] startServerCommand = {pythonPath,"-i",pyroServicePath,pyroHost.getText().trim(),pyroPort.getText().trim()};
+		String[] startServerCommand;		
+		String[] execEnv;
+		String debugCommandToPrint;
+		
+		if(useVirtualEnvCheckBox.isSelected()) {			
+									
+			// Add / or \\ if not present
+			pythonPathEnv = pythonPathEnv.trim().endsWith(System.getProperty("file.separator")) ? pythonPathEnv.trim() : pythonPathEnv.trim() + System.getProperty("file.separator");
+			
+			//System.getProperty("file.separator")
+			if(System.getProperty("os.name").trim().toLowerCase().startsWith("win")) {
+				
+				startServerCommand= new String[]{pythonPathEnv+ "Scripts\\python.exe","-i",pyroServicePath,pyroHost.getText().trim(),pyroPort.getText().trim()};
+				execEnv = new String[]{"VIRTUAL_ENV=" + pythonPathEnv,"PATH="+pythonPathEnv+"Scripts"};
+				
+				debugCommandToPrint = "\"" + pythonPathEnv+ "Scripts\\python.exe\" -i \"" + pyroServicePath + "\" " + pyroHost.getText().trim() + " " + pyroPort.getText().trim();
+				
+			} else {
+				
+				startServerCommand= new String[]{pythonPathEnv+ "bin/python","-i",pyroServicePath,pyroHost.getText().trim(),pyroPort.getText().trim()};
+				execEnv = new String[]{"VIRTUAL_ENV=" + pythonPathEnv,"PATH="+pythonPathEnv+"bin/"};
+				
+				debugCommandToPrint = "\"" + pythonPathEnv+ "bin/python\" -i \"" + pyroServicePath + "\" " + pyroHost.getText().trim() + " " + pyroPort.getText().trim();
+				
+			}
+			
+			/*
+			// Instead of manually setting the ENV variables it is possible to run the activate script of the venv in the following way:
+			 * 			
+			if(System.getProperty("os.name").trim().toLowerCase().startsWith("win")) {
+				
+				startServerCommand= new String[]{pythonPathEnv,"&&","python","-i",pyroServicePath,pyroHost.getText().trim(),pyroPort.getText().trim()};
+				
+				debugCommandToPrint = "\"" + pythonPathEnv + "\" && python -i \"" + pyroServicePath + "\" " + pyroHost.getText().trim() + " " + pyroPort.getText().trim();
+				
+			} else {
+				
+				startServerCommand= new String[]{"bash","-c",pythonPathEnv.replace("\"", "'") + "; python -i '" + pyroServicePath + "' " + pyroHost.getText().trim() + " " + pyroPort.getText().trim()};
+				
+				debugCommandToPrint = "bash -c \"" + pythonPathEnv.replace("\"", "'") + "; python -i '" + pyroServicePath + "' " + pyroHost.getText().trim() + " " + pyroPort.getText().trim() + "\"";
+				
+			}
+			execEnv = null;
+			*/
+			
+			printSuccessMessage("Start Pyro server command: " + debugCommandToPrint);
+			if(execEnv != null)
+				printSuccessMessage("Start Pyro server environemnt variables: " + Arrays.toString(execEnv));
+									
+			
+		} else {
+			
+			startServerCommand = new String[]{pythonPathEnv,"-i",pyroServicePath,pyroHost.getText().trim(),pyroPort.getText().trim()};			
+			execEnv = null;
+			
+			debugCommandToPrint = "\"" + pythonPathEnv + "\" -i \"" + pyroServicePath + "\" " + pyroHost.getText().trim() + " " + pyroPort.getText().trim();
+			printSuccessMessage("Start Pyro server command: " + debugCommandToPrint);
+			
+		}
 			
 		try {
-			pyroServerProcess = rt.exec(startServerCommand);
+			pyroServerProcess = rt.exec(startServerCommand,execEnv);
 									
 			final BufferedReader stdOutput = new BufferedReader(new InputStreamReader(pyroServerProcess.getInputStream()));
 			final BufferedReader stdError = new BufferedReader(new InputStreamReader(pyroServerProcess.getErrorStream()));
@@ -2415,7 +2515,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 							try {
 								
 								final String line = stdOutput.readLine();
-								
+																
 								// Only used to handle Pyro first message (when server start)
 								if(line.equals("Ready.")) {
 									        	
@@ -2536,7 +2636,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	
 	private void savePersistentSettings() {
 		
-		callbacks.saveExtensionSetting("pythonPath",pythonPath.getText().trim());
+		callbacks.saveExtensionSetting("useVirtualEnvCheckBox",(useVirtualEnvCheckBox.isSelected() ? "true" : "false"));
+		callbacks.saveExtensionSetting("pythonPath",pythonPathVenv.getText().trim());
 		callbacks.saveExtensionSetting("pyroHost",pyroHost.getText().trim());
 		callbacks.saveExtensionSetting("pyroPort",pyroPort.getText().trim());
 		callbacks.saveExtensionSetting("fridaCompilePath",fridaCompilePath.getText().trim());
@@ -2584,7 +2685,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			try {
 				fw = new FileWriter(outputFile);
 				
-				fw.write("pythonPath:" + pythonPath.getText().trim() + "\n");
+				fw.write("useVirtualEnvCheckBox:" + (useVirtualEnvCheckBox.isSelected() ? "true" : "false") + "\n");
+				fw.write("pythonPath:" + pythonPathVenv.getText().trim() + "\n");
 				fw.write("pyroHost:" + pyroHost.getText().trim() + "\n");
 				fw.write("pyroPort:" + pyroPort.getText().trim() + "\n");
 				fw.write("fridaCompilePath:" + fridaCompilePath.getText().trim() + "\n");
@@ -2670,8 +2772,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 					if(lineParts.length > 1) {
 											
 						switch(lineParts[0]) {
+						case "useVirtualEnvCheckBox":
+							useVirtualEnvCheckBox.setSelected(lineParts[1].equals("true"));
+							break;
 						case "pythonPath":
-							pythonPath.setText(lineParts[1]);
+							pythonPathVenv.setText(lineParts[1]);
 							break;
 						case "pyroHost":
 							pyroHost.setText(lineParts[1]);
@@ -3137,7 +3242,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 			try {
 				
-				launchPyroServer(pythonPath.getText().trim(),pythonScript);
+				launchPyroServer(pythonPathVenv.getText().trim(),pythonScript);
 
 			} catch (final Exception e) {
 								
@@ -3529,7 +3634,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 					
 		            @Override
 		            public void run() {
-		            	pythonPath.setText(pythonPathFile.getAbsolutePath());
+		            	pythonPathVenv.setText(pythonPathFile.getAbsolutePath());
 		            }
 				
 				});
