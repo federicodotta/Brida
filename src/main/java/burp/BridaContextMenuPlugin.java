@@ -179,6 +179,63 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 		            
 				});
 				
+			} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.HEADERS) {
+				
+				byte[] newMessage = replaceOutputHeaders(selectedRequestOrResponse, isRequest, ret);
+				
+				if(isRequest) {
+					selectedItems[0].setRequest(newMessage);
+				} else {
+					selectedItems[0].setResponse(newMessage);
+				}
+				
+				// DEBUG print
+				printToExternalDebugFrame("** Replacing the headers of the message. Modified " + (isRequest ? "request" : "response") + ":\n");
+				printToExternalDebugFrame(new String(newMessage));
+				printToExternalDebugFrame("** \n\n");
+				printToExternalDebugFrame("*** END ***\n\n");
+				
+			} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.BODY) {
+				
+				byte[] newMessage = replaceOutputBody(selectedRequestOrResponse, isRequest, ret);
+
+				if(isRequest) {
+					selectedItems[0].setRequest(newMessage);
+				} else {
+					selectedItems[0].setResponse(newMessage);
+				}
+				
+				// DEBUG print
+				printToExternalDebugFrame("** Replacing the body of the message. Modified " + (isRequest ? "request" : "response") + ":\n");
+				printToExternalDebugFrame(new String(newMessage));
+				printToExternalDebugFrame("** \n\n");
+				printToExternalDebugFrame("*** END ***\n\n");
+			
+			} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.COMPLETE_RECALCULATE || getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.COMPLETE_NOT_RECALCULATE) {
+							
+				byte[] requestWithCorrectContentLength;			
+				if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.COMPLETE_NOT_RECALCULATE) {
+					
+					requestWithCorrectContentLength = ret.getBytes();
+					
+				} else {
+					
+					requestWithCorrectContentLength = recalculateMessageBodyLength(ret.getBytes(),isRequest);
+					
+				}
+						
+				if(isRequest) {
+					selectedItems[0].setRequest(requestWithCorrectContentLength);
+				} else {
+					selectedItems[0].setResponse(requestWithCorrectContentLength);
+				}
+				
+				// DEBUG print
+				printToExternalDebugFrame("** Replacing entire " + (isRequest ? "request" : "response") + ". Modified one:\n");
+				printToExternalDebugFrame(new String(requestWithCorrectContentLength));
+				printToExternalDebugFrame("** \n\n");
+				printToExternalDebugFrame("*** END ***\n\n");
+			
 			} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.REGEX) {
 				
 				if(currentInvocation.getInvocationContext() == IContextMenuInvocation.CONTEXT_MESSAGE_EDITOR_REQUEST ||

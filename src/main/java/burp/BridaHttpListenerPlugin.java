@@ -192,7 +192,60 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 			
 			// DEBUG print
 			printToExternalDebugFrame("** Output to Brida console\n\n");
+				
+		} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.HEADERS) {
+						
+			byte[] newMessage = replaceOutputHeaders(requestResponseBytes, messageIsRequest, ret);
 			
+			if(messageIsRequest) {				
+				messageInfo.setRequest(newMessage);				
+			} else {														
+				messageInfo.setResponse(newMessage);				
+			}
+			
+			// DEBUG print
+			printToExternalDebugFrame("** Replacing the headers of the message. Modified " + (messageIsRequest ? "request" : "response") + ":\n");
+			printToExternalDebugFrame(new String(newMessage));
+			printToExternalDebugFrame("\n\n** \n\n");
+			
+		} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.BODY) {
+			
+			byte[] newMessage = replaceOutputBody(requestResponseBytes, messageIsRequest, ret);
+			if(messageIsRequest) {				
+				messageInfo.setRequest(newMessage);				
+			} else {														
+				messageInfo.setResponse(newMessage);				
+			}	
+			
+			// DEBUG print
+			printToExternalDebugFrame("** Replacing the body of the message. Modified " + (messageIsRequest ? "request" : "response") + ":\n");
+			printToExternalDebugFrame(new String(newMessage));
+			printToExternalDebugFrame("\n\n** \n\n");
+		
+		} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.COMPLETE_RECALCULATE || getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.COMPLETE_NOT_RECALCULATE) {
+						
+			byte[] messageWithCorrectContentLength;			
+			if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.COMPLETE_NOT_RECALCULATE) {
+				
+				messageWithCorrectContentLength = ret.getBytes();
+				
+			} else {
+				
+				messageWithCorrectContentLength = recalculateMessageBodyLength(ret.getBytes(),messageIsRequest);
+				
+			}
+					
+			if(messageIsRequest) {				
+				messageInfo.setRequest(messageWithCorrectContentLength);				
+			} else {														
+				messageInfo.setResponse(messageWithCorrectContentLength);				
+			}
+			
+			// DEBUG print
+			printToExternalDebugFrame("** Replacing entire " + (messageIsRequest ? "request" : "response") + ". Modified one:\n");
+			printToExternalDebugFrame(new String(messageWithCorrectContentLength));
+			printToExternalDebugFrame("\n\n** \n\n");
+
 		} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.REGEX) {
 			Pattern patternCustomPlugin = Pattern.compile(getCustomPluginFunctionOutputString());
 			Matcher matcherCustomPlugin = patternCustomPlugin.matcher(new String(requestResponseBytes));
@@ -215,8 +268,8 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 					// Replacing values in the body causes incorrect content length. By rebuilding the response with the Burp API the content length is fixed
 					IResponseInfo analyzedResponse = getMainPlugin().helpers.analyzeResponse(replacedRequestResponseBytes);
 					byte[] responseWithCorrectContentLength = getMainPlugin().helpers.buildHttpMessage(analyzedResponse.getHeaders(), Arrays.copyOfRange(replacedRequestResponseBytes, analyzedResponse.getBodyOffset(), replacedRequestResponseBytes.length));
-										
-					messageInfo.setResponse(replacedRequestResponse.getBytes());
+
+					messageInfo.setResponse(responseWithCorrectContentLength);
 					replacedRequestResponse = new String(responseWithCorrectContentLength);
 					
 				}
@@ -241,5 +294,7 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 		printToExternalDebugFrame("*** END ***\n\n");
 		
 	}
+	
+	
 	
 }

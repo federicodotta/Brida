@@ -3,6 +3,7 @@ package burp;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
@@ -47,6 +48,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -102,6 +105,7 @@ import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rsyntaxtextarea.TextEditorPane;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
+import burp.BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation;
 import burp.CustomPlugin.CustomPluginExecuteValues;
 import burp.CustomPlugin.CustomPluginFunctionOutputValues;
 import burp.CustomPlugin.CustomPluginParameterValues;
@@ -292,8 +296,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
      * - Trap/edit return value of custom methods
      * - Add host/port attach/spawn modes
      * - Add attach with app name instead of PID
-     * - Add headers, body and full request to plugin output
-     * - Check frida-compile 10
+     * - Update documentation with tips for MAC users
      */
     
     class JTableButtonRenderer implements TableCellRenderer {
@@ -965,7 +968,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                     }
                 });
                 customPluginTypePluginDescription = new JLabel("Plugin that dynamically process each requests and responses");                 
-                customPluginTypePluginDescription.setMaximumSize( customPluginTypePluginDescription.getPreferredSize() );
+                customPluginTypePluginDescription.setMaximumSize(new Dimension(Integer.MAX_VALUE, customPluginTypePluginDescription.getMinimumSize().height));
                 customPluginTypePluginPanel.add(customPluginTypePluginLabel);
                 customPluginTypePluginPanel.add(customPluginTypePluginOptions);
                 customPluginTypePluginPanel.add(customPluginTypePluginDescription);
@@ -1111,7 +1114,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginParametersPanel.setLayout(new BoxLayout(customPluginParametersPanel, BoxLayout.X_AXIS));
                 customPluginParametersPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
                 JLabel customPluginParametersLabel = new JLabel("Parameters: ");                
-                String[] customPluginParametersComboOptions = new String[] {"none", "complete request/response","headers","body","regex (with parenthesis)","fixed (#,# as separator)","ask to user with popup (#,# as separator)"};
+                String[] customPluginParametersComboOptions = CustomPlugin.functionParametersIHttpListener.stream().map(CustomPluginParameterValues::toString).toArray(String[]::new);                
                 customPluginParametersOptions = new JComboBox<String>(customPluginParametersComboOptions);
                 customPluginParametersOptions.setSelectedIndex(0);
                 customPluginParametersOptions.setMaximumSize( customPluginParametersOptions.getPreferredSize() );
@@ -1153,7 +1156,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginOutputPanel.setLayout(new BoxLayout(customPluginOutputPanel, BoxLayout.X_AXIS));
                 customPluginOutputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
                 JLabel customPluginOutputLabel = new JLabel("Plugin output: ");                
-                String[] customPluginOutputComboOptions = new String[] {"print in Brida console","replace in request/response with regex (with parenthesys)"};
+                String[] customPluginOutputComboOptions = CustomPlugin.functionOutputValuesIHttpListener.stream().map(CustomPluginFunctionOutputValues::toString).toArray(String[]::new);
+                                
                 customPluginOutputOptions = new JComboBox<String>(customPluginOutputComboOptions);
                 customPluginOutputOptions.setSelectedIndex(0);
                 customPluginOutputOptions.setMaximumSize( customPluginOutputOptions.getPreferredSize() );
@@ -1221,7 +1225,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginMessageEditorModifiedOutputLocationPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedOutputLocationPanel, BoxLayout.X_AXIS));
                 customPluginMessageEditorModifiedOutputLocationPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
                 JLabel customPluginMessageEditorModifiedOutputLocationLabel = new JLabel("Edited content location: ");                
-                String[] customPluginMessageEditorModifiedOutputLocationComboOptions = new String[] {"Discard (view only mode)","Print in Brida console and return original request/response","Replace complete request/response","Replace request/response body","Regex (with parenthesys)"};
+                String[] customPluginMessageEditorModifiedOutputLocationComboOptions = Stream.of(BridaMessageEditorPluginOutputLocation.values()).map(BridaMessageEditorPluginOutputLocation::toString).toArray(String[]::new);
                 customPluginMessageEditorModifiedOutputLocationOptions = new JComboBox<String>(customPluginMessageEditorModifiedOutputLocationComboOptions);
                 customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(0);
                 customPluginMessageEditorModifiedOutputLocationOptions.setMaximumSize( customPluginMessageEditorModifiedOutputLocationOptions.getPreferredSize() );
@@ -1595,7 +1599,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		switch(currentPlugin.getType()) {
 		
 			case IHTTPLISTENER:
-								
+												
 				BridaHttpListenerPlugin p = (BridaHttpListenerPlugin)currentPlugin;
 								
 				changeCustomPluginOptions("IHttpListener");
@@ -1673,21 +1677,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	}
 		            	customPluginExecuteWhenText.setText(p.getCustomPluginExecuteString());
 		            	
-		            	if(p.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.NONE) {
-		            		customPluginParametersOptions.setSelectedIndex(0);
-		            	} else if(p.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.COMPLETE) {
-		            		customPluginParametersOptions.setSelectedIndex(1);
-		            	} else if(p.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.HEADERS) {
-		            		customPluginParametersOptions.setSelectedIndex(2);
-		            	} else if(p.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.BODY) {
-		            		customPluginParametersOptions.setSelectedIndex(3);
-		            	} else if(p.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.REGEX) {
-		            		customPluginParametersOptions.setSelectedIndex(4);
-		            	} else if(p.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.FIXED) {
-		            		customPluginParametersOptions.setSelectedIndex(5);
-		            	} else {
-		            		customPluginParametersOptions.setSelectedIndex(6);
-		            	}
+		            	Object[] iHttpListenerParameters = CustomPlugin.functionParametersIHttpListener.toArray();
+		            	customPluginParametersOptions.setSelectedIndex(IntStream.range(0, iHttpListenerParameters.length)
+		            	         .filter(i -> p.getCustomPluginParameter() == (CustomPluginParameterValues)(iHttpListenerParameters[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginParametersText.setText(p.getCustomPluginParameterString());
 		            	
 		            	customPluginParameterEncodingTransformationList = new ArrayList<Transformation>(p.getCustomPluginParameterEncoding());
@@ -1696,11 +1690,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	customPluginOutputDecodingTransformationList = new ArrayList<Transformation>(p.getCustomPluginOutputDecoding());
 		            	customPluginOutputDecodingText.setText(customPluginOutputDecodingTransformationList.toString());
 		            	
-		            	if(p.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.BRIDA) {
-		            		customPluginOutputOptions.setSelectedIndex(0);
-		            	} else {
-		            		customPluginOutputOptions.setSelectedIndex(1);
-		            	}
+		            	Object[] iHttpListenerFunctionOutputValues = CustomPlugin.functionOutputValuesIHttpListener.toArray();
+		            	customPluginOutputOptions.setSelectedIndex(IntStream.range(0, iHttpListenerFunctionOutputValues.length)
+		            	         .filter(i -> p.getCustomPluginFunctionOutput() == (CustomPluginFunctionOutputValues)(iHttpListenerFunctionOutputValues[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginOutputText.setText(p.getCustomPluginFunctionOutputString());
 		            	
 		            	customPluginOutputEncodingTransformationList = new ArrayList<Transformation>(p.getCustomPluginOutputEncoding());
@@ -1748,21 +1742,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	}
 		            	customPluginExecuteWhenText.setText(p2.getCustomPluginExecuteString());
 		            	
-		            	if(p2.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.NONE) {
-		            		customPluginParametersOptions.setSelectedIndex(0);
-		            	} else if(p2.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.COMPLETE) {
-		            		customPluginParametersOptions.setSelectedIndex(1);
-		            	} else if(p2.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.HEADERS) {
-		            		customPluginParametersOptions.setSelectedIndex(2);
-		            	} else if(p2.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.BODY) {
-		            		customPluginParametersOptions.setSelectedIndex(3);
-		            	} else if(p2.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.REGEX) {
-		            		customPluginParametersOptions.setSelectedIndex(4);
-		            	} else if(p2.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.FIXED) {
-		            		customPluginParametersOptions.setSelectedIndex(5);
-		            	} else {
-		            		customPluginParametersOptions.setSelectedIndex(6);
-		            	}
+		            	Object[] iMessageEditorTabParameters = CustomPlugin.functionParametersIMessageEditorTab.toArray();
+		            	customPluginParametersOptions.setSelectedIndex(IntStream.range(0, iMessageEditorTabParameters.length)
+		            	         .filter(i -> p2.getCustomPluginParameter() == (CustomPluginParameterValues)(iMessageEditorTabParameters[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginParametersText.setText(p2.getCustomPluginParameterString());
 		            	
 		            	customPluginParameterEncodingTransformationList = new ArrayList<Transformation>(p2.getCustomPluginParameterEncoding());
@@ -1771,7 +1755,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	customPluginOutputDecodingTransformationList = new ArrayList<Transformation>(p2.getCustomPluginOutputDecoding());
 		            	customPluginOutputDecodingText.setText(customPluginOutputDecodingTransformationList.toString());
 		            	
-		            	customPluginOutputOptions.setSelectedIndex(0);
+		            	Object[] iMessageEditorTabFunctionOutputValues = CustomPlugin.functionOutputValuesIMessageEditorTab.toArray();
+		            	customPluginOutputOptions.setSelectedIndex(IntStream.range(0, iMessageEditorTabFunctionOutputValues.length)
+		            	         .filter(i -> p2.getCustomPluginFunctionOutput() == (CustomPluginFunctionOutputValues)(iMessageEditorTabFunctionOutputValues[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginOutputText.setText(p2.getCustomPluginFunctionOutputString());
 		            	
 		            	customPluginOutputEncodingTransformationList = new ArrayList<Transformation>(p2.getCustomPluginOutputEncoding());
@@ -1784,18 +1772,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	
 		            	customPluginMessageEditorModifiedDecodingOutputTransformationList = new ArrayList<Transformation>(p2.getCustomPluginEditedContentFridaOutputDecoding());
 		            	customPluginMessageEditorModifiedDecodingOutputText.setText(customPluginMessageEditorModifiedDecodingOutputTransformationList.toString());
-		            			            	
-		            	if(p2.getCustomPluginEditedContentLocation() == BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.NONE) {
-		            		customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(0);
-		            	} else if(p2.getCustomPluginEditedContentLocation() == BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.CONSOLE) {
-		            		customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(1);
-		            	} else if(p2.getCustomPluginEditedContentLocation() == BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.COMPLETE) {
-		            		customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(2);
-		            	} else if(p2.getCustomPluginEditedContentLocation() == BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.BODY) {
-		            		customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(3);
-		            	} else {
-		            		customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(4);
-		            	}
+		            	
+		            	customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(p2.getCustomPluginEditedContentLocation().ordinal());		            	
 		            	customPluginMessageEditorModifiedOutputLocationText.setText(p2.getCustomPluginEditedContentLocationString());
 		            	
 		            	customPluginMessageEditorModifiedOutputEncodingTransformationList = new ArrayList<Transformation>(p2.getCustomPluginEditedContentOutputEncoding());
@@ -1828,24 +1806,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	customPluginExecuteOnRadioButtonGroup.clearSelection();
 		            	customPluginExecuteOnRadioContext.setSelected(true);
 		            	customPluginExecuteOnStringParameter.setText(p3.getCustomPluginExecuteOnContextName());
-		            			            	
-		            	if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.NONE) {
-		            		customPluginParametersOptions.setSelectedIndex(0);
-		            	} else if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.COMPLETE) {
-		            		customPluginParametersOptions.setSelectedIndex(1);
-		            	} else if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.HEADERS) {
-		            		customPluginParametersOptions.setSelectedIndex(2);
-		            	} else if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.BODY) {
-		            		customPluginParametersOptions.setSelectedIndex(3);
-		            	} else if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.REGEX) {
-		            		customPluginParametersOptions.setSelectedIndex(4);
-		            	} else if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.CONTEXT) {
-		            		customPluginParametersOptions.setSelectedIndex(5);
-		            	} else if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.FIXED) {
-		            		customPluginParametersOptions.setSelectedIndex(6);
-		            	} else {
-		            		customPluginParametersOptions.setSelectedIndex(7);
-		            	}
+		            	
+		            	Object[] iContextMenuParameters = CustomPlugin.functionParametersIContextMenu.toArray();
+		            	customPluginParametersOptions.setSelectedIndex(IntStream.range(0, iContextMenuParameters.length)
+		            	         .filter(i -> p3.getCustomPluginParameter() == (CustomPluginParameterValues)(iContextMenuParameters[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginParametersText.setText(p3.getCustomPluginParameterString());
 		            	
 		            	customPluginParameterEncodingTransformationList = new ArrayList<Transformation>(p3.getCustomPluginParameterEncoding());
@@ -1854,15 +1820,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	customPluginOutputDecodingTransformationList = new ArrayList<Transformation>(p3.getCustomPluginOutputDecoding());
 		            	customPluginOutputDecodingText.setText(customPluginOutputDecodingTransformationList.toString());
 		            	
-		            	if(p3.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.BRIDA) {
-		            		customPluginOutputOptions.setSelectedIndex(0);
-		            	} else if(p3.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.POPUP) {
-		            		customPluginOutputOptions.setSelectedIndex(1);
-		            	} else if(p3.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.REGEX) {
-		            		customPluginOutputOptions.setSelectedIndex(2);	
-		            	} else {
-		            		customPluginOutputOptions.setSelectedIndex(3);
-		            	}
+		            	Object[] iContextMenuFunctionOutputValues = CustomPlugin.functionOutputValuesIContextMenu.toArray();
+		            	customPluginOutputOptions.setSelectedIndex(IntStream.range(0, iContextMenuFunctionOutputValues.length)
+		            	         .filter(i -> p3.getCustomPluginFunctionOutput() == (CustomPluginFunctionOutputValues)(iContextMenuFunctionOutputValues[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginOutputText.setText(p3.getCustomPluginFunctionOutputString());
 		            	
 		            	customPluginOutputEncodingTransformationList = new ArrayList<Transformation>(p3.getCustomPluginOutputEncoding());
@@ -1915,20 +1877,23 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            		customPluginParametersPanel.setVisible(true);
 	                		customPluginParameterEncodingPanel.setVisible(true);
 		            	}
-		            			            	
-		            	if(p4.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.NONE) {
-		            		customPluginParametersOptions.setSelectedIndex(0);
-		            	} else if(p4.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.FIXED) {
-		            		customPluginParametersOptions.setSelectedIndex(1);
-		            	} else {
-		            		customPluginParametersOptions.setSelectedIndex(2);
-		            	}
+		            	
+		            	Object[] jButtonParameters = CustomPlugin.functionParametersJButton.toArray();
+		            	customPluginParametersOptions.setSelectedIndex(IntStream.range(0, jButtonParameters.length)
+		            	         .filter(i -> p4.getCustomPluginParameter() == (CustomPluginParameterValues)(jButtonParameters[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginParametersText.setText(p4.getCustomPluginParameterString());
 		            	
 		            	customPluginParameterEncodingTransformationList = new ArrayList<Transformation>(p4.getCustomPluginParameterEncoding());
 		            	customPluginParameterEncodingText.setText(customPluginParameterEncodingTransformationList.toString());
-		            			            	
-		            	customPluginOutputOptions.setSelectedIndex(0);
+		            		
+		            	Object[] jButtonFunctionOutputValues = CustomPlugin.functionOutputValuesJButton.toArray();
+		            	customPluginOutputOptions.setSelectedIndex(IntStream.range(0, jButtonFunctionOutputValues.length)
+		            	         .filter(i -> p4.getCustomPluginFunctionOutput() == (CustomPluginFunctionOutputValues)(jButtonFunctionOutputValues[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
+		            	customPluginOutputText.setText(p4.getCustomPluginFunctionOutputString());
 		            			            
 		            }
 		            
@@ -1978,12 +1943,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	                	customPluginExecuteWhenPanel.setVisible(true);
 	                	// Parameter
 	                    customPluginParametersPanel.setVisible(true);
-	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(new String[] {"none", "complete request/response","headers","body","regex (with parenthesis)","fixed (#,# as separator)","ask to user with popup (#,# as separator)"});
+	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(CustomPlugin.functionParametersIHttpListener.stream().map(CustomPluginParameterValues::toString).toArray(String[]::new));
 	                	customPluginParametersOptions.setModel(customPluginParametersModel);
 	                	// Parameter encoding
 	                	customPluginParameterEncodingPanel.setVisible(true);
 	                	// Plugin output
-	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console","replace in request/response with regex (with parenthesys)"});
+	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(CustomPlugin.functionOutputValuesIHttpListener.stream().map(CustomPluginFunctionOutputValues::toString).toArray(String[]::new));
 	                	customPluginOutputOptions.setModel(customPluginOutputModel);
 	                	customPluginOutputText.setVisible(true);
 	                	// Frida output decoding
@@ -2023,13 +1988,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	                	customPluginExecuteWhenPanel.setVisible(true);  
 	                	// Parameter
 	                	customPluginParametersPanel.setVisible(true);
-	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(new String[] {"none", "complete request/response","headers","body","regex (with parenthesis)","fixed (#,# as separator)","ask to user with popup (#,# as separator)"});
+	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(CustomPlugin.functionParametersIMessageEditorTab.stream().map(CustomPluginParameterValues::toString).toArray(String[]::new));
 	                	customPluginParametersOptions.setModel(customPluginParametersModel);
 	                	// Parameter encoding
 	                	customPluginParameterEncodingPanel.setVisible(true);
 	                	// Plugin output
-	                	//DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console","replace in request/response with regex (with parenthesys)"});
-	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"Print in Message Editor tab named"});
+	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(CustomPlugin.functionOutputValuesIMessageEditorTab.stream().map(CustomPluginFunctionOutputValues::toString).toArray(String[]::new));
 	                	customPluginOutputOptions.setModel(customPluginOutputModel);
 	                	customPluginOutputText.setVisible(true);
 	                	// Frida output decoding
@@ -2069,12 +2033,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	                	customPluginExecuteWhenPanel.setVisible(false); 
 	                	// Parameter
 	                	customPluginParametersPanel.setVisible(true);
-	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(new String[] {"none", "complete request/response","headers","body","regex (with parenthesis)","highlighted value in request/response","fixed (#,# as separator)","ask to user with popup (#,# as separator)"});
+	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(CustomPlugin.functionParametersIContextMenu.stream().map(CustomPluginParameterValues::toString).toArray(String[]::new));
 	                	customPluginParametersOptions.setModel(customPluginParametersModel);
 	                	// Parameter encoding
 	                	customPluginParameterEncodingPanel.setVisible(true);
 	                	// Plugin output
-	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console","print in popup","replace in request/response with regex (with parenthesys)","replace highlighted value in request/response"});
+	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(CustomPlugin.functionOutputValuesIContextMenu.stream().map(CustomPluginFunctionOutputValues::toString).toArray(String[]::new));
 	                	customPluginOutputOptions.setModel(customPluginOutputModel);
 	                	customPluginOutputText.setVisible(true);
 	                	// Frida output decoding
@@ -2118,7 +2082,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	                	} else {
 	                		customPluginParametersPanel.setVisible(false);
 	                	}
-	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(new String[] {"none", "fixed (#,# as separator)","ask to user with popup (#,# as separator)"});
+	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(CustomPlugin.functionParametersJButton.stream().map(CustomPluginParameterValues::toString).toArray(String[]::new));
 	                	customPluginParametersOptions.setModel(customPluginParametersModel);
 	                	// Parameter encoding
 	                	if(customPluginButtonTypeRadioFunction.isSelected()) {
@@ -2127,7 +2091,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	                		customPluginParameterEncodingPanel.setVisible(false);
 	                	}
 	                	// Plugin output
-	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console"});
+	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(CustomPlugin.functionOutputValuesJButton.stream().map(CustomPluginFunctionOutputValues::toString).toArray(String[]::new));
 	                	customPluginOutputOptions.setModel(customPluginOutputModel);
 	                	customPluginOutputText.setVisible(false);
 	                	// Frida output decoding
@@ -3870,24 +3834,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			}
 			
 			// Parameters
-			CustomPluginParameterValues customPluginParameter = null;
-			if(customPluginParametersOptions.getSelectedItem().toString().equals("none")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.NONE;
-			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("complete request/response")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.COMPLETE;
-			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("headers")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.HEADERS;
-			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("body")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.BODY;
-			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("highlighted value in request/response")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.CONTEXT;
-			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("regex (with parenthesis)")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.REGEX;
-			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("fixed (#,# as separator)")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.FIXED;
-			} else {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.POPUP;
-			}
+			CustomPluginParameterValues customPluginParameter = CustomPluginParameterValues.getEnumByName(customPluginParametersOptions.getSelectedItem().toString());
 			
 			// Parameter encoding
 			List<Transformation> customPluginParameterEncoding = new ArrayList<Transformation>(customPluginParameterEncodingTransformationList);
@@ -3896,18 +3843,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			List<Transformation> customPluginOutputDecoding = new ArrayList<Transformation>(customPluginOutputDecodingTransformationList);
 			
 			// Plugin output
-			CustomPluginFunctionOutputValues customPluginFunctionOutput = null;
-			if(customPluginOutputOptions.getSelectedItem().toString().equals("print in Brida console")) {
-				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.BRIDA;
-			} else if(customPluginOutputOptions.getSelectedItem().toString().equals("print in popup")) {
-				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.POPUP;				
-			} else if(customPluginOutputOptions.getSelectedItem().toString().equals("replace highlighted value in request/response")) {
-				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.CONTEXT;
-			} else if(customPluginOutputOptions.getSelectedItem().toString().equals("replace in request/response with regex (with parenthesys)")) {
-				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.REGEX;
-			} else {
-				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.MESSAGE_EDITOR;
-			}
+			CustomPluginFunctionOutputValues customPluginFunctionOutput = CustomPluginFunctionOutputValues.getEnumByName(customPluginOutputOptions.getSelectedItem().toString());
 			
 			// Encode output
 			List<Transformation> customPluginOutputEncoding = new ArrayList<Transformation>(customPluginOutputEncodingTransformationList);
@@ -3919,20 +3855,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			List<Transformation> customPluginOutputDecodingEditedContent = new ArrayList<Transformation>(customPluginMessageEditorModifiedDecodingOutputTransformationList);
 			
 			// Message editor output location (IMessageEditorTab only)
-			BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation customPluginEditedMessageOutputLocation = null;
-			if(pluginType == CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB) {
-				if(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString().equals("Discard (view only mode)")) {
-					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.NONE;
-				} else if(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString().equals("Print in Brida console and return original request/response")) {
-					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.CONSOLE;
-				} else if(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString().equals("Replace complete request/response")) {
-					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.COMPLETE;
-				} else if(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString().equals("Replace request/response body")) {
-					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.BODY;
-				} else {
-					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.REGEX;
-				}
-			}
+			BridaMessageEditorPluginOutputLocation customPluginEditedMessageOutputLocation = BridaMessageEditorPluginOutputLocation.getEnumByName(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString());
 			
 			// Encode output of Frida function executed on edited content (IMessageEditorTab only)
 			List<Transformation> customPluginEditedFunctionOutputEncoding = new ArrayList<Transformation>(customPluginMessageEditorModifiedOutputEncodingTransformationList);

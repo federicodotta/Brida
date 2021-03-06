@@ -1,7 +1,6 @@
 package burp;
 
 import java.awt.Component;
-import java.io.IOException;
 import java.util.Base64;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -22,13 +21,32 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 	private BridaMessageEditorPluginOutputLocation customPluginEditedContentLocation;
 	
     public static enum BridaMessageEditorPluginOutputLocation {
-    	NONE,
-    	CONSOLE,
-    	COMPLETE,
-    	BODY,
-    	REGEX
-    }
+    	NONE ("Discard (view only mode)"),
+    	CONSOLE ("Print in Brida console and return original request/response"),
+    	COMPLETE_RECALCULATE ("Replace complete request/response (length updated)"),
+    	COMPLETE_NOT_RECALCULATE ("Replace complete request/response (length NOT updated)"),
+    	BODY ("Replace request/response body"),
+    	HEADERS ("Replace request/response headers"),
+    	REGEX ("Regex (with parenthesys)");
+    	
+    	private final String name;
 		
+		private BridaMessageEditorPluginOutputLocation(String n) {
+			name = n;
+		}
+		
+		public String toString() {
+			return this.name;
+		}
+		
+		public static BridaMessageEditorPluginOutputLocation getEnumByName(String name){
+	        for(BridaMessageEditorPluginOutputLocation r : BridaMessageEditorPluginOutputLocation.values()){
+	            if(r.name.equals(name)) return r;
+	        }
+	        return null;
+	    }
+    }
+	
 	public BridaMessageEditorPlugin(BridaMessageEditorPluginOutputLocation customPluginEditedContentLocation,
 									String customPluginEditedContentLocationString,
 									List<BurpExtender.Transformation> customPluginEditedContentEncodingFridaInput,
@@ -251,30 +269,45 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 							printToExternalDebugFrame("*** END EDITED TAB ***\n\n");
 							
 							return currentMessage;
+						
+						} else if(customPluginEditedContentLocation == BridaMessageEditorPluginOutputLocation.COMPLETE_RECALCULATE || customPluginEditedContentLocation == BridaMessageEditorPluginOutputLocation.COMPLETE_NOT_RECALCULATE) {
 							
-						} else if(customPluginEditedContentLocation == BridaMessageEditorPluginOutputLocation.COMPLETE) {
+							byte[] messageWithCorrectContentLength;			
+							if(customPluginEditedContentLocation == BridaMessageEditorPluginOutputLocation.COMPLETE_NOT_RECALCULATE) {
+								
+								messageWithCorrectContentLength = customPluginEditedContentOutputEncoded.getBytes();
+								
+							} else {
+								
+								messageWithCorrectContentLength = recalculateMessageBodyLength(customPluginEditedContentOutputEncoded.getBytes(),isRequest);
+								
+							}
 							
 							// DEBUG print
 							printToExternalDebugFrame("** Replacing entire " + (isRequest ? "request" : "response") + ". Modified one:\n");
-							printToExternalDebugFrame(customPluginEditedContentOutputEncoded);
+							printToExternalDebugFrame(new String(messageWithCorrectContentLength));
 							printToExternalDebugFrame("\n\n** \n\n");
 							printToExternalDebugFrame("*** END EDITED TAB ***\n\n");
 							
-							return customPluginEditedContentOutputEncoded.getBytes();
+							return messageWithCorrectContentLength;
 							
+						} else if(customPluginEditedContentLocation == BridaMessageEditorPluginOutputLocation.HEADERS) {
+							
+							
+							byte[] newHttpMessage = replaceOutputHeaders(currentMessage, isRequest, customPluginEditedContentOutputEncoded);
+														
+							// DEBUG print
+							printToExternalDebugFrame("** Replacing the headers of the message. Modified " + (isRequest ? "request" : "response") + ":\n");
+							printToExternalDebugFrame(new String(newHttpMessage));
+							printToExternalDebugFrame("\n\n** \n\n");
+							printToExternalDebugFrame("*** END EDITED TAB ***\n\n");
+							
+							return newHttpMessage;
+								
 						} else if(customPluginEditedContentLocation == BridaMessageEditorPluginOutputLocation.BODY) {
 							
-							List<java.lang.String> currentHeaders;
-							if(isRequest) {
-								IRequestInfo currentRequestInfo = getMainPlugin().helpers.analyzeRequest(currentMessage);
-								currentHeaders = currentRequestInfo.getHeaders();
-							} else {
-								IResponseInfo currentResponseInfo = getMainPlugin().helpers.analyzeResponse(currentMessage);
-								currentHeaders = currentResponseInfo.getHeaders();
-							}
-							
-							byte[] newHttpMessage = getMainPlugin().helpers.buildHttpMessage(currentHeaders, customPluginEditedContentOutputEncoded.getBytes());
-							
+							byte[] newHttpMessage = replaceOutputBody(currentMessage, isRequest, customPluginEditedContentOutputEncoded);
+																					
 							// DEBUG print
 							printToExternalDebugFrame("** Replacing the body of the message. Modified " + (isRequest ? "request" : "response") + ":\n");
 							printToExternalDebugFrame(new String(newHttpMessage));
