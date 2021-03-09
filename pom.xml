@@ -4,7 +4,7 @@
 
   <groupId>org.fd</groupId>
   <artifactId>Brida</artifactId>
-  <version>0.4</version>
+  <version>0.5</version>
   <packaging>jar</packaging>
 
   <name>Brida</name>
@@ -120,6 +120,6 @@
 	    <artifactId>rsyntaxtextarea</artifactId>
 	    <version>2.6.1.edited</version>
 	</dependency>
-    
+	    
   </dependencies>
 </project>
