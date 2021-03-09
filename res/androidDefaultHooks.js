@@ -139,24 +139,24 @@ export function androidrooting1() {
 	    var StringBuffer = Java.use('java.lang.StringBuffer');
 
 	    var loaded_classes = Java.enumerateLoadedClassesSync();
-
-	    send("Loaded " + loaded_classes.length + " classes!");
+	    
+	    console.log("Loaded " + loaded_classes.length + " classes!");
 
 	    var useKeyInfo = false;
 
 	    var useProcessManager = false;
 
-	    send("loaded: " + loaded_classes.indexOf('java.lang.ProcessManager'));
+	    console.log("loaded: " + loaded_classes.indexOf('java.lang.ProcessManager'));
 
 	    if (loaded_classes.indexOf('java.lang.ProcessManager') != -1) {
 	        try {
 	            //useProcessManager = true;
 	            //var ProcessManager = Java.use('java.lang.ProcessManager');
 	        } catch (err) {
-	            send("ProcessManager Hook failed: " + err);
+	            console.log("ProcessManager Hook failed: " + err);
 	        }
 	    } else {
-	        send("ProcessManager hook not loaded");
+	        console.log("ProcessManager hook not loaded");
 	    }
 
 	    var KeyInfo = null;
@@ -166,16 +166,16 @@ export function androidrooting1() {
 	            //useKeyInfo = true;
 	            //var KeyInfo = Java.use('android.security.keystore.KeyInfo');
 	        } catch (err) {
-	            send("KeyInfo Hook failed: " + err);
+	            console.log("KeyInfo Hook failed: " + err);
 	        }
 	    } else {
-	        send("KeyInfo hook not loaded");
+	        console.log("KeyInfo hook not loaded");
 	    }
 
 	    PackageManager.getPackageInfo.implementation = function(pname, flags) {
 	        var shouldFakePackage = (RootPackages.indexOf(pname) > -1);
 	        if (shouldFakePackage) {
-	            send("Bypass root check for package: " + pname);
+	            console.log("Bypass root check for package: " + pname);
 	            pname = "set.package.name.to.a.fake.one.so.we.can.bypass.it";
 	        }
 	        return this.getPackageInfo.call(this, pname, flags);
@@ -185,7 +185,7 @@ export function androidrooting1() {
 	        var name = NativeFile.getName.call(this);
 	        var shouldFakeReturn = (RootBinaries.indexOf(name) > -1);
 	        if (shouldFakeReturn) {
-	            send("Bypass return value for binary: " + name);
+	            console.log("Bypass return value for binary: " + name);
 	            return false;
 	        } else {
 	            return this.exists.call(this);
@@ -202,12 +202,12 @@ export function androidrooting1() {
 	    exec5.implementation = function(cmd, env, dir) {
 	        if (cmd.indexOf("getprop") != -1 || cmd == "mount" || cmd.indexOf("build.prop") != -1 || cmd == "id" || cmd == "sh") {
 	            var fakeCmd = "grep";
-	            send("Bypass " + cmd + " command");
+	            console.log("Bypass " + cmd + " command");
 	            return exec1.call(this, fakeCmd);
 	        }
 	        if (cmd == "su") {
 	            var fakeCmd = "justafakecommandthatcannotexistsusingthisshouldthowanexceptionwheneversuiscalled";
-	            send("Bypass " + cmd + " command");
+	            console.log("Bypass " + cmd + " command");
 	            return exec1.call(this, fakeCmd);
 	        }
 	        return exec5.call(this, cmd, env, dir);
@@ -218,13 +218,13 @@ export function androidrooting1() {
 	            var tmp_cmd = cmdarr[i];
 	            if (tmp_cmd.indexOf("getprop") != -1 || tmp_cmd == "mount" || tmp_cmd.indexOf("build.prop") != -1 || tmp_cmd == "id" || tmp_cmd == "sh") {
 	                var fakeCmd = "grep";
-	                send("Bypass " + cmdarr + " command");
+	                console.log("Bypass " + cmdarr + " command");
 	                return exec1.call(this, fakeCmd);
 	            }
 
 	            if (tmp_cmd == "su") {
 	                var fakeCmd = "justafakecommandthatcannotexistsusingthisshouldthowanexceptionwheneversuiscalled";
-	                send("Bypass " + cmdarr + " command");
+	                console.log("Bypass " + cmdarr + " command");
 	                return exec1.call(this, fakeCmd);
 	            }
 	        }
@@ -236,13 +236,13 @@ export function androidrooting1() {
 	            var tmp_cmd = cmdarr[i];
 	            if (tmp_cmd.indexOf("getprop") != -1 || tmp_cmd == "mount" || tmp_cmd.indexOf("build.prop") != -1 || tmp_cmd == "id" || tmp_cmd == "sh") {
 	                var fakeCmd = "grep";
-	                send("Bypass " + cmdarr + " command");
+	                console.log("Bypass " + cmdarr + " command");
 	                return exec1.call(this, fakeCmd);
 	            }
 
 	            if (tmp_cmd == "su") {
 	                var fakeCmd = "justafakecommandthatcannotexistsusingthisshouldthowanexceptionwheneversuiscalled";
-	                send("Bypass " + cmdarr + " command");
+	                console.log("Bypass " + cmdarr + " command");
 	                return exec1.call(this, fakeCmd);
 	            }
 	        }
@@ -252,12 +252,12 @@ export function androidrooting1() {
 	    exec2.implementation = function(cmd, env) {
 	        if (cmd.indexOf("getprop") != -1 || cmd == "mount" || cmd.indexOf("build.prop") != -1 || cmd == "id" || cmd == "sh") {
 	            var fakeCmd = "grep";
-	            send("Bypass " + cmd + " command");
+	            console.log("Bypass " + cmd + " command");
 	            return exec1.call(this, fakeCmd);
 	        }
 	        if (cmd == "su") {
 	            var fakeCmd = "justafakecommandthatcannotexistsusingthisshouldthowanexceptionwheneversuiscalled";
-	            send("Bypass " + cmd + " command");
+	            console.log("Bypass " + cmd + " command");
 	            return exec1.call(this, fakeCmd);
 	        }
 	        return exec2.call(this, cmd, env);
@@ -268,13 +268,13 @@ export function androidrooting1() {
 	            var tmp_cmd = cmd[i];
 	            if (tmp_cmd.indexOf("getprop") != -1 || tmp_cmd == "mount" || tmp_cmd.indexOf("build.prop") != -1 || tmp_cmd == "id" || tmp_cmd == "sh") {
 	                var fakeCmd = "grep";
-	                send("Bypass " + cmd + " command");
+	                console.log("Bypass " + cmd + " command");
 	                return exec1.call(this, fakeCmd);
 	            }
 
 	            if (tmp_cmd == "su") {
 	                var fakeCmd = "justafakecommandthatcannotexistsusingthisshouldthowanexceptionwheneversuiscalled";
-	                send("Bypass " + cmd + " command");
+	                console.log("Bypass " + cmd + " command");
 	                return exec1.call(this, fakeCmd);
 	            }
 	        }
@@ -285,12 +285,12 @@ export function androidrooting1() {
 	    exec1.implementation = function(cmd) {
 	        if (cmd.indexOf("getprop") != -1 || cmd == "mount" || cmd.indexOf("build.prop") != -1 || cmd == "id" || cmd == "sh") {
 	            var fakeCmd = "grep";
-	            send("Bypass " + cmd + " command");
+	            console.log("Bypass " + cmd + " command");
 	            return exec1.call(this, fakeCmd);
 	        }
 	        if (cmd == "su") {
 	            var fakeCmd = "justafakecommandthatcannotexistsusingthisshouldthowanexceptionwheneversuiscalled";
-	            send("Bypass " + cmd + " command");
+	            console.log("Bypass " + cmd + " command");
 	            return exec1.call(this, fakeCmd);
 	        }
 	        return exec1.call(this, cmd);
@@ -298,7 +298,7 @@ export function androidrooting1() {
 
 	    String.contains.implementation = function(name) {
 	        if (name == "test-keys") {
-	            send("Bypass test-keys check");
+	            console.log("Bypass test-keys check");
 	            return false;
 	        }
 	        return this.contains.call(this, name);
@@ -308,7 +308,7 @@ export function androidrooting1() {
 
 	    get.implementation = function(name) {
 	        if (RootPropertiesKeys.indexOf(name) != -1) {
-	            send("Bypass " + name);
+	            console.log("Bypass " + name);
 	            return RootProperties[name];
 	        }
 	        return this.get.call(this, name);
@@ -322,7 +322,7 @@ export function androidrooting1() {
 	            var shouldFakeReturn = (RootBinaries.indexOf(executable) > -1)
 	            if (shouldFakeReturn) {
 	                Memory.writeUtf8String(args[0], "/notexists");
-	                send("Bypass native fopen");
+	                console.log("Bypass native fopen");
 	            }
 	        },
 	        onLeave: function(retval) {
@@ -333,13 +333,13 @@ export function androidrooting1() {
 	    Interceptor.attach(Module.findExportByName("libc.so", "system"), {
 	        onEnter: function(args) {
 	            var cmd = Memory.readCString(args[0]);
-	            send("SYSTEM CMD: " + cmd);
+	            console.log("SYSTEM CMD: " + cmd);
 	            if (cmd.indexOf("getprop") != -1 || cmd == "mount" || cmd.indexOf("build.prop") != -1 || cmd == "id") {
-	                send("Bypass native system: " + cmd);
+	                console.log("Bypass native system: " + cmd);
 	                Memory.writeUtf8String(args[0], "grep");
 	            }
 	            if (cmd == "su") {
-	                send("Bypass native system: " + cmd);
+	                console.log("Bypass native system: " + cmd);
 	                Memory.writeUtf8String(args[0], "justafakecommandthatcannotexistsusingthisshouldthowanexceptionwheneversuiscalled");
 	            }
 	        },
@@ -355,7 +355,7 @@ export function androidrooting1() {
 	        } else {
 	            var shouldFakeRead = (text.indexOf("ro.build.tags=test-keys") > -1);
 	            if (shouldFakeRead) {
-	                send("Bypass build.prop file read");
+	                console.log("Bypass build.prop file read");
 	                text = text.replace("ro.build.tags=test-keys", "ro.build.tags=release-keys");
 	            }
 	        }
@@ -374,12 +374,12 @@ export function androidrooting1() {
 	            }
 	        }
 	        if (shouldModifyCommand) {
-	            send("Bypass ProcessBuilder " + cmd);
+	            console.log("Bypass ProcessBuilder " + cmd);
 	            this.command.call(this, ["grep"]);
 	            return this.start.call(this);
 	        }
 	        if (cmd.indexOf("su") != -1) {
-	            send("Bypass ProcessBuilder " + cmd);
+	            console.log("Bypass ProcessBuilder " + cmd);
 	            this.command.call(this, ["justafakecommandthatcannotexistsusingthisshouldthowanexceptionwheneversuiscalled"]);
 	            return this.start.call(this);
 	        }
@@ -397,12 +397,12 @@ export function androidrooting1() {
 	                var tmp_cmd = cmd[i];
 	                if (tmp_cmd.indexOf("getprop") != -1 || tmp_cmd == "mount" || tmp_cmd.indexOf("build.prop") != -1 || tmp_cmd == "id") {
 	                    var fake_cmd = ["grep"];
-	                    send("Bypass " + cmdarr + " command");
+	                    console.log("Bypass " + cmdarr + " command");
 	                }
 
 	                if (tmp_cmd == "su") {
 	                    var fake_cmd = ["justafakecommandthatcannotexistsusingthisshouldthowanexceptionwheneversuiscalled"];
-	                    send("Bypass " + cmdarr + " command");
+	                    console.log("Bypass " + cmdarr + " command");
 	                }
 	            }
 	            return ProcManExec.call(this, fake_cmd, env, workdir, redirectstderr);
@@ -414,12 +414,12 @@ export function androidrooting1() {
 	                var tmp_cmd = cmd[i];
 	                if (tmp_cmd.indexOf("getprop") != -1 || tmp_cmd == "mount" || tmp_cmd.indexOf("build.prop") != -1 || tmp_cmd == "id") {
 	                    var fake_cmd = ["grep"];
-	                    send("Bypass " + cmdarr + " command");
+	                    console.log("Bypass " + cmdarr + " command");
 	                }
 
 	                if (tmp_cmd == "su") {
 	                    var fake_cmd = ["justafakecommandthatcannotexistsusingthisshouldthowanexceptionwheneversuiscalled"];
-	                    send("Bypass " + cmdarr + " command");
+	                    console.log("Bypass " + cmdarr + " command");
 	                }
 	            }
 	            return ProcManExecVariant.call(this, fake_cmd, env, directory, stdin, stdout, stderr, redirect);
@@ -428,7 +428,7 @@ export function androidrooting1() {
 
 	    if (useKeyInfo) {
 	        KeyInfo.isInsideSecureHardware.implementation = function() {
-	            send("Bypass isInsideSecureHardware");
+	            console.log("Bypass isInsideSecureHardware");
 	            return true;
 	        }
 	    }
