@@ -354,7 +354,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     	// Default iOS functions
     	addButtonToHooksAndFunctions(new DefaultHook("Dump keychain",BurpExtender.PLATFORM_IOS,"iosdumpkeychain",false,new String[] {},null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("List files with Data Protection keys",BurpExtender.PLATFORM_IOS,"iosdataprotectionkeys",false,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Dump current ENCRYPTED app (downloaded from App Store)",BurpExtender.PLATFORM_IOS,"iosdumpcurrentencryptedapp",false,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump and decrypt current ENCRYPTED app (for apps downloaded from App Store)",BurpExtender.PLATFORM_IOS,"iosdumpcurrentencryptedapp",false,new String[] {},null,false));
     	    	
     }
     
