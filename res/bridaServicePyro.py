@@ -27,7 +27,11 @@ class BridaServicePyro:
     def attach_application(self,pid,frida_script,device):
 
         self.frida_script = frida_script
-        self.pid = int(pid)
+
+        if pid.isnumeric():
+            self.pid = int(pid)
+        else:
+            self.pid = pid
 
         if device == 'remote':
             self.device = frida.get_remote_device()
