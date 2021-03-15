@@ -295,8 +295,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
      * - Add addresses to tree view (export and iOS)
      * - Trap/edit return value of custom methods
      * - Add host/port attach/spawn modes
-     * - Add attach with app name instead of PID
-     * - Update documentation with tips for MAC users
      */
     
     class JTableButtonRenderer implements TableCellRenderer {
@@ -840,7 +838,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 trapTable.addMouseListener(new MouseAdapter() {
                 	@Override
                 	public void mouseClicked(MouseEvent evt) {
-                		int row = trapTable.rowAtPoint(evt.getPoint());
+                		int row = trapTable.convertRowIndexToModel(trapTable.rowAtPoint(evt.getPoint()));
                 		int col = trapTable.columnAtPoint(evt.getPoint());
                 		if (row >= 0 && col >= 0) {
                 			List<TrapTableItem> trapTableItems = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
@@ -1286,7 +1284,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginsTable.addMouseListener(new MouseAdapter() {
                     @Override
                     public void mouseClicked(MouseEvent evt) {
-                        int row = customPluginsTable.rowAtPoint(evt.getPoint());
+                        int row = customPluginsTable.convertRowIndexToModel(customPluginsTable.rowAtPoint(evt.getPoint()));
                         int col = customPluginsTable.columnAtPoint(evt.getPoint());
                         if (row >= 0 && col >= 0) {
                         	List<CustomPlugin> customPlugins = ((CustomPluginsTableModel)(customPluginsTable.getModel())).getCustomPlugins();
