@@ -133,6 +133,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	private String pythonScript;
 	public JTextField pyroHost;
 	public JTextField pyroPort;
+	private JTextField nodejsPath;
 	private JTextField fridaCompilePath;
 	private JTextPane serverStatus;
 	private JTextPane applicationStatus;
@@ -582,7 +583,29 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 pyroPort.setMaximumSize( pyroPort.getPreferredSize() );
                 pyroPortPanel.add(labelPyroPort);
                 pyroPortPanel.add(pyroPort);
-                
+
+                JPanel nodejsPathPanel = new JPanel();
+                nodejsPathPanel.setLayout(new BoxLayout(nodejsPathPanel, BoxLayout.X_AXIS));
+                nodejsPathPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel labelNodejsPath = new JLabel("Node.js path: ");
+                nodejsPath = new JTextField(200);
+                if(callbacks.loadExtensionSetting("nodejsPath") != null)
+                    nodejsPath.setText(callbacks.loadExtensionSetting("nodejsPath"));
+                else {
+                    if(System.getProperty("os.name").startsWith("Windows")) {
+                        nodejsPath.setText("C:\\nodejs");
+                    } else {
+                        nodejsPath.setText("/usr/local/bin");
+                    }
+                }
+                nodejsPath.setMaximumSize(nodejsPath.getPreferredSize() );
+                JButton nodejsPathButton = new JButton("Select folder");
+                nodejsPathButton.setActionCommand("nodejsPathSelectFile");
+                nodejsPathButton.addActionListener(BurpExtender.this);
+                nodejsPathPanel.add(labelNodejsPath);
+                nodejsPathPanel.add(nodejsPath);
+                nodejsPathPanel.add(nodejsPathButton);
+
                 JPanel fridaCompilePathPanel = new JPanel();
                 fridaCompilePathPanel.setLayout(new BoxLayout(fridaCompilePathPanel, BoxLayout.X_AXIS));
                 fridaCompilePathPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
@@ -686,6 +709,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 configurationConfPanel.add(pythonPathVenvPanel);
                 configurationConfPanel.add(pyroHostPanel);
                 configurationConfPanel.add(pyroPortPanel);
+                configurationConfPanel.add(nodejsPathPanel);
                 configurationConfPanel.add(fridaCompilePathPanel);
                 configurationConfPanel.add(fridaCompilePanel);
                 configurationConfPanel.add(fridaPathPanel);
@@ -2345,11 +2369,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		
 	}	
 	
-	private boolean compileFridaCode(String fridaCompilePath, String fridaJsFolder) {
+	private boolean compileFridaCode(String nodejsPath, String fridaCompilePath, String fridaJsFolder) {
 				
 		Runtime rt = Runtime.getRuntime();
 
 		String[] fridaCompileCommand;
+		String[] execEnv = new String[]{"PATH=" + nodejsPath};
 		if(fridaCompileOldCheckBox.isSelected()) {
 			fridaCompileCommand = new String[]{fridaCompilePath,"-x","-o",fridaJsFolder + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",fridaJsFolder + System.getProperty("file.separator") + "brida.js"};
 		} else {
@@ -2358,8 +2383,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		
 		Process processCompilation = null;
 		try {
-			processCompilation = rt.exec(fridaCompileCommand);
-			
+            processCompilation = rt.exec(fridaCompileCommand, execEnv);
+
 			// With some types of error frida-compile remains stucked without returning errors. Killing the process after 30 seconds if blocked.
 			// if(!processCompilation.waitFor(1, TimeUnit.MINUTES)) {
 			if(!processCompilation.waitFor(30, TimeUnit.SECONDS)) {
@@ -2602,6 +2627,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		callbacks.saveExtensionSetting("pythonPath",pythonPathVenv.getText().trim());
 		callbacks.saveExtensionSetting("pyroHost",pyroHost.getText().trim());
 		callbacks.saveExtensionSetting("pyroPort",pyroPort.getText().trim());
+		callbacks.saveExtensionSetting("nodejsPath",nodejsPath.getText().trim());
 		callbacks.saveExtensionSetting("fridaCompilePath",fridaCompilePath.getText().trim());
 		callbacks.saveExtensionSetting("fridaCompileOldCheckBox",(fridaCompileOldCheckBox.isSelected() ? "true" : "false"));	
 		callbacks.saveExtensionSetting("fridaPath",fridaPath.getText().trim());
@@ -2651,6 +2677,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				fw.write("pythonPath:" + pythonPathVenv.getText().trim() + "\n");
 				fw.write("pyroHost:" + pyroHost.getText().trim() + "\n");
 				fw.write("pyroPort:" + pyroPort.getText().trim() + "\n");
+				fw.write("nodejsPath:" + nodejsPath.getText().trim() + "\n");
 				fw.write("fridaCompilePath:" + fridaCompilePath.getText().trim() + "\n");
 				fw.write("fridaCompileOldCheckBox:" + (fridaCompileOldCheckBox.isSelected() ? "true" : "false") + "\n");
 				fw.write("fridaPath:" + fridaPath.getText().trim() + "\n");
@@ -2746,6 +2773,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 						case "pyroPort":
 							pyroPort.setText(lineParts[1]);
 							break;
+                        case "nodejsPath":
+                            nodejsPath.setText(lineParts[1]);
+                            break;
 						case "fridaCompilePath":
 							fridaCompilePath.setText(lineParts[1]);
 							break;			
@@ -2992,7 +3022,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			if(!(new File(fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js")).exists()) {
 				
 				// Brida compiled file does not exist. Compiling it...
-				if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+				if(!compileFridaCode(nodejsPath.getText().trim(), fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
 					printException(null, "Error during frida-compile. Aborting.");
 					return;
 				}
@@ -3003,7 +3033,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 		} else if(command.equals("compileSpawnApplication") && serverStarted) {
 			
-			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+			if(!compileFridaCode(nodejsPath.getText().trim(), fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
 				printException(null, "Error during frida-compile. Aborting.");
 				return;
 			}
@@ -3015,7 +3045,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			if(!(new File(fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js")).exists()) {
 				
 				// Brida compiled file does not exist. Compiling it...
-				if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+				if(!compileFridaCode(nodejsPath.getText().trim(), fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
 					printException(null, "Error during frida-compile. Aborting.");
 					return;
 				}
@@ -3026,7 +3056,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 		} else if(command.equals("compileAttachApplication") && serverStarted) {
 			
-			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+			if(!compileFridaCode(nodejsPath.getText().trim(), fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
 				printException(null, "Error during frida-compile. Aborting.");
 				return;
 			}
@@ -3050,7 +3080,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 		} else if(command.equals("compileReloadScript") && serverStarted && applicationSpawned) {
 			
-			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+			if(!compileFridaCode(nodejsPath.getText().trim(), fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
 				return;
 			}
 				
@@ -3619,7 +3649,32 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 			}	
 			
-		} else if(command.equals("fridaCompilePathSelectFile")) {
+		} else if(command.equals("nodejsPathSelectFile")) {
+
+                JFrame parentFrame = new JFrame();
+                JFileChooser fileChooser = new JFileChooser();
+                fileChooser.setDialogTitle("Node.js folder");
+                fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+                fileChooser.setCurrentDirectory(new File(fridaPath.getText().trim()));
+
+                int userSelection = fileChooser.showOpenDialog(parentFrame);
+
+                if(userSelection == JFileChooser.APPROVE_OPTION) {
+
+                    final File nodejsPathFile = fileChooser.getSelectedFile();
+
+                    SwingUtilities.invokeLater(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            nodejsPath.setText(nodejsPathFile.getAbsolutePath());
+                        }
+
+                    });
+
+                }
+
+            }  else if(command.equals("fridaCompilePathSelectFile")) {
 			
 			JFrame parentFrame = new JFrame();
 			JFileChooser fileChooser = new JFileChooser();
