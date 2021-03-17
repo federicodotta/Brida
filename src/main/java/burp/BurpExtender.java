@@ -635,7 +635,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 JButton fridaPathButton = new JButton("Select folder");
                 fridaPathButton.setActionCommand("fridaPathSelectFile");
                 fridaPathButton.addActionListener(BurpExtender.this);
-                JButton fridaDefaultPathButton = new JButton("Load default JS files");
+                JButton fridaDefaultPathButton = new JButton("Create default JS files");
                 fridaDefaultPathButton.setActionCommand("fridaPathSelectDefaultFile");
                 fridaDefaultPathButton.addActionListener(BurpExtender.this);
                 fridaPathPanel.add(labelFridaPath);
@@ -3401,6 +3401,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				newRoot.add(modulesNode);				
 				
 				model.setRoot(newRoot);
+				
+				if(platform == BurpExtender.PLATFORM_ANDROID) {
+					printSuccessMessage("**** Tree created (Java unloaded classes and methods will NOT be present in the tree)");
+				} else {
+					printSuccessMessage("**** Tree created");
+				}
 
 			} catch (Exception e) {
 								
@@ -3412,16 +3418,18 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		
 			String toSearch = findTextField.getText().trim();
 			
-			HashMap<String, Integer> foundObjcMethods = null;
-			if(platform == BurpExtender.PLATFORM_IOS) {
+			HashMap<String, Integer> foundObjcJavaMethods = null;
+			
+			if(platform == BurpExtender.PLATFORM_IOS || platform == BurpExtender.PLATFORM_ANDROID) {
+				String fridaExportForPlatform = ((platform == BurpExtender.PLATFORM_IOS) ? "findobjcmethods" : "findjavamethods");
 				try {
-					//foundObjcMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findobjcmethods",new String[] {toSearch}));
-					foundObjcMethods = (HashMap<String,Integer>)(executePyroCall(pyroBridaService, "callexportfunction",new Object[] {"findobjcmethods",new String[] {toSearch}}));
+					foundObjcJavaMethods = (HashMap<String,Integer>)(executePyroCall(pyroBridaService, "callexportfunction",new Object[] {fridaExportForPlatform,new String[] {toSearch}}));
 				} catch (Exception e) {
-					printException(e,"Exception searching OBJC methods");
+					printException(e,"Exception searching Java methods");
 					return;
 				} 
 			}
+			
 			
 			HashMap<String, Integer> foundImports = null;
 			try {
@@ -3440,15 +3448,19 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				printException(e,"Exception searching exports");
 				return;
 			} 
-				
-			printJSMessage("**** Result of the search of " + findTextField.getText().trim());
 			
-			if(foundObjcMethods != null) {
+			if(platform == BurpExtender.PLATFORM_ANDROID) {
+				printSuccessMessage("**** Result of the search of " + findTextField.getText().trim() + " (Java unloaded classes and methods unloaded will NOT be present in the list)");
+			} else {
+				printSuccessMessage("**** Result of the search of " + findTextField.getText().trim());
+			}
+			
+			if(foundObjcJavaMethods != null) {
 				
-				ArrayList<String> objcMethodNames = new ArrayList<String>(foundObjcMethods.keySet());
+				ArrayList<String> objcJavaMethodNames = new ArrayList<String>(foundObjcJavaMethods.keySet());
 				
 				// Sort objc method names
-				Collections.sort(objcMethodNames, new Comparator<String>() {
+				Collections.sort(objcJavaMethodNames, new Comparator<String>() {
 			        @Override
 			        public int compare(String class1, String class2)
 			        {
@@ -3457,14 +3469,18 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			        }
 			    });	
 			
-				Iterator<String> currentClassMethodsIterator = objcMethodNames.iterator(); 
+				Iterator<String> currentClassMethodsIterator = objcJavaMethodNames.iterator(); 
 				
 				String currentMethodName;
 				
 				while(currentClassMethodsIterator.hasNext()) {
 					
 					currentMethodName = currentClassMethodsIterator.next();
-					printJSMessage("OBJC: " + currentMethodName);
+					if(platform == BurpExtender.PLATFORM_IOS) {
+						printJSMessage("OBJC: " + currentMethodName);
+					} else {
+						printJSMessage("JAVA: " + currentMethodName);
+					}
 					
 				}
 				
