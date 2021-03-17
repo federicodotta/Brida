@@ -75,6 +75,31 @@ export function getclassmethods(classname) {
 	return results;
 }
 
+export function findjavamethods(searchstring) {
+	var results = {}
+	if(Java.available) {
+	    Java.perform(function() {	    	
+	        var groups = []
+	        groups.push(Java.enumerateMethods('*' + searchstring + '*!*/s'))
+	        groups.push(Java.enumerateMethods('*!*' + searchstring + '*/s'))
+	        groups.forEach(g => {
+	            g.forEach(classLoader => {
+	                classLoader.classes.forEach(c => {
+	                    var className = c.name;
+	                    c.methods.forEach(m => {
+	                        var methodSignature = className + "!" + m;
+	                        results[methodSignature] = null;
+	                    });
+	                }); 
+	            });
+	        });
+	    });
+	}
+	return results;
+}
+
+
+
 export function findobjcmethods(searchstring) {
 	var results = {}
 	var resolver = new ApiResolver("objc");
