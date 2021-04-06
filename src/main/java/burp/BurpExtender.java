@@ -278,7 +278,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     /*
      * TODO
      * - Pop-up in Context menu
-     * - Tab with helps on Brida and on Frida     * 
+     * - Tab with helps on Brida and on Frida 
      * - 1 Select forlder default current folder
      * - Migrate from ASCII HEX to Base64 for defautl hooks?
      * - Swift demangle?
@@ -3425,7 +3425,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				try {
 					foundObjcJavaMethods = (HashMap<String,Integer>)(executePyroCall(pyroBridaService, "callexportfunction",new Object[] {fridaExportForPlatform,new String[] {toSearch}}));
 				} catch (Exception e) {
-					printException(e,"Exception searching Java methods");
+					if(platform == BurpExtender.PLATFORM_IOS)
+						printException(e,"Exception searching OBJC methods");
+					else
+						printException(e,"Exception searching Java methods");
 					return;
 				} 
 			}
