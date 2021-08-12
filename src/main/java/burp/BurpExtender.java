@@ -2366,7 +2366,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			    processCompilation.destroyForcibly();
 			    return false;
 			}
-			
+						
 			BufferedReader stdInput = new BufferedReader(new InputStreamReader(processCompilation.getInputStream()));	
 			BufferedReader stdError = new BufferedReader(new InputStreamReader(processCompilation.getErrorStream()));
 		
@@ -2376,14 +2376,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			}
 		
 			// Read any errors from the attempted command
-			System.out.println("Here is the standard error of the command (if any):\n");
-			boolean hasExceptions = false;
 			while ((s = stdError.readLine()) != null) {
 			    printException(null,s);
-			    hasExceptions = true;
 			}
 			
-			if(!hasExceptions) {
+			if(processCompilation.exitValue() == 0) {
 				printSuccessMessage("frida-compile completed successfully");
 				return true;
 			} else {
@@ -2993,7 +2990,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 				// Brida compiled file does not exist. Compiling it...
 				if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
-					printException(null, "Error during frida-compile. Aborting.");
+					printException(null, "Error during frida-compile, potentially caused by compilation errors. Aborting. If exception details are not returned, try to run frida-compile manually. frida-compile command:");
+					
+					if(fridaCompileOldCheckBox.isSelected()) {
+						printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -x -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+					} else {
+						printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+					}
+					
 					return;
 				}
 				
@@ -3004,7 +3008,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		} else if(command.equals("compileSpawnApplication") && serverStarted) {
 			
 			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
-				printException(null, "Error during frida-compile. Aborting.");
+				printException(null, "Error during frida-compile, potentially caused by compilation errors. Aborting. If exception details are not returned, try to run frida-compile manually. frida-compile command:");
+				
+				if(fridaCompileOldCheckBox.isSelected()) {
+					printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -x -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+				} else {
+					printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+				}
 				return;
 			}
 			
@@ -3016,7 +3026,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 				// Brida compiled file does not exist. Compiling it...
 				if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
-					printException(null, "Error during frida-compile. Aborting.");
+					printException(null, "Error during frida-compile, potentially caused by compilation errors. Aborting. If exception details are not returned, try to run frida-compile manually. frida-compile command:");
+					
+					if(fridaCompileOldCheckBox.isSelected()) {
+						printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -x -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+					} else {
+						printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+					}
 					return;
 				}
 				
@@ -3027,7 +3043,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		} else if(command.equals("compileAttachApplication") && serverStarted) {
 			
 			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
-				printException(null, "Error during frida-compile. Aborting.");
+				printException(null, "Error during frida-compile, potentially caused by compilation errors. Aborting. If exception details are not returned, try to run frida-compile manually. frida-compile command:");
+				
+				if(fridaCompileOldCheckBox.isSelected()) {
+					printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -x -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+				} else {
+					printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+				}
 				return;
 			}
 			
@@ -3051,6 +3073,15 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		} else if(command.equals("compileReloadScript") && serverStarted && applicationSpawned) {
 			
 			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+				
+				printException(null, "Error during frida-compile, potentially caused by compilation errors. Aborting. If exception details are not returned, try to run frida-compile manually. frida-compile command:");
+				
+				if(fridaCompileOldCheckBox.isSelected()) {
+					printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -x -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+				} else {
+					printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+				}
+				
 				return;
 			}
 				
