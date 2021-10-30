@@ -3639,7 +3639,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 			JFrame parentFrame = new JFrame();
 			JFileChooser fileChooser = new JFileChooser();
-			fileChooser.setDialogTitle("Python Path");
+			
+			if(useVirtualEnvCheckBox.isSelected()) {
+				fileChooser.setDialogTitle("Virtual Env Folder");
+				fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+			} else {
+				fileChooser.setDialogTitle("Python Path");
+			}
 			
 			int userSelection = fileChooser.showOpenDialog(parentFrame);
 			
