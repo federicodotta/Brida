@@ -167,24 +167,24 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 		printToExternalDebugFrame(new String(requestResponseBytes));
 		printToExternalDebugFrame("\n\n");
 		
-		String[] parameters = getParametersCustomPlugin(requestResponseBytes,messageIsRequest);
+		List<byte[]> parameters = getParametersCustomPlugin(requestResponseBytes,messageIsRequest);
 		
 		// DEBUG print
-		if(parameters.length > 0) {
+		if(parameters.size() > 0) {
 			printToExternalDebugFrame("** Frida parameters (after encoding)\n");
-			for(int i=0;i<parameters.length;i++) {
-				printToExternalDebugFrame("* Parameter " + (i+1) + ": " + parameters[i] + "\n");
+			for(int i=0;i<parameters.size();i++) {
+				printToExternalDebugFrame("* Parameter " + (i+1) + ": " + new String(parameters.get(i)) + "\n");
 			}
 			printToExternalDebugFrame("\n\n");
 		} else {
 			printToExternalDebugFrame("** NO Frida parameters\n\n");
 		}
 		
-		String ret = callFrida(parameters);
+		byte[] ret = callFrida(parameters);
 		
 		// DEBUG print
 		printToExternalDebugFrame("** Frida returned value (after deconding/encoding)\n");
-		printToExternalDebugFrame(ret);
+		printToExternalDebugFrame(new String(ret));
 		printToExternalDebugFrame("\n\n");
 		
 		if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.BRIDA) {
@@ -195,7 +195,7 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 				
 		} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.HEADERS) {
 						
-			byte[] newMessage = replaceOutputHeaders(requestResponseBytes, messageIsRequest, ret);
+			byte[] newMessage = replaceOutputHeaders(requestResponseBytes, messageIsRequest, new String(ret));
 			
 			if(messageIsRequest) {				
 				messageInfo.setRequest(newMessage);				
@@ -227,11 +227,11 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 			byte[] messageWithCorrectContentLength;			
 			if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.COMPLETE_NOT_RECALCULATE) {
 				
-				messageWithCorrectContentLength = ret.getBytes();
+				messageWithCorrectContentLength = ret;
 				
 			} else {
 				
-				messageWithCorrectContentLength = recalculateMessageBodyLength(ret.getBytes(),messageIsRequest);
+				messageWithCorrectContentLength = recalculateMessageBodyLength(ret,messageIsRequest);
 				
 			}
 					
@@ -251,7 +251,7 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 			Matcher matcherCustomPlugin = patternCustomPlugin.matcher(new String(requestResponseBytes));
 			if(matcherCustomPlugin.find()) {									
 				
-				String replacedRequestResponse = new StringBuilder(new String(requestResponseBytes)).replace(matcherCustomPlugin.start(1), matcherCustomPlugin.end(1), ((ret != null) ? ret : "")).toString();
+				String replacedRequestResponse = new StringBuilder(new String(requestResponseBytes)).replace(matcherCustomPlugin.start(1), matcherCustomPlugin.end(1), ((ret != null) ? new String(ret) : "")).toString();
 				byte[] replacedRequestResponseBytes = replacedRequestResponse.getBytes();
 				
 				if(messageIsRequest) {

@@ -1,5 +1,6 @@
 package burp;
 
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
@@ -25,9 +26,9 @@ public class BridaButtonPlugin extends CustomPlugin {
 		
 		if(isInterceptorHook) {			
 			// It is not possible to pass parameters to hooks
-			hookOrFunction = new DefaultHook(customPluginExecuteOnButtonName,platform,customPluginExportedFunctionName,isInterceptorHook,new String[] {},null,false);
+			hookOrFunction = new DefaultHook(customPluginExecuteOnButtonName,platform,customPluginExportedFunctionName,isInterceptorHook,new ArrayList<byte[]>(),null,false);
 		} else if(customPluginParameter == CustomPlugin.CustomPluginParameterValues.POPUP) {
-			hookOrFunction = new DefaultHook(customPluginExecuteOnButtonName,platform,customPluginExportedFunctionName,isInterceptorHook,new String[] {},customPluginParameterEncoding,true);
+			hookOrFunction = new DefaultHook(customPluginExecuteOnButtonName,platform,customPluginExportedFunctionName,isInterceptorHook,new ArrayList<byte[]>(),customPluginParameterEncoding,true);
 		} else {
 			hookOrFunction = new DefaultHook(customPluginExecuteOnButtonName,platform,customPluginExportedFunctionName,isInterceptorHook,getParametersCustomPlugin(null,false),customPluginParameterEncoding,false);
 		}

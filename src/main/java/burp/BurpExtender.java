@@ -327,32 +327,32 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     public void initializeDefaultHooks() {
     	
     	// Default Android hooks
-    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass with CA certificate, more reliable (requires CA public certificate in /data/local/tmp/cert-der.crt)",BurpExtender.PLATFORM_ANDROID,"androidpinningwithca1",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass without CA certificate, less reliable",BurpExtender.PLATFORM_ANDROID,"androidpinningwithoutca1",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Rooting check bypass",BurpExtender.PLATFORM_ANDROID,"androidrooting1",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Hook keystore stuff",BurpExtender.PLATFORM_ANDROID,"tracekeystore",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Hook crypto stuff",BurpExtender.PLATFORM_ANDROID,"dumpcryptostuff",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 1",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass1",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 2",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass2hook",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass with CA certificate, more reliable (requires CA public certificate in /data/local/tmp/cert-der.crt)",BurpExtender.PLATFORM_ANDROID,"androidpinningwithca1",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass without CA certificate, less reliable",BurpExtender.PLATFORM_ANDROID,"androidpinningwithoutca1",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Rooting check bypass",BurpExtender.PLATFORM_ANDROID,"androidrooting1",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Hook keystore stuff",BurpExtender.PLATFORM_ANDROID,"tracekeystore",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Hook crypto stuff",BurpExtender.PLATFORM_ANDROID,"dumpcryptostuff",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 1",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass1",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 2",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass2hook",true,new ArrayList<byte[]>(),null,false));
     	
     	// Default Android functions
-    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 2 (Enable the corresponding hook, trigger fingerprint screen and then run this function)",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass2function",false,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Dump all aliases in keystore of predefined types",BurpExtender.PLATFORM_ANDROID,"listaliasesstatic",false,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Dump all aliases in keystore collected during runtime (through the \"Hook keystore stuff\" hook)",BurpExtender.PLATFORM_ANDROID,"listaliasesruntime",false,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 2 (Enable the corresponding hook, trigger fingerprint screen and then run this function)",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass2function",false,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump all aliases in keystore of predefined types",BurpExtender.PLATFORM_ANDROID,"listaliasesstatic",false,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump all aliases in keystore collected during runtime (through the \"Hook keystore stuff\" hook)",BurpExtender.PLATFORM_ANDROID,"listaliasesruntime",false,new ArrayList<byte[]>(),null,false));
 
     	// Default iOS hooks
-    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 10) *",BurpExtender.PLATFORM_IOS,"ios10pinning",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 11) *",BurpExtender.PLATFORM_IOS,"ios11pinning",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 12) *",BurpExtender.PLATFORM_IOS,"ios12pinning",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 13) *",BurpExtender.PLATFORM_IOS,"ios13pinning",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Jailbreaking check bypass **",BurpExtender.PLATFORM_IOS,"iosjailbreak",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Bypass TouchID (click \"Cancel\" when TouchID windows pops up)",BurpExtender.PLATFORM_IOS,"iosbypasstouchid",true,new String[] {},null,false));   
-    	addButtonToHooksAndFunctions(new DefaultHook("Dump crypto stuff",BurpExtender.PLATFORM_IOS,"dumpcryptostuffios",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 10) *",BurpExtender.PLATFORM_IOS,"ios10pinning",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 11) *",BurpExtender.PLATFORM_IOS,"ios11pinning",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 12) *",BurpExtender.PLATFORM_IOS,"ios12pinning",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 13) *",BurpExtender.PLATFORM_IOS,"ios13pinning",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Jailbreaking check bypass **",BurpExtender.PLATFORM_IOS,"iosjailbreak",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Bypass TouchID (click \"Cancel\" when TouchID windows pops up)",BurpExtender.PLATFORM_IOS,"iosbypasstouchid",true,new ArrayList<byte[]>(),null,false));   
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump crypto stuff",BurpExtender.PLATFORM_IOS,"dumpcryptostuffios",true,new ArrayList<byte[]>(),null,false));
     	
     	// Default iOS functions
-    	addButtonToHooksAndFunctions(new DefaultHook("Dump keychain",BurpExtender.PLATFORM_IOS,"iosdumpkeychain",false,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("List files with Data Protection keys",BurpExtender.PLATFORM_IOS,"iosdataprotectionkeys",false,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Dump and decrypt current ENCRYPTED app (for apps downloaded from App Store)",BurpExtender.PLATFORM_IOS,"iosdumpcurrentencryptedapp",false,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump keychain",BurpExtender.PLATFORM_IOS,"iosdumpkeychain",false,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("List files with Data Protection keys",BurpExtender.PLATFORM_IOS,"iosdataprotectionkeys",false,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump and decrypt current ENCRYPTED app (for apps downloaded from App Store)",BurpExtender.PLATFORM_IOS,"iosdumpcurrentencryptedapp",false,new ArrayList<byte[]>(),null,false));
     	    	
     }
     
@@ -4642,7 +4642,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				} else if(type.startsWith("java")) {
 					defaultHookPlatform = BurpExtender.PLATFORM_IOS;
 				}
-				DefaultHook treeHook = new DefaultHook("Tree hook trace " +  type + ": " + pattern,defaultHookPlatform,"trace",true,new String[] {pattern,type,(withBacktrace ? "true" : "false")},null,false);
+				DefaultHook treeHook = new DefaultHook("Tree hook trace " +  type + ": " + pattern,defaultHookPlatform,"trace",true,new ArrayList<byte[]>(Arrays.asList(new byte[][] {pattern.getBytes(),type.getBytes(),(withBacktrace ? "true".getBytes() : "false".getBytes())})),null,false);				
 				treeHook.setEnabled(true);
 				treeHooks.add(treeHook);
 				
@@ -4746,7 +4746,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				} else if(type.startsWith("java")) {
 					defaultHookPlatform = BurpExtender.PLATFORM_IOS;
 				}
-				DefaultHook treeHook = new DefaultHook("Tree hook changereturnvalue " +  type + ": " + pattern,defaultHookPlatform,"changereturnvalue",true,new String[] {pattern,type,returnValueType,dialogResult},null,false);
+				DefaultHook treeHook = new DefaultHook("Tree hook changereturnvalue " +  type + ": " + pattern,defaultHookPlatform,"changereturnvalue",true,new ArrayList<byte[]>(Arrays.asList(new byte[][] {pattern.getBytes(),type.getBytes(),returnValueType.getBytes(),dialogResult.getBytes()})) ,null,false);
 				treeHook.setEnabled(true);
 				treeHooks.add(treeHook);
 								
@@ -5080,12 +5080,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 
             		if(applicationSpawned) {
 	            		// Parameters
-	    				String[] currentParameters;
+	    				List<byte[]> currentParameters = new ArrayList<byte[]>();
 	    				if(dh.isPopupParameters()) {
 	    					String parametersPopup = JOptionPane.showInputDialog("Enter parameter(s), delimited by \"#,#\"");
-	    					currentParameters = parametersPopup.split("#,#");
-	    					for(int i=0;i<currentParameters.length;i++) {
-        						currentParameters[i] = CustomPlugin.encodeCustomPluginValue(currentParameters[i].getBytes(),dh.getParametersEncoding(), BurpExtender.this);
+	    					String[] parametersPopupSplitString = parametersPopup.split("#,#");
+	    					for(int i=0;i<parametersPopupSplitString.length;i++) {
+        						currentParameters.add(CustomPlugin.encodeCustomPluginValue(parametersPopupSplitString[i].getBytes(),dh.getParametersEncoding(), BurpExtender.this));
         					}
 	    				} else {
         					// For cases different from POPUP parameters are already encoded	    					
@@ -5095,7 +5095,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	    				try {
 	    					printJSMessage("*** Output " + dh.getName() + ":");
 	    					//String ret = (String)pyroBridaService.call("callexportfunction",dh.getFridaExportName(),currentParameters);
-	    					String ret = (String)executePyroCall(pyroBridaService, "callexportfunction",new Object[] {dh.getFridaExportName(),currentParameters});
+	    					String ret = (String)executePyroCall(pyroBridaService, "callexportfunction",new Object[] {dh.getFridaExportName(),CustomPlugin.convertParametersForFrida(currentParameters,BurpExtender.this)});
 	    					printJSMessage("* Ret value: " + ret);
 						} catch (Exception e) {
 							printException(e,"Error while running function " + dh.getName());

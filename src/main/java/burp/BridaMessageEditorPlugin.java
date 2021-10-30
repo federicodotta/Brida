@@ -1,6 +1,7 @@
 package burp;
 
 import java.awt.Component;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -179,29 +180,29 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 	            
 			} else {
 	
-				String[] parameters = getParametersCustomPlugin(content,isRequest);
-				String ret = callFrida(parameters);
+				List<byte[]> parameters = getParametersCustomPlugin(content,isRequest);
+				byte[] ret = callFrida(parameters);
 				
 				// DEBUG print
 				printToExternalDebugFrame("*** START ***\n\n");
 				printToExternalDebugFrame("** Original " + (isRequest ? "request" : "response") + "\n");
 				printToExternalDebugFrame(new String(content));
 				printToExternalDebugFrame("\n\n");
-				if(parameters.length > 0) {
+				if(parameters.size() > 0) {
 					printToExternalDebugFrame("** Frida parameters (after encoding)\n");
-					for(int i=0;i<parameters.length;i++) {
-						printToExternalDebugFrame("* Parameter " + (i+1) + ": " + parameters[i] + "\n");
+					for(int i=0;i<parameters.size();i++) {
+						printToExternalDebugFrame("* Parameter " + (i+1) + ": " + new String(parameters.get(i)) + "\n");
 					}
 					printToExternalDebugFrame("\n\n");
 				} else {
 					printToExternalDebugFrame("** NO Frida parameters\n\n");
 				}
 				printToExternalDebugFrame("** Frida returned value (after deconding/encoding), printed in the tab\n");
-				printToExternalDebugFrame(ret);
+				printToExternalDebugFrame(new String(ret));
 				printToExternalDebugFrame("\n\n");
 				printToExternalDebugFrame("*** END ***\n\n");
 			
-				txtInput.setText(((ret != null) ? ret.getBytes() : new byte[0]));	
+				txtInput.setText(((ret != null) ? ret : new byte[0]));	
 				currentMessage = content;
 				
 			}
@@ -222,7 +223,8 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 				byte[] editedContent = txtInput.getText();
 				
 				// Encode parameter
-				String[] parameters = new String[] {encodeCustomPluginValue(editedContent,customPluginEditedContentEncodingFridaInput, getMainPlugin())};
+				List<byte[]> parameters = new ArrayList<byte[]>();
+				parameters.add(encodeCustomPluginValue(editedContent,customPluginEditedContentEncodingFridaInput, getMainPlugin()));
 
 				// Call frida
 				if(getMainPlugin().serverStarted && getMainPlugin().applicationSpawned) {
@@ -230,7 +232,7 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 					// DEBUG print
 					printToExternalDebugFrame("*** START EDITED TAB ***\n\n");
 					printToExternalDebugFrame("** Edited value from plugin Message Editor tab (after encoding)\n");
-					printToExternalDebugFrame(parameters[0]);
+					printToExternalDebugFrame(new String(parameters.get(0)));
 					printToExternalDebugFrame("\n\n");
 			    	
 			    	// Call Brida						
@@ -239,7 +241,7 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 					try {
 						PyroProxy pp = new PyroProxy(new PyroURI(pyroUrl));
 						//ret = (String)pp.call("callexportfunction",customPluginEditedContentFridaFunctionName,parameters);
-						ret = (String)getMainPlugin().executePyroCall(pp,"callexportfunction",new Object[] {customPluginEditedContentFridaFunctionName,parameters});
+						ret = (String)getMainPlugin().executePyroCall(pp,"callexportfunction",new Object[] {customPluginEditedContentFridaFunctionName,convertParametersForFrida(parameters, getMainPlugin())});
 						pp.close();
 					} catch(Exception e) {
 						getMainPlugin().printException(e,"Error when calling Frida exported function " + customPluginEditedContentFridaFunctionName + " through Pyro in custom plugin");
@@ -253,7 +255,7 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 						byte[] customPluginEditedContentOutputDecoded =  decodeCustomPluginOutput(ret,customPluginEditedContentFridaOutputDecoding, getMainPlugin());
 						
 						// Encode plugin output if requested
-						String customPluginEditedContentOutputEncoded = encodeCustomPluginValue(customPluginEditedContentOutputDecoded, customPluginEditedContentOutputEncoding, getMainPlugin());
+						byte[] customPluginEditedContentOutputEncoded = encodeCustomPluginValue(customPluginEditedContentOutputDecoded, customPluginEditedContentOutputEncoding, getMainPlugin());
 						
 						// DEBUG print
 						printToExternalDebugFrame("** Frida returned value (after deconding/encoding) on edited content\n");
@@ -262,7 +264,7 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 						
 						if(customPluginEditedContentLocation == BridaMessageEditorPluginOutputLocation.CONSOLE) {
 							getMainPlugin().printSuccessMessage("Return value of edited function " + tabCaption);
-							getMainPlugin().printSuccessMessage(customPluginEditedContentOutputEncoded);
+							getMainPlugin().printSuccessMessage(new String(customPluginEditedContentOutputEncoded));
 
 							// DEBUG print
 							printToExternalDebugFrame("** Output to Brida console and returned original request/response\n\n");
@@ -275,11 +277,11 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 							byte[] messageWithCorrectContentLength;			
 							if(customPluginEditedContentLocation == BridaMessageEditorPluginOutputLocation.COMPLETE_NOT_RECALCULATE) {
 								
-								messageWithCorrectContentLength = customPluginEditedContentOutputEncoded.getBytes();
+								messageWithCorrectContentLength = customPluginEditedContentOutputEncoded;
 								
 							} else {
 								
-								messageWithCorrectContentLength = recalculateMessageBodyLength(customPluginEditedContentOutputEncoded.getBytes(),isRequest);
+								messageWithCorrectContentLength = recalculateMessageBodyLength(customPluginEditedContentOutputEncoded,isRequest);
 								
 							}
 							
@@ -294,7 +296,7 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 						} else if(customPluginEditedContentLocation == BridaMessageEditorPluginOutputLocation.HEADERS) {
 							
 							
-							byte[] newHttpMessage = replaceOutputHeaders(currentMessage, isRequest, customPluginEditedContentOutputEncoded);
+							byte[] newHttpMessage = replaceOutputHeaders(currentMessage, isRequest, new String(customPluginEditedContentOutputEncoded));
 														
 							// DEBUG print
 							printToExternalDebugFrame("** Replacing the headers of the message. Modified " + (isRequest ? "request" : "response") + ":\n");
@@ -323,7 +325,7 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 							Matcher matcherMessageEditorModified = patternMessageEditorModified.matcher(new String(currentMessage));
 							if(matcherMessageEditorModified.find()) {
 								
-								String newHttpMessage = new StringBuilder(new String(currentMessage)).replace(matcherMessageEditorModified.start(1), matcherMessageEditorModified.end(1), customPluginEditedContentOutputEncoded).toString();
+								String newHttpMessage = new StringBuilder(new String(currentMessage)).replace(matcherMessageEditorModified.start(1), matcherMessageEditorModified.end(1), new String(customPluginEditedContentOutputEncoded)).toString();
 								
 								// DEBUG print
 								printToExternalDebugFrame("** Modified " + (isRequest ? "request" : "response") + " after REGEX substitution:\n");
@@ -336,7 +338,7 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 							} else {
 								getMainPlugin().printException(null,"No group found in REGEX for edited content of IMessageEditor tab " + tabCaption + ". Printing the result in Brida console and returning original request/response.");
 								getMainPlugin().printSuccessMessage("Return value of edited function " + tabCaption);
-								getMainPlugin().printSuccessMessage(customPluginEditedContentOutputEncoded);
+								getMainPlugin().printSuccessMessage(new String(customPluginEditedContentOutputEncoded));
 								
 								// DEBUG print
 								printToExternalDebugFrame("** Output to Brida console and returning original " + (isRequest ? "request" : "response") + " because REGEX did not match\n\n");

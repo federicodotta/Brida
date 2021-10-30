@@ -6,6 +6,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -245,7 +246,21 @@ public abstract class CustomPlugin {
     	
     }
     
-    public String callFrida(String[] parameters) {
+    public static String[] convertParametersForFrida(List<byte[]> parameters, BurpExtender mainPlugin) {
+    	
+    	String[] output = new String[parameters.size()];
+    	for(int i=0;i<parameters.size();i++) {
+    		try {
+    			output[i] = new String(parameters.get(i), "ISO-8859-1");
+    		} catch (UnsupportedEncodingException e) {
+    			mainPlugin.printException(e,"Error converting parameter to ISO-8859-1, defaulting to standard encoding");
+    			output[i] = new String(parameters.get(i));
+    		} 	
+    	}
+    	return output;
+    }
+    
+    public byte[] callFrida(List<byte[]> parameters) {
     	
     	// If all is enabled
     	if(mainPlugin.serverStarted && mainPlugin.applicationSpawned) {
@@ -256,7 +271,7 @@ public abstract class CustomPlugin {
 			try {
 				PyroProxy pp = new PyroProxy(new PyroURI(pyroUrl));
 				//ret = (String)pp.call("callexportfunction",customPluginExportedFunctionName,parameters);
-				ret = (String)mainPlugin.executePyroCall(pp,"callexportfunction",new Object[] {customPluginExportedFunctionName,parameters});
+				ret = (String)mainPlugin.executePyroCall(pp,"callexportfunction",new Object[] {customPluginExportedFunctionName,convertParametersForFrida(parameters, mainPlugin)});
 				pp.close();
 			} catch(Exception e) {
 				mainPlugin.printException(e,"Error when calling Frida exported function " + customPluginExportedFunctionName + " through Pyro in custom plugin");
@@ -269,7 +284,7 @@ public abstract class CustomPlugin {
 				byte[] customPluginOutputDecoded =  decodeCustomPluginOutput(ret,customPluginOutputDecoding, mainPlugin);
 				
 				// Encode plugin output if requested
-				String customPluginOutputEncoded = encodeCustomPluginValue(customPluginOutputDecoded, customPluginOutputEncoding, mainPlugin);
+				byte[] customPluginOutputEncoded = encodeCustomPluginValue(customPluginOutputDecoded, customPluginOutputEncoding, mainPlugin);
 					
 				return customPluginOutputEncoded;
 				
@@ -342,14 +357,14 @@ public abstract class CustomPlugin {
     	
     }
     
-    public String[] getParametersCustomPlugin(byte[] requestResponseBytes, boolean isRequest) {
+    public List<byte[]> getParametersCustomPlugin(byte[] requestResponseBytes, boolean isRequest) {
     	
     	// Parameters
-		String[] parametersCustomPlugin = null;
+    	List<byte[]> parametersCustomPlugin = new ArrayList<byte[]>();
 		if(customPluginParameter == CustomPluginParameterValues.NONE) {							
-			parametersCustomPlugin = new String[0];							
+			//parametersCustomPlugin = new ArrayList<byte[]>();							
 		} else if(customPluginParameter == CustomPluginParameterValues.COMPLETE) {							
-			parametersCustomPlugin = new String[] {encodeCustomPluginValue(requestResponseBytes,customPluginParameterEncoding, mainPlugin)};
+			parametersCustomPlugin.add(encodeCustomPluginValue(requestResponseBytes,customPluginParameterEncoding, mainPlugin));
 		} else if(customPluginParameter == CustomPluginParameterValues.BODY) {
 			int curBodyIndex;
 			if(isRequest) {
@@ -359,7 +374,7 @@ public abstract class CustomPlugin {
 				IResponseInfo currentResponseInfo = mainPlugin.helpers.analyzeResponse(requestResponseBytes);
 				curBodyIndex = currentResponseInfo.getBodyOffset();
 			}
-			parametersCustomPlugin = new String[] {encodeCustomPluginValue(Arrays.copyOfRange(requestResponseBytes, curBodyIndex, requestResponseBytes.length),customPluginParameterEncoding, mainPlugin)};
+			parametersCustomPlugin.add(encodeCustomPluginValue(Arrays.copyOfRange(requestResponseBytes, curBodyIndex, requestResponseBytes.length),customPluginParameterEncoding, mainPlugin));
 		} else if(customPluginParameter == CustomPluginParameterValues.HEADERS) {
 			int curBodyIndex;
 			if(isRequest) {
@@ -369,7 +384,7 @@ public abstract class CustomPlugin {
 				IResponseInfo currentResponseInfo = mainPlugin.helpers.analyzeResponse(requestResponseBytes);
 				curBodyIndex = currentResponseInfo.getBodyOffset();
 			}
-			parametersCustomPlugin = new String[] {encodeCustomPluginValue(Arrays.copyOfRange(requestResponseBytes, 0, curBodyIndex-4),customPluginParameterEncoding, mainPlugin)};
+			parametersCustomPlugin.add(encodeCustomPluginValue(Arrays.copyOfRange(requestResponseBytes, 0, curBodyIndex-4),customPluginParameterEncoding, mainPlugin));
 		/*} else if(customPluginParameter == CustomPluginParameterValues.CONTEXT) {
 			
 			IHttpRequestResponse[] selectedItems = mainPlugin.currentInvocation.getSelectedMessages();
@@ -390,28 +405,28 @@ public abstract class CustomPlugin {
 			Pattern patternCustomPlugin = Pattern.compile(customPluginParameterString);
 			Matcher matcherCustomPlugin = patternCustomPlugin.matcher(new String(requestResponseBytes));
 			if(matcherCustomPlugin.find()) {
-				parametersCustomPlugin = new String[matcherCustomPlugin.groupCount()];
+				//parametersCustomPlugin = new String[matcherCustomPlugin.groupCount()];
 				for(int i=1;i<=matcherCustomPlugin.groupCount();i++) {
-					parametersCustomPlugin[i-1] = encodeCustomPluginValue(matcherCustomPlugin.group(i).getBytes(),customPluginParameterEncoding, mainPlugin);
+					parametersCustomPlugin.add(encodeCustomPluginValue(matcherCustomPlugin.group(i).getBytes(),customPluginParameterEncoding, mainPlugin));
 				}
 			} else {
 				mainPlugin.printException(null,"No parameter found in REGEX. Calling function without parameters");
-				parametersCustomPlugin = new String[0];	
+				//parametersCustomPlugin = new String[0];	
 			}							
 		} else if(customPluginParameter == CustomPluginParameterValues.FIXED) {
-			parametersCustomPlugin = customPluginParameterString.split("#,#");
-			for(int i=0;i<parametersCustomPlugin.length;i++) {
-				parametersCustomPlugin[i] = encodeCustomPluginValue(parametersCustomPlugin[i].getBytes(),customPluginParameterEncoding, mainPlugin);
+			String[] parametersStringSplitted = customPluginParameterString.split("#,#");
+			for(int i=0;i<parametersStringSplitted.length;i++) {
+				parametersCustomPlugin.add(encodeCustomPluginValue(parametersStringSplitted[i].getBytes(),customPluginParameterEncoding, mainPlugin));
 			}
 		} else if(customPluginParameter == CustomPluginParameterValues.POPUP) {			
 			String parametersPopup = JOptionPane.showInputDialog("Enter parameter(s), delimited by \"#,#\"");						
 			if(parametersPopup != null) {			
-				parametersCustomPlugin = parametersPopup.split("#,#");					
-				for(int i=0;i<parametersCustomPlugin.length;i++) {
-					parametersCustomPlugin[i] = encodeCustomPluginValue(parametersCustomPlugin[i].getBytes(),customPluginParameterEncoding, mainPlugin);
+				String[] parametersStringSplitted = parametersPopup.split("#,#");					
+				for(int i=0;i<parametersStringSplitted.length;i++) {
+					parametersCustomPlugin.add(encodeCustomPluginValue(parametersStringSplitted[i].getBytes(),customPluginParameterEncoding, mainPlugin));
 				}				
 			} else {								
-				parametersCustomPlugin = new String[0];
+				//parametersCustomPlugin = new String[0];
 			}			
 		}
 		
@@ -427,8 +442,8 @@ public abstract class CustomPlugin {
 		this.isEnabled = enabled; 
 	}
 	
-	// TODO: Change name and maybe change to byte[] as return value
-	public static String encodeCustomPluginValue(byte[] parameter, List<BurpExtender.Transformation> encodingTransformations, BurpExtender mainPlugin) {
+	// TODO: Change name
+	public static byte[] encodeCustomPluginValue(byte[] parameter, List<BurpExtender.Transformation> encodingTransformations, BurpExtender mainPlugin) {
 		byte[] output = parameter;
 		for (BurpExtender.Transformation t : encodingTransformations) {
 			try {
@@ -437,7 +452,7 @@ public abstract class CustomPlugin {
 				mainPlugin.printException(e,"Error while trying to encoding " + t.toString());
 			}
 		}
-		return new String(output);		
+		return output;		
 	}
 	
 	public static byte[] decodeCustomPluginOutput(String toDecode, List<BurpExtender.Transformation> decodingTransformations, BurpExtender mainPlugin) {
@@ -480,6 +495,7 @@ public abstract class CustomPlugin {
 		
 	}
 	
+	// TODO: maybe move headerString tyep to byte[]
 	public byte[] replaceOutputHeaders(byte[] originalMessage, boolean messageIsRequest, String headersString) {
 		
 		List<String> newHeaders = new ArrayList<String>(Arrays.asList(headersString.split("\r\n")));
@@ -499,7 +515,7 @@ public abstract class CustomPlugin {
 		
 	}
 	
-	public byte[] replaceOutputBody(byte[] originalMessage, boolean messageIsRequest, String bodyString) {
+	public byte[] replaceOutputBody(byte[] originalMessage, boolean messageIsRequest, byte[] bodyString) {
 	
 		List<java.lang.String> currentHeaders;
 		if(messageIsRequest) {
@@ -510,7 +526,7 @@ public abstract class CustomPlugin {
 			currentHeaders = currentResponseInfo.getHeaders();
 		}
 		
-		byte[] newHttpMessage = getMainPlugin().helpers.buildHttpMessage(currentHeaders, bodyString.getBytes());
+		byte[] newHttpMessage = getMainPlugin().helpers.buildHttpMessage(currentHeaders, bodyString);
 				
 		return newHttpMessage;
 		
