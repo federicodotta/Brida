@@ -353,6 +353,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     	addButtonToHooksAndFunctions(new DefaultHook("Dump keychain",BurpExtender.PLATFORM_IOS,"iosdumpkeychain",false,new ArrayList<byte[]>(),null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("List files with Data Protection keys",BurpExtender.PLATFORM_IOS,"iosdataprotectionkeys",false,new ArrayList<byte[]>(),null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Dump and decrypt current ENCRYPTED app (for apps downloaded from App Store)",BurpExtender.PLATFORM_IOS,"iosdumpcurrentencryptedapp",false,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Demagle Swift name",BurpExtender.PLATFORM_IOS,"demangle",false,new ArrayList<byte[]>(),new ArrayList<BurpExtender.Transformation>(),true));
     	    	
     }
     
@@ -3629,6 +3630,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		} else if(command.equals("trapBacktrace")) {	
 			
 			trap(true);	
+			
+		} else if(command.equals("demangle")) {
+		
+			demangleSwift();
 
 		} else if(command.equals("pythonPathSelectFile")) {
 			
@@ -4551,6 +4556,48 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			tree.expandPath(new TreePath(clickedNode.getPath()));
 						
 		}
+		
+	}
+	
+	public void demangleSwift() {
+		
+		if(platform != BurpExtender.PLATFORM_IOS) {
+			
+			printException(null,"Swift demangle is available only on iOS OS");
+			return;
+			
+		}
+		
+		DefaultMutableTreeNode clickedNode = (DefaultMutableTreeNode)(tree.getSelectionPath().getLastPathComponent());
+		
+		String toDemangle = (String)clickedNode.getUserObject();
+		
+		if(toDemangle.startsWith("function: ") || toDemangle.startsWith("variable: ")) {
+			
+			toDemangle = toDemangle.replace("function: ", "");
+			toDemangle = toDemangle.replace("variable: ", "");
+			
+			if(toDemangle.startsWith("__T"))
+				toDemangle = toDemangle.substring(1);
+				
+			try {
+					
+				String ret = (String)executePyroCall(pyroBridaService, "callexportfunction",new Object[] {"demangle",new String[] {toDemangle}});
+				
+				JOptionPane.showMessageDialog(null, ret, toDemangle, JOptionPane.INFORMATION_MESSAGE);
+				
+			} catch (Exception e) {
+				
+				printException(e,"Exception with demangle");
+				
+			}
+			
+		} else {
+			
+			printException(null,"Only Swift names can be demangled");
+			
+		}
+		
 		
 	}
 

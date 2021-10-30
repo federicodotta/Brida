@@ -1,3 +1,54 @@
+export function demangle(name) {
+
+	var _swift_demangle = null
+	var _free = null
+
+	if(ObjC.available) {
+
+		// Is Swift available?
+		var tmp = Module.findBaseAddress("libswiftCore.dylib");
+
+	    if (tmp != null) {
+	        var addr_swift_demangle = Module.getExportByName("libswiftCore.dylib", "swift_demangle");
+	        var size_t = Process.pointerSize === 8 ? 'uint64' : Process.pointerSize === 4 ? 'uint32' : "unsupported platform";
+	        _swift_demangle = new NativeFunction(addr_swift_demangle, "pointer", ["pointer", size_t, "pointer", "pointer", 'int32']);
+	        var addr_free = Module.getExportByName("libsystem_malloc.dylib", "free");
+	        _free = new NativeFunction(addr_free, "void", ["pointer"]);
+	    
+	    } 
+
+	}
+
+    if (_swift_demangle != null) {            
+
+        var fixname = name;
+
+        var cStr = Memory.allocUtf8String(fixname);
+
+        var demangled = _swift_demangle(cStr, fixname.length, ptr(0), ptr(0), 0);
+
+        var res = null;
+
+        if (demangled) {
+            res = demangled.readUtf8String();
+
+            _free(demangled);
+        }
+
+        if (res && res != fixname) {
+            return res;
+        } else {
+        	return "Requested resource cannot be demangled";
+        }
+
+    } else {
+
+        return "Cant' demangle. Swift native function not found.";
+
+    }
+
+}
+
 export function ios10pinning() {
 
 	var tls_helper_create_peer_trust = new NativeFunction(
