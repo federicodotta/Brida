@@ -188,7 +188,7 @@ public class BridaHttpListenerPlugin extends CustomPlugin implements IHttpListen
 		printToExternalDebugFrame("\n\n");
 		
 		if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.BRIDA) {
-			getMainPlugin().printSuccessMessage("* Brida exported function " + getCustomPluginExportedFunctionName() + " output: " + ret);
+			getMainPlugin().printSuccessMessage("* Brida exported function " + getCustomPluginExportedFunctionName() + " output: " + new String(ret));
 			
 			// DEBUG print
 			printToExternalDebugFrame("** Output to Brida console\n\n");
