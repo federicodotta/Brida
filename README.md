@@ -3,6 +3,13 @@
 </p>
 
 # Brida
+
+[![](https://img.shields.io/github/stars/federicodotta/brida.svg?color=yellow)](https://github.com/federicodotta/brida)
+[![](https://img.shields.io/github/forks/federicodotta/brida.svg?color=green)](https://github.com/federicodotta/brida)
+[![](https://img.shields.io/github/issues-raw/federicodotta/brida.svg?color=red)](https://github.com/federicodotta/brida/issues)
+[![](https://img.shields.io/badge/license-MIT%20License-red.svg?color=lightgray)](https://opensource.org/licenses/MIT) 
+[![](https://img.shields.io/badge/twitter-apps3c-blue.svg)](https://twitter.com/apps3c)
+
 Brida is a Burp Suite Extension that, working as a bridge between [Burp Suite](https://portswigger.net/burp/) and [Frida](https://www.frida.re/), lets you use and manipulate applications’ own methods while tampering the traffic exchanged between the applications and their back-end services/servers. It supports all platforms supported by Frida (Windows, macOS, Linux, iOS, Android, and QNX).
 
 # Brida Idea
@@ -71,14 +78,14 @@ The slides and the video of our conference presented at **Hack In The Box 2018 A
 - (ENG) https://conference.hitb.org/hitbsecconf2018ams/materials/D1T1%20-%20Federico%20Dotta%20and%20Piergiovanni%20Cipolloni%20-%20Brida%20When%20Burp%20Suite%20Meets%20Frida.pdf
 - (ENG) https://www.youtube.com/watch?v=wPepicuHDzs&t=18s
 
-We will present **Brida ~~0.4~~ 0.5** at **Hack In Paris ~~2020~~ 2021** (postponed for the COVID-19 global situation). After the conference we will add here the links to the slides and to the video!
+The slides and the video of our conference presented at **Hack In Paris ~~2020~~ 2021** (postponed for the COVID-19 global situation) that describes the new features of the **version ~~0.4~~ 0.5** will be linked here as soon as they will be available.
 
 # Authors
-- Federico Dotta, Security Advisor at @Mediaservice.net
-- Piergiovanni Cipolloni, Security Advisor at @Mediaservice.net
+- Federico Dotta, Principal Security Analyst at HN Security
+- Piergiovanni Cipolloni, Principal Security Analyst at HN Security
 
 # Contributors
-- Maurizio Agazzini, Senior Security Advisor at @Mediaservice.net
+- Maurizio Agazzini
 
 # Frida Scripts
 Brida uses a lot of Frida code for dynamic hooking and for binary inspection, based on the work of:
