@@ -80,6 +80,12 @@ The slides and the video of our conference presented at **Hack In The Box 2018 A
 
 The slides and the video of our conference presented at **Hack In Paris ~~2020~~ 2021** (postponed for the COVID-19 global situation) that describes the new features of the **version ~~0.4~~ 0.5** will be linked here as soon as they will be available.
 
+# Demo
+
+Two different demo applications can be found in the **[Demo](https://github.com/federicodotta/Brida/tree/master/Demo)** folder, one Android and one iOS. 
+
+We will publish soon also the Brida plugin that can be used to bypass the encryption and signature mechanisms used by the apps!
+
 # Authors
 - Federico Dotta, Principal Security Analyst at HN Security
 - Piergiovanni Cipolloni, Principal Security Analyst at HN Security
