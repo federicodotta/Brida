@@ -1,7 +1,7 @@
 import { androidpinningwithca1, androidpinningwithoutca1, androidrooting1, androidfingerprintbypass1, androidfingerprintbypass2hook } from './androidDefaultHooks.js'
 import { androidfingerprintbypass2function, tracekeystore, listaliasesstatic, listaliasesruntime, dumpcryptostuff } from './androidDefaultHooks.js'
-import { ios10pinning, ios11pinning, ios12pinning, iosbypasstouchid, iosjailbreak, iosdumpkeychain, iosdataprotectionkeys, iosdumpcurrentencryptedapp, dumpcryptostuffios } from './iosDefaultHooks.js'
-import { getallclasses, getallmodules, getmoduleimports, getmoduleexports, getclassmethods, findobjcmethods } from './bridaFunctions.js'
+import { ios10pinning, ios11pinning, ios12pinning, ios13pinning, iosbypasstouchid, iosjailbreak, iosdumpkeychain, iosdataprotectionkeys, iosdumpcurrentencryptedapp, dumpcryptostuffios, demangle } from './iosDefaultHooks.js'
+import { getallclasses, getallmodules, getmoduleimports, getmoduleexports, getclassmethods, findobjcmethods, findjavamethods } from './bridaFunctions.js'
 import { findimports, findexports, detachall, trace, changereturnvalue, getplatform } from './bridaFunctions.js'
 
 // Brida User file: use this file to insert your Frida exports/hooks/functions.
@@ -10,15 +10,15 @@ import { findimports, findexports, detachall, trace, changereturnvalue, getplatf
 rpc.exports = {
 	androidpinningwithca1, androidpinningwithoutca1, androidrooting1, androidfingerprintbypass1, androidfingerprintbypass2hook, 
     androidfingerprintbypass2function, tracekeystore, listaliasesstatic, listaliasesruntime, dumpcryptostuff,
-	ios10pinning, ios11pinning, ios12pinning, iosbypasstouchid, iosjailbreak, iosdumpkeychain, iosdataprotectionkeys, iosdumpcurrentencryptedapp, dumpcryptostuffios,
-	getallclasses, getallmodules, getmoduleimports, getmoduleexports, getclassmethods, findobjcmethods,
+	ios10pinning, ios11pinning, ios12pinning, ios13pinning, iosbypasstouchid, iosjailbreak, iosdumpkeychain, iosdataprotectionkeys, iosdumpcurrentencryptedapp, dumpcryptostuffios, demangle,
+	getallclasses, getallmodules, getmoduleimports, getmoduleexports, getclassmethods, findobjcmethods, findjavamethods,
 	findimports, findexports, detachall, trace, changereturnvalue, getplatform,
 
 	// BE CAREFUL: Do not use uppercase characters in exported function name (automatically converted lowercase by Pyro)
 	exportedfunction: function() {
 
 		// Do stuff...	
-		// This functions can be called from custom plugins or from Brida "Execute method" dedicated tab
+		// This functions can be called from custom plugins
 
 	}
 

@@ -75,6 +75,31 @@ export function getclassmethods(classname) {
 	return results;
 }
 
+export function findjavamethods(searchstring) {
+	var results = {}
+	if(Java.available) {
+	    Java.perform(function() {	    	
+	        var groups = []
+	        groups.push(Java.enumerateMethods('*' + searchstring + '*!*/s'))
+	        groups.push(Java.enumerateMethods('*!*' + searchstring + '*/s'))
+	        groups.forEach(g => {
+	            g.forEach(classLoader => {
+	                classLoader.classes.forEach(c => {
+	                    var className = c.name;
+	                    c.methods.forEach(m => {
+	                        var methodSignature = className + "!" + m;
+	                        results[methodSignature] = null;
+	                    });
+	                }); 
+	            });
+	        });
+	    });
+	}
+	return results;
+}
+
+
+
 export function findobjcmethods(searchstring) {
 	var results = {}
 	var resolver = new ApiResolver("objc");
@@ -344,7 +369,7 @@ function changeReturnValueAndroid(pattern, type, typeret, newret) {
 		//console.log(targetClass);
 		//console.log(targetMethod);
 		var hook = Java.use(targetClass);
-		hook[targetMethod].overload.apply(this,argsTargetClassMethod).implementation = function() {
+		hook[targetMethod].overload.apply(hook[targetMethod],argsTargetClassMethod).implementation = function() {
 			var retval = this[targetMethod].apply(this, arguments);
 			var toRet = newret;
 			if(typeret === "String") {
@@ -441,7 +466,7 @@ function traceJavaMethod(pattern,backtrace) {
 	var hook = Java.use(targetClass);
 	//var overloadCount = hook[targetMethod].overloads.length;
 	console.log("*** Tracing " + pattern);
-	hook[targetMethod].overload.apply(this,argsTargetClassMethod).implementation = function() {		
+	hook[targetMethod].overload.apply(hook[targetMethod],argsTargetClassMethod).implementation = function() {	
 		console.log("*** entered " + targetClassMethod);
 		// print args
 		if (arguments.length) console.log("Parameters:");
@@ -461,7 +486,7 @@ function traceJavaMethod(pattern,backtrace) {
 			});
 		}
 		// print retval
-		var retval = this[targetMethod].apply(this, arguments);		
+		var retval = this[targetMethod].apply(this, arguments);			
 		console.log("*** exiting " + targetClassMethod);
 		console.log("Return value:");
 		console.log("\tretval: " + retval);

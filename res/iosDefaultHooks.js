@@ -1,3 +1,54 @@
+export function demangle(name) {
+
+	var _swift_demangle = null
+	var _free = null
+
+	if(ObjC.available) {
+
+		// Is Swift available?
+		var tmp = Module.findBaseAddress("libswiftCore.dylib");
+
+	    if (tmp != null) {
+	        var addr_swift_demangle = Module.getExportByName("libswiftCore.dylib", "swift_demangle");
+	        var size_t = Process.pointerSize === 8 ? 'uint64' : Process.pointerSize === 4 ? 'uint32' : "unsupported platform";
+	        _swift_demangle = new NativeFunction(addr_swift_demangle, "pointer", ["pointer", size_t, "pointer", "pointer", 'int32']);
+	        var addr_free = Module.getExportByName("libsystem_malloc.dylib", "free");
+	        _free = new NativeFunction(addr_free, "void", ["pointer"]);
+	    
+	    } 
+
+	}
+
+    if (_swift_demangle != null) {            
+
+        var fixname = name;
+
+        var cStr = Memory.allocUtf8String(fixname);
+
+        var demangled = _swift_demangle(cStr, fixname.length, ptr(0), ptr(0), 0);
+
+        var res = null;
+
+        if (demangled) {
+            res = demangled.readUtf8String();
+
+            _free(demangled);
+        }
+
+        if (res && res != fixname) {
+            return res;
+        } else {
+        	return "Requested resource cannot be demangled";
+        }
+
+    } else {
+
+        return "Cant' demangle. Swift native function not found.";
+
+    }
+
+}
+
 export function ios10pinning() {
 
 	var tls_helper_create_peer_trust = new NativeFunction(
@@ -66,6 +117,55 @@ export function ios12pinning() {
 	Interceptor.replace(ssl_ctx_set_custom_verify, new NativeCallback(function(ssl, mode, callback) {
 		//  |callback| performs the certificate verification. Replace this with our custom callback
 		ssl_ctx_set_custom_verify(ssl, mode, ssl_verify_result_t);
+	}, 'void', ['pointer', 'int', 'pointer']));
+
+	Interceptor.replace(ssl_get_psk_identity, new NativeCallback(function(ssl) {
+		return "notarealPSKidentity";
+	}, 'pointer', ['pointer']));
+		
+	console.log("[+] Bypass successfully loaded ");		
+
+}
+
+export function ios13pinning() {
+
+	try {
+		Module.ensureInitialized("libboringssl.dylib");
+	} catch(err) {
+		console.log("libboringssl.dylib module not loaded. Trying to manually load it.")
+		Module.load("libboringssl.dylib");	
+	}
+
+	var SSL_VERIFY_NONE = 0;
+	var ssl_set_custom_verify;
+	var ssl_get_psk_identity;	
+
+	ssl_set_custom_verify = new NativeFunction(
+		Module.findExportByName("libboringssl.dylib", "SSL_set_custom_verify"),
+		'void', ['pointer', 'int', 'pointer']
+	);
+
+	/* Create SSL_get_psk_identity NativeFunction 
+	* Function signature https://commondatastorage.googleapis.com/chromium-boringssl-docs/ssl.h.html#SSL_get_psk_identity
+	*/
+	ssl_get_psk_identity = new NativeFunction(
+		Module.findExportByName("libboringssl.dylib", "SSL_get_psk_identity"),
+		'pointer', ['pointer']
+	);
+
+	/** Custom callback passed to SSL_CTX_set_custom_verify */
+	function custom_verify_callback_that_does_not_validate(ssl, out_alert){
+		return SSL_VERIFY_NONE;
+	}
+
+	/** Wrap callback in NativeCallback for frida */
+	var ssl_verify_result_t = new NativeCallback(function (ssl, out_alert){
+		custom_verify_callback_that_does_not_validate(ssl, out_alert);
+	},'int',['pointer','pointer']);
+
+	Interceptor.replace(ssl_set_custom_verify, new NativeCallback(function(ssl, mode, callback) {
+		//  |callback| performs the certificate verification. Replace this with our custom callback
+		ssl_set_custom_verify(ssl, mode, ssl_verify_result_t);
 	}, 'void', ['pointer', 'int', 'pointer']));
 
 	Interceptor.replace(ssl_get_psk_identity, new NativeCallback(function(ssl) {

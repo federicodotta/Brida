@@ -107,7 +107,7 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 		// If all is enabled
     	if(getMainPlugin().serverStarted && getMainPlugin().applicationSpawned) {
 		
-			String[] parameters;
+    		List<byte[]> parameters;
 			
 			IHttpRequestResponse[] selectedItems = currentInvocation.getSelectedMessages();
 			byte selectedInvocationContext = currentInvocation.getInvocationContext();
@@ -127,7 +127,8 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 				
 				int[] selectedBounds = currentInvocation.getSelectionBounds();
 				byte[] selectedPortion = Arrays.copyOfRange(selectedRequestOrResponse, selectedBounds[0], selectedBounds[1]);
-				parameters = new String[] { encodeCustomPluginValue(selectedPortion,getCustomPluginParameterEncoding(), getMainPlugin()) } ;
+				parameters = new ArrayList<byte[]>();
+				parameters.add(encodeCustomPluginValue(selectedPortion,getCustomPluginParameterEncoding(), getMainPlugin()) );
 				
 			} else {
 				
@@ -135,29 +136,29 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 				
 			}	
 			
-			String ret = callFrida(parameters);
+			byte[] ret = callFrida(parameters);
 			
 			// DEBUG print
 			printToExternalDebugFrame("*** START ***\n\n");
 			printToExternalDebugFrame("** Original " + (isRequest ? "request" : "response") + "\n");
 			printToExternalDebugFrame(new String(selectedRequestOrResponse));
 			printToExternalDebugFrame("\n\n");
-			if(parameters.length > 0) {
+			if(parameters.size() > 0) {
 				printToExternalDebugFrame("** Frida parameters (after encoding)\n");
-				for(int i=0;i<parameters.length;i++) {
-					printToExternalDebugFrame("* Parameter " + (i+1) + ": " + parameters[i] + "\n");
+				for(int i=0;i<parameters.size();i++) {
+					printToExternalDebugFrame("* Parameter " + (i+1) + ": " + new String(parameters.get(i)) + "\n");
 				}
 				printToExternalDebugFrame("\n\n");
 			} else {
 				printToExternalDebugFrame("** NO Frida parameters\n\n");
 			}
 			printToExternalDebugFrame("** Frida returned value (after deconding/encoding), printed in the tab\n");
-			printToExternalDebugFrame(ret);
+			printToExternalDebugFrame(new String(ret));
 			printToExternalDebugFrame("\n\n");
 			
 			if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.BRIDA) {
 				
-				getMainPlugin().printSuccessMessage("* Brida exported function " + getCustomPluginExportedFunctionName() + " output: " + ret);
+				getMainPlugin().printSuccessMessage("* Brida exported function " + getCustomPluginExportedFunctionName() + " output: " + new String(ret));
 				
 				// DEBUG print
 				printToExternalDebugFrame("** Output to Brida console\n\n");
@@ -172,13 +173,70 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 				
 		            	JTextArea ta = new JTextArea(20, 60);
 						ta.setLineWrap(true);
-						ta.setText(ret);
+						ta.setText(new String(ret));
 		            	JOptionPane.showMessageDialog(null, new JScrollPane(ta), getCustomPluginExportedFunctionName() + " output", JOptionPane.INFORMATION_MESSAGE);
 		            	
 		            }
 		            
 				});
 				
+			} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.HEADERS) {
+				
+				byte[] newMessage = replaceOutputHeaders(selectedRequestOrResponse, isRequest, new String(ret));
+				
+				if(isRequest) {
+					selectedItems[0].setRequest(newMessage);
+				} else {
+					selectedItems[0].setResponse(newMessage);
+				}
+				
+				// DEBUG print
+				printToExternalDebugFrame("** Replacing the headers of the message. Modified " + (isRequest ? "request" : "response") + ":\n");
+				printToExternalDebugFrame(new String(newMessage));
+				printToExternalDebugFrame("** \n\n");
+				printToExternalDebugFrame("*** END ***\n\n");
+				
+			} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.BODY) {
+				
+				byte[] newMessage = replaceOutputBody(selectedRequestOrResponse, isRequest, ret);
+
+				if(isRequest) {
+					selectedItems[0].setRequest(newMessage);
+				} else {
+					selectedItems[0].setResponse(newMessage);
+				}
+				
+				// DEBUG print
+				printToExternalDebugFrame("** Replacing the body of the message. Modified " + (isRequest ? "request" : "response") + ":\n");
+				printToExternalDebugFrame(new String(newMessage));
+				printToExternalDebugFrame("** \n\n");
+				printToExternalDebugFrame("*** END ***\n\n");
+			
+			} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.COMPLETE_RECALCULATE || getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.COMPLETE_NOT_RECALCULATE) {
+							
+				byte[] requestWithCorrectContentLength;			
+				if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.COMPLETE_NOT_RECALCULATE) {
+					
+					requestWithCorrectContentLength = ret;
+					
+				} else {
+					
+					requestWithCorrectContentLength = recalculateMessageBodyLength(ret,isRequest);
+					
+				}
+						
+				if(isRequest) {
+					selectedItems[0].setRequest(requestWithCorrectContentLength);
+				} else {
+					selectedItems[0].setResponse(requestWithCorrectContentLength);
+				}
+				
+				// DEBUG print
+				printToExternalDebugFrame("** Replacing entire " + (isRequest ? "request" : "response") + ". Modified one:\n");
+				printToExternalDebugFrame(new String(requestWithCorrectContentLength));
+				printToExternalDebugFrame("** \n\n");
+				printToExternalDebugFrame("*** END ***\n\n");
+			
 			} else if(getCustomPluginFunctionOutput() == CustomPluginFunctionOutputValues.REGEX) {
 				
 				if(currentInvocation.getInvocationContext() == IContextMenuInvocation.CONTEXT_MESSAGE_EDITOR_REQUEST ||
@@ -187,7 +245,7 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 					Pattern patternCustomPlugin = Pattern.compile(getCustomPluginFunctionOutputString());
 					Matcher matcherCustomPlugin = patternCustomPlugin.matcher(new String(selectedRequestOrResponse));
 					if(matcherCustomPlugin.find()) {									
-						String replacedRequestResponse = new StringBuilder(new String(selectedRequestOrResponse)).replace(matcherCustomPlugin.start(1), matcherCustomPlugin.end(1), ((ret != null) ? ret : "")).toString();
+						String replacedRequestResponse = new StringBuilder(new String(selectedRequestOrResponse)).replace(matcherCustomPlugin.start(1), matcherCustomPlugin.end(1), ((ret != null) ? new String(ret) : "")).toString();
 						
 						// DEBUG print
 						printToExternalDebugFrame("** Modified " + (isRequest ? "request" : "response") + " (with REGEX) \n");
@@ -229,7 +287,7 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 					
 					byte[] preSelectedPortion = Arrays.copyOfRange(selectedRequestOrResponse, 0, selectedBounds[0]);
 					byte[] postSelectedPortion = Arrays.copyOfRange(selectedRequestOrResponse, selectedBounds[1], selectedRequestOrResponse.length);
-					byte[] newRequestResponse = ArrayUtils.addAll(preSelectedPortion, ((ret != null) ? ret.getBytes() : new byte[0]));
+					byte[] newRequestResponse = ArrayUtils.addAll(preSelectedPortion, ((ret != null) ? ret : new byte[0]));
 					newRequestResponse = ArrayUtils.addAll(newRequestResponse, postSelectedPortion);
 					
 					// DEBUG print
@@ -251,7 +309,7 @@ public class BridaContextMenuPlugin extends CustomPlugin implements IContextMenu
 			            	
 			            	JTextArea ta = new JTextArea(20, 60);
 							ta.setLineWrap(true);
-							ta.setText(ret);
+							ta.setText(new String(ret));
 			            	JOptionPane.showMessageDialog(null, new JScrollPane(ta), getCustomPluginExportedFunctionName() + " output", JOptionPane.INFORMATION_MESSAGE);
 					
 			            }

@@ -46,6 +46,15 @@ public class TreePopup extends JPopupMenu {
         
         add(changeReturnValue);
         
+        if(ex.getPlatform() == BurpExtender.PLATFORM_IOS) {
+        
+	        JMenuItem demangleItem = new JMenuItem("Demangle Swift name");
+	        demangleItem.setActionCommand("demangle");
+	        demangleItem.addActionListener(ex);
+	        add(demangleItem);
+        
+        }
+        
     }
 	
 }

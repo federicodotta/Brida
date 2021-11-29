@@ -1,0 +1,34 @@
+CREATE DATABASE IF NOT EXISTS brida_backend_db;
+
+USE brida_backend_db;
+
+CREATE TABLE IF NOT EXISTS products(
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	name VARCHAR(200) NOT NULL,
+	price FLOAT NOT NULL
+) ENGINE=INNODB;
+
+CREATE TABLE IF NOT EXISTS device(
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	device_id VARCHAR(200) NOT NULL,
+	seed VARCHAR(200) NOT NULL,
+	current_challenge VARCHAR(200) NOT NULL,
+	content VARCHAR(200) NOT NULL,
+	number_of_access INT NOT NULL
+) ENGINE=INNODB;	
+
+CREATE TABLE IF NOT EXISTS users(
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	username VARCHAR(200) NOT NULL,
+	password VARCHAR(200) NOT NULL
+) ENGINE=INNODB;
+	
+INSERT INTO products(name,price) VALUES ('coffee',5);
+INSERT INTO products(name,price) VALUES ('bread',1);
+INSERT INTO products(name,price) VALUES ('meat',3);
+
+INSERT INTO device(device_id,seed,current_challenge,content,number_of_access) VALUES ('axscfv1','qwssdedddsaa1','sdvgfvdvfd1','Test 1',0);
+INSERT INTO device(device_id,seed,current_challenge,content,number_of_access) VALUES ('fgdvcc2','fdxvfdvvaasx2','asdzxcfvvs2','Test 2',0);
+
+INSERT INTO users(username,password) VALUES ('admin','password123');
+INSERT INTO users(username,password) VALUES ('mark','mark1');

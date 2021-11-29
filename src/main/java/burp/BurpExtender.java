@@ -3,12 +3,15 @@ package burp;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
@@ -31,6 +34,7 @@ import java.io.PrintWriter;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -44,6 +48,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -99,6 +105,7 @@ import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rsyntaxtextarea.TextEditorPane;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
+import burp.BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation;
 import burp.CustomPlugin.CustomPluginExecuteValues;
 import burp.CustomPlugin.CustomPluginFunctionOutputValues;
 import burp.CustomPlugin.CustomPluginParameterValues;
@@ -122,7 +129,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     private PyroProxy pyroBridaService;
     private Process pyroServerProcess;
     	
-	private JTextField pythonPath;
+	private JTextField pythonPathVenv;
 	private String pythonScript;
 	public JTextField pyroHost;
 	public JTextField pyroPort;
@@ -131,6 +138,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	private JTextPane applicationStatus;
 	private JTextField fridaPath;
     private JTextField applicationId;
+    private JCheckBox fridaCompileOldCheckBox; 
+    private JCheckBox useVirtualEnvCheckBox;
     
     private JRadioButton remoteRadioButton;
     private JRadioButton usbRadioButton;
@@ -150,6 +159,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	private JTextField executeMethodArgument;
 	private DefaultListModel executeMethodInsertedArgumentList;
 	private JList executeMethodInsertedArgument;
+	private JLabel labelPythonPathVenv;
 	
 	public boolean serverStarted;
 	public boolean applicationSpawned;
@@ -268,7 +278,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     /*
      * TODO
      * - Pop-up in Context menu
-     * - Tab with helps on Brid and on Frida     * 
+     * - Tab with helps on Brida and on Frida 
      * - 1 Select forlder default current folder
      * - Migrate from ASCII HEX to Base64 for defautl hooks?
      * - Swift demangle?
@@ -284,7 +294,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
      * - Add tab with Frida hooks that can be enabled/disabled (pinning, etc.)
      * - Add addresses to tree view (export and iOS)
      * - Trap/edit return value of custom methods
-     * - Organize better JS file (maybe divide custom one from Brida one)
+     * - Add host/port attach/spawn modes
      */
     
     class JTableButtonRenderer implements TableCellRenderer {
@@ -317,31 +327,33 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     public void initializeDefaultHooks() {
     	
     	// Default Android hooks
-    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass with CA certificate, more reliable (requires CA public certificate in /data/local/tmp/cert-der.crt)",BurpExtender.PLATFORM_ANDROID,"androidpinningwithca1",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass without CA certificate, less reliable",BurpExtender.PLATFORM_ANDROID,"androidpinningwithoutca1",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Rooting check bypass",BurpExtender.PLATFORM_ANDROID,"androidrooting1",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Hook keystore stuff",BurpExtender.PLATFORM_ANDROID,"tracekeystore",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Hook crypto stuff",BurpExtender.PLATFORM_ANDROID,"dumpcryptostuff",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 1",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass1",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 2",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass2hook",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass with CA certificate, more reliable (requires CA public certificate in /data/local/tmp/cert-der.crt)",BurpExtender.PLATFORM_ANDROID,"androidpinningwithca1",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass without CA certificate, less reliable",BurpExtender.PLATFORM_ANDROID,"androidpinningwithoutca1",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Rooting check bypass",BurpExtender.PLATFORM_ANDROID,"androidrooting1",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Hook keystore stuff",BurpExtender.PLATFORM_ANDROID,"tracekeystore",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Hook crypto stuff",BurpExtender.PLATFORM_ANDROID,"dumpcryptostuff",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 1",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass1",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 2",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass2hook",true,new ArrayList<byte[]>(),null,false));
     	
     	// Default Android functions
-    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 2 (Enable the corresponding hook, trigger fingerprint screen and then run this function)",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass2function",false,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Dump all aliases in keystore of predefined types",BurpExtender.PLATFORM_ANDROID,"listaliasesstatic",false,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Dump all aliases in keystore collected during runtime (through the \"Hook keystore stuff\" hook)",BurpExtender.PLATFORM_ANDROID,"listaliasesruntime",false,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Bypass fingerprint 2 (Enable the corresponding hook, trigger fingerprint screen and then run this function)",BurpExtender.PLATFORM_ANDROID,"androidfingerprintbypass2function",false,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump all aliases in keystore of predefined types",BurpExtender.PLATFORM_ANDROID,"listaliasesstatic",false,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump all aliases in keystore collected during runtime (through the \"Hook keystore stuff\" hook)",BurpExtender.PLATFORM_ANDROID,"listaliasesruntime",false,new ArrayList<byte[]>(),null,false));
 
     	// Default iOS hooks
-    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 10) *",BurpExtender.PLATFORM_IOS,"ios10pinning",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 11) *",BurpExtender.PLATFORM_IOS,"ios11pinning",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 12) *",BurpExtender.PLATFORM_IOS,"ios12pinning",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Jailbreaking check bypass **",BurpExtender.PLATFORM_IOS,"iosjailbreak",true,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Bypass TouchID (click \"Cancel\" when TouchID windows pops up)",BurpExtender.PLATFORM_IOS,"iosbypasstouchid",true,new String[] {},null,false));   
-    	addButtonToHooksAndFunctions(new DefaultHook("Dump crypto stuff",BurpExtender.PLATFORM_IOS,"dumpcryptostuffios",true,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 10) *",BurpExtender.PLATFORM_IOS,"ios10pinning",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 11) *",BurpExtender.PLATFORM_IOS,"ios11pinning",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 12) *",BurpExtender.PLATFORM_IOS,"ios12pinning",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass (iOS 13) *",BurpExtender.PLATFORM_IOS,"ios13pinning",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Jailbreaking check bypass **",BurpExtender.PLATFORM_IOS,"iosjailbreak",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Bypass TouchID (click \"Cancel\" when TouchID windows pops up)",BurpExtender.PLATFORM_IOS,"iosbypasstouchid",true,new ArrayList<byte[]>(),null,false));   
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump crypto stuff",BurpExtender.PLATFORM_IOS,"dumpcryptostuffios",true,new ArrayList<byte[]>(),null,false));
     	
     	// Default iOS functions
-    	addButtonToHooksAndFunctions(new DefaultHook("Dump keychain",BurpExtender.PLATFORM_IOS,"iosdumpkeychain",false,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("List files with Data Protection keys",BurpExtender.PLATFORM_IOS,"iosdataprotectionkeys",false,new String[] {},null,false));
-    	addButtonToHooksAndFunctions(new DefaultHook("Dump current ENCRYPTED app (downloaded from App Store)",BurpExtender.PLATFORM_IOS,"iosdumpcurrentencryptedapp",false,new String[] {},null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump keychain",BurpExtender.PLATFORM_IOS,"iosdumpkeychain",false,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("List files with Data Protection keys",BurpExtender.PLATFORM_IOS,"iosdataprotectionkeys",false,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Dump and decrypt current ENCRYPTED app (for apps downloaded from App Store)",BurpExtender.PLATFORM_IOS,"iosdumpcurrentencryptedapp",false,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("Demagle Swift name",BurpExtender.PLATFORM_IOS,"demangle",false,new ArrayList<byte[]>(),new ArrayList<BurpExtender.Transformation>(),true));
     	    	
     }
     
@@ -367,7 +379,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
         stdout.println("Welcome to Brida, the new bridge between Burp Suite and Frida!");
         stdout.println("Created by Piergiovanni Cipolloni and Federico Dotta");
         stdout.println("Contributors: Maurizio Agazzini");
-        stdout.println("Version: 0.4");
+        stdout.println("Version: 0.5");
         stdout.println("");
         stdout.println("Github: https://github.com/federicodotta/Brida");
         stdout.println("");
@@ -490,28 +502,61 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 applicationStatus.setMaximumSize( applicationStatus.getPreferredSize() );
                 applicationStatusPanel.add(labelApplicationStatus);
                 applicationStatusPanel.add(applicationStatus);
-             
-                JPanel pythonPathPanel = new JPanel();
-                pythonPathPanel.setLayout(new BoxLayout(pythonPathPanel, BoxLayout.X_AXIS));
-                pythonPathPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelPythonPath = new JLabel("Python binary path: ");
-                pythonPath = new JTextField(200);                
+                                
+                JPanel virtualEnvPanel = new JPanel();
+                virtualEnvPanel.setLayout(new BoxLayout(virtualEnvPanel, BoxLayout.X_AXIS));
+                virtualEnvPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
+                JLabel labelUseVirtualEnv = new JLabel("Use virtual env: ");
+                useVirtualEnvCheckBox = new JCheckBox();                
+                if(callbacks.loadExtensionSetting("useVirtualEnvCheckBox") != null)
+                	useVirtualEnvCheckBox.setSelected(callbacks.loadExtensionSetting("useVirtualEnvCheckBox").equals("true"));
+                else
+                	useVirtualEnvCheckBox.setSelected(false);
+                useVirtualEnvCheckBox.addItemListener(new ItemListener() {
+                    @Override
+                    public void itemStateChanged(ItemEvent e) {                        
+                    	if(e.getStateChange() == ItemEvent.SELECTED) {
+                    		//labelPythonPathVenv.setText("Virtual env activation command: ");
+                    		labelPythonPathVenv.setText("Virtual env folder: ");
+                        } else {
+                        	labelPythonPathVenv.setText("Python binary path: ");
+                        }                            
+                    }
+                });
+                virtualEnvPanel.add(labelUseVirtualEnv);
+                virtualEnvPanel.add(useVirtualEnvCheckBox);
+                  
+                // The same field is used to take the virtual env folder, if virtual env checkbox is selected
+                JPanel pythonPathVenvPanel = new JPanel();
+                pythonPathVenvPanel.setLayout(new BoxLayout(pythonPathVenvPanel, BoxLayout.X_AXIS));
+                pythonPathVenvPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
+                if(callbacks.loadExtensionSetting("useVirtualEnvCheckBox") != null && callbacks.loadExtensionSetting("useVirtualEnvCheckBox").equals("true")) {
+                	//labelPythonPathVenv = new JLabel("Virtual env activation command: ");
+                	labelPythonPathVenv = new JLabel("Virtual env folder: ");
+                } else {
+                	labelPythonPathVenv = new JLabel("Python binary path: ");
+                }
+                pythonPathVenv = new JTextField(200);                
                 if(callbacks.loadExtensionSetting("pythonPath") != null)
-                	pythonPath.setText(callbacks.loadExtensionSetting("pythonPath"));
+                	pythonPathVenv.setText(callbacks.loadExtensionSetting("pythonPath"));
                 else {
-                	if(System.getProperty("os.name").startsWith("Windows")) {
-                		pythonPath.setText("C:\\python27\\python");
+                	if(callbacks.loadExtensionSetting("useVirtualEnvCheckBox") != null && callbacks.loadExtensionSetting("useVirtualEnvCheckBox").equals("true")) {
+                		pythonPathVenv.setText("");
                 	} else {
-                		pythonPath.setText("/usr/bin/python");
+	                	if(System.getProperty("os.name").startsWith("Windows")) {
+	                		pythonPathVenv.setText("C:\\python27\\python");
+	                	} else {
+	                		pythonPathVenv.setText("/usr/bin/python");
+	                	}
                 	}
                 }
-                pythonPath.setMaximumSize( pythonPath.getPreferredSize() );
-                JButton pythonPathButton = new JButton("Select file");
-                pythonPathButton.setActionCommand("pythonPathSelectFile");
-                pythonPathButton.addActionListener(BurpExtender.this);
-                pythonPathPanel.add(labelPythonPath);
-                pythonPathPanel.add(pythonPath);
-                pythonPathPanel.add(pythonPathButton);
+                pythonPathVenv.setMaximumSize( pythonPathVenv.getPreferredSize() );
+                JButton pythonPathVenvButton = new JButton("Select file");
+                pythonPathVenvButton.setActionCommand("pythonPathSelectFile");
+                pythonPathVenvButton.addActionListener(BurpExtender.this);
+                pythonPathVenvPanel.add(labelPythonPathVenv);
+                pythonPathVenvPanel.add(pythonPathVenv);
+                pythonPathVenvPanel.add(pythonPathVenvButton);
                                 
                 JPanel pyroHostPanel = new JPanel();
                 pyroHostPanel.setLayout(new BoxLayout(pyroHostPanel, BoxLayout.X_AXIS));
@@ -560,6 +605,18 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 fridaCompilePathPanel.add(labelFridaCompilePath);
                 fridaCompilePathPanel.add(fridaCompilePath);
                 fridaCompilePathPanel.add(fridaCompilePathButton);
+                
+                JPanel fridaCompilePanel = new JPanel();
+                fridaCompilePanel.setLayout(new BoxLayout(fridaCompilePanel, BoxLayout.X_AXIS));
+                fridaCompilePanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
+                JLabel labelFridaCompileVersion = new JLabel("Use old version of frida-compile (< 10): ");
+                fridaCompileOldCheckBox = new JCheckBox();                
+                if(callbacks.loadExtensionSetting("fridaCompileOldCheckBox") != null)
+                	fridaCompileOldCheckBox.setSelected(callbacks.loadExtensionSetting("fridaCompileOldCheckBox").equals("true"));
+                else
+                	fridaCompileOldCheckBox.setSelected(true);
+                fridaCompilePanel.add(labelFridaCompileVersion);
+                fridaCompilePanel.add(fridaCompileOldCheckBox);
  
                 JPanel fridaPathPanel = new JPanel();
                 fridaPathPanel.setLayout(new BoxLayout(fridaPathPanel, BoxLayout.X_AXIS));
@@ -579,7 +636,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 JButton fridaPathButton = new JButton("Select folder");
                 fridaPathButton.setActionCommand("fridaPathSelectFile");
                 fridaPathButton.addActionListener(BurpExtender.this);
-                JButton fridaDefaultPathButton = new JButton("Load default JS files");
+                JButton fridaDefaultPathButton = new JButton("Create default JS files");
                 fridaDefaultPathButton.setActionCommand("fridaPathSelectDefaultFile");
                 fridaDefaultPathButton.addActionListener(BurpExtender.this);
                 fridaPathPanel.add(labelFridaPath);
@@ -626,12 +683,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
             	  
                 configurationConfPanel.add(serverStatusPanel);
                 configurationConfPanel.add(applicationStatusPanel);
-                configurationConfPanel.add(pythonPathPanel);
+                configurationConfPanel.add(virtualEnvPanel);
+                configurationConfPanel.add(pythonPathVenvPanel);
                 configurationConfPanel.add(pyroHostPanel);
                 configurationConfPanel.add(pyroPortPanel);
                 configurationConfPanel.add(fridaCompilePathPanel);
+                configurationConfPanel.add(fridaCompilePanel);
                 configurationConfPanel.add(fridaPathPanel);
-                configurationConfPanel.add(applicationIdPanel);  
+                configurationConfPanel.add(applicationIdPanel); 
                 configurationConfPanel.add(localRemotePanel);
                 
                 // **** END CONFIGURATION PANEL
@@ -780,7 +839,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 trapTable.addMouseListener(new MouseAdapter() {
                 	@Override
                 	public void mouseClicked(MouseEvent evt) {
-                		int row = trapTable.rowAtPoint(evt.getPoint());
+                		int row = trapTable.convertRowIndexToModel(trapTable.rowAtPoint(evt.getPoint()));
                 		int col = trapTable.columnAtPoint(evt.getPoint());
                 		if (row >= 0 && col >= 0) {
                 			List<TrapTableItem> trapTableItems = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
@@ -908,7 +967,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                     }
                 });
                 customPluginTypePluginDescription = new JLabel("Plugin that dynamically process each requests and responses");                 
-                customPluginTypePluginDescription.setMaximumSize( customPluginTypePluginDescription.getPreferredSize() );
+                customPluginTypePluginDescription.setMaximumSize(new Dimension(Integer.MAX_VALUE, customPluginTypePluginDescription.getMinimumSize().height));
                 customPluginTypePluginPanel.add(customPluginTypePluginLabel);
                 customPluginTypePluginPanel.add(customPluginTypePluginOptions);
                 customPluginTypePluginPanel.add(customPluginTypePluginDescription);
@@ -1054,7 +1113,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginParametersPanel.setLayout(new BoxLayout(customPluginParametersPanel, BoxLayout.X_AXIS));
                 customPluginParametersPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
                 JLabel customPluginParametersLabel = new JLabel("Parameters: ");                
-                String[] customPluginParametersComboOptions = new String[] {"none", "complete request/response","headers","body","regex (with parenthesis)","fixed (#,# as separator)","ask to user with popup (#,# as separator)"};
+                String[] customPluginParametersComboOptions = CustomPlugin.functionParametersIHttpListener.stream().map(CustomPluginParameterValues::toString).toArray(String[]::new);                
                 customPluginParametersOptions = new JComboBox<String>(customPluginParametersComboOptions);
                 customPluginParametersOptions.setSelectedIndex(0);
                 customPluginParametersOptions.setMaximumSize( customPluginParametersOptions.getPreferredSize() );
@@ -1096,7 +1155,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginOutputPanel.setLayout(new BoxLayout(customPluginOutputPanel, BoxLayout.X_AXIS));
                 customPluginOutputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
                 JLabel customPluginOutputLabel = new JLabel("Plugin output: ");                
-                String[] customPluginOutputComboOptions = new String[] {"print in Brida console","replace in request/response with regex (with parenthesys)"};
+                String[] customPluginOutputComboOptions = CustomPlugin.functionOutputValuesIHttpListener.stream().map(CustomPluginFunctionOutputValues::toString).toArray(String[]::new);
+                                
                 customPluginOutputOptions = new JComboBox<String>(customPluginOutputComboOptions);
                 customPluginOutputOptions.setSelectedIndex(0);
                 customPluginOutputOptions.setMaximumSize( customPluginOutputOptions.getPreferredSize() );
@@ -1164,7 +1224,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginMessageEditorModifiedOutputLocationPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedOutputLocationPanel, BoxLayout.X_AXIS));
                 customPluginMessageEditorModifiedOutputLocationPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
                 JLabel customPluginMessageEditorModifiedOutputLocationLabel = new JLabel("Edited content location: ");                
-                String[] customPluginMessageEditorModifiedOutputLocationComboOptions = new String[] {"Discard (view only mode)","Print in Brida console and return original request/response","Replace complete request/response","Replace request/response body","Regex (with parenthesys)"};
+                String[] customPluginMessageEditorModifiedOutputLocationComboOptions = Stream.of(BridaMessageEditorPluginOutputLocation.values()).map(BridaMessageEditorPluginOutputLocation::toString).toArray(String[]::new);
                 customPluginMessageEditorModifiedOutputLocationOptions = new JComboBox<String>(customPluginMessageEditorModifiedOutputLocationComboOptions);
                 customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(0);
                 customPluginMessageEditorModifiedOutputLocationOptions.setMaximumSize( customPluginMessageEditorModifiedOutputLocationOptions.getPreferredSize() );
@@ -1225,7 +1285,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 customPluginsTable.addMouseListener(new MouseAdapter() {
                     @Override
                     public void mouseClicked(MouseEvent evt) {
-                        int row = customPluginsTable.rowAtPoint(evt.getPoint());
+                        int row = customPluginsTable.convertRowIndexToModel(customPluginsTable.rowAtPoint(evt.getPoint()));
                         int col = customPluginsTable.columnAtPoint(evt.getPoint());
                         if (row >= 0 && col >= 0) {
                         	List<CustomPlugin> customPlugins = ((CustomPluginsTableModel)(customPluginsTable.getModel())).getCustomPlugins();
@@ -1289,7 +1349,17 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                             			
                             			currentPlugin.disable();
                             			
+                            		} else {
+                            			
+                            			// Ask user confirmation
+                            			JFrame parentDialogResult = new JFrame();
+            			        		int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "Are you sure that you want to remove the plugin?","Warning",JOptionPane.YES_NO_OPTION);
+            			        		if(dialogResult != JOptionPane.YES_OPTION){
+            			        			return;
+            			        		}
+                            			
                             		}
+                            		
                             		// Double check because unload button hooks may fail if the application is running
                             		if(!currentPlugin.isOn()) {
             	                		synchronized(customPlugins) {                		
@@ -1528,7 +1598,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		switch(currentPlugin.getType()) {
 		
 			case IHTTPLISTENER:
-								
+												
 				BridaHttpListenerPlugin p = (BridaHttpListenerPlugin)currentPlugin;
 								
 				changeCustomPluginOptions("IHttpListener");
@@ -1606,21 +1676,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	}
 		            	customPluginExecuteWhenText.setText(p.getCustomPluginExecuteString());
 		            	
-		            	if(p.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.NONE) {
-		            		customPluginParametersOptions.setSelectedIndex(0);
-		            	} else if(p.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.COMPLETE) {
-		            		customPluginParametersOptions.setSelectedIndex(1);
-		            	} else if(p.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.HEADERS) {
-		            		customPluginParametersOptions.setSelectedIndex(2);
-		            	} else if(p.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.BODY) {
-		            		customPluginParametersOptions.setSelectedIndex(3);
-		            	} else if(p.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.REGEX) {
-		            		customPluginParametersOptions.setSelectedIndex(4);
-		            	} else if(p.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.FIXED) {
-		            		customPluginParametersOptions.setSelectedIndex(5);
-		            	} else {
-		            		customPluginParametersOptions.setSelectedIndex(6);
-		            	}
+		            	Object[] iHttpListenerParameters = CustomPlugin.functionParametersIHttpListener.toArray();
+		            	customPluginParametersOptions.setSelectedIndex(IntStream.range(0, iHttpListenerParameters.length)
+		            	         .filter(i -> p.getCustomPluginParameter() == (CustomPluginParameterValues)(iHttpListenerParameters[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginParametersText.setText(p.getCustomPluginParameterString());
 		            	
 		            	customPluginParameterEncodingTransformationList = new ArrayList<Transformation>(p.getCustomPluginParameterEncoding());
@@ -1629,11 +1689,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	customPluginOutputDecodingTransformationList = new ArrayList<Transformation>(p.getCustomPluginOutputDecoding());
 		            	customPluginOutputDecodingText.setText(customPluginOutputDecodingTransformationList.toString());
 		            	
-		            	if(p.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.BRIDA) {
-		            		customPluginOutputOptions.setSelectedIndex(0);
-		            	} else {
-		            		customPluginOutputOptions.setSelectedIndex(1);
-		            	}
+		            	Object[] iHttpListenerFunctionOutputValues = CustomPlugin.functionOutputValuesIHttpListener.toArray();
+		            	customPluginOutputOptions.setSelectedIndex(IntStream.range(0, iHttpListenerFunctionOutputValues.length)
+		            	         .filter(i -> p.getCustomPluginFunctionOutput() == (CustomPluginFunctionOutputValues)(iHttpListenerFunctionOutputValues[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginOutputText.setText(p.getCustomPluginFunctionOutputString());
 		            	
 		            	customPluginOutputEncodingTransformationList = new ArrayList<Transformation>(p.getCustomPluginOutputEncoding());
@@ -1681,21 +1741,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	}
 		            	customPluginExecuteWhenText.setText(p2.getCustomPluginExecuteString());
 		            	
-		            	if(p2.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.NONE) {
-		            		customPluginParametersOptions.setSelectedIndex(0);
-		            	} else if(p2.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.COMPLETE) {
-		            		customPluginParametersOptions.setSelectedIndex(1);
-		            	} else if(p2.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.HEADERS) {
-		            		customPluginParametersOptions.setSelectedIndex(2);
-		            	} else if(p2.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.BODY) {
-		            		customPluginParametersOptions.setSelectedIndex(3);
-		            	} else if(p2.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.REGEX) {
-		            		customPluginParametersOptions.setSelectedIndex(4);
-		            	} else if(p2.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.FIXED) {
-		            		customPluginParametersOptions.setSelectedIndex(5);
-		            	} else {
-		            		customPluginParametersOptions.setSelectedIndex(6);
-		            	}
+		            	Object[] iMessageEditorTabParameters = CustomPlugin.functionParametersIMessageEditorTab.toArray();
+		            	customPluginParametersOptions.setSelectedIndex(IntStream.range(0, iMessageEditorTabParameters.length)
+		            	         .filter(i -> p2.getCustomPluginParameter() == (CustomPluginParameterValues)(iMessageEditorTabParameters[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginParametersText.setText(p2.getCustomPluginParameterString());
 		            	
 		            	customPluginParameterEncodingTransformationList = new ArrayList<Transformation>(p2.getCustomPluginParameterEncoding());
@@ -1704,7 +1754,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	customPluginOutputDecodingTransformationList = new ArrayList<Transformation>(p2.getCustomPluginOutputDecoding());
 		            	customPluginOutputDecodingText.setText(customPluginOutputDecodingTransformationList.toString());
 		            	
-		            	customPluginOutputOptions.setSelectedIndex(0);
+		            	Object[] iMessageEditorTabFunctionOutputValues = CustomPlugin.functionOutputValuesIMessageEditorTab.toArray();
+		            	customPluginOutputOptions.setSelectedIndex(IntStream.range(0, iMessageEditorTabFunctionOutputValues.length)
+		            	         .filter(i -> p2.getCustomPluginFunctionOutput() == (CustomPluginFunctionOutputValues)(iMessageEditorTabFunctionOutputValues[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginOutputText.setText(p2.getCustomPluginFunctionOutputString());
 		            	
 		            	customPluginOutputEncodingTransformationList = new ArrayList<Transformation>(p2.getCustomPluginOutputEncoding());
@@ -1717,18 +1771,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	
 		            	customPluginMessageEditorModifiedDecodingOutputTransformationList = new ArrayList<Transformation>(p2.getCustomPluginEditedContentFridaOutputDecoding());
 		            	customPluginMessageEditorModifiedDecodingOutputText.setText(customPluginMessageEditorModifiedDecodingOutputTransformationList.toString());
-		            			            	
-		            	if(p2.getCustomPluginEditedContentLocation() == BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.NONE) {
-		            		customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(0);
-		            	} else if(p2.getCustomPluginEditedContentLocation() == BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.CONSOLE) {
-		            		customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(1);
-		            	} else if(p2.getCustomPluginEditedContentLocation() == BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.COMPLETE) {
-		            		customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(2);
-		            	} else if(p2.getCustomPluginEditedContentLocation() == BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.BODY) {
-		            		customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(3);
-		            	} else {
-		            		customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(4);
-		            	}
+		            	
+		            	customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(p2.getCustomPluginEditedContentLocation().ordinal());		            	
 		            	customPluginMessageEditorModifiedOutputLocationText.setText(p2.getCustomPluginEditedContentLocationString());
 		            	
 		            	customPluginMessageEditorModifiedOutputEncodingTransformationList = new ArrayList<Transformation>(p2.getCustomPluginEditedContentOutputEncoding());
@@ -1761,24 +1805,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	customPluginExecuteOnRadioButtonGroup.clearSelection();
 		            	customPluginExecuteOnRadioContext.setSelected(true);
 		            	customPluginExecuteOnStringParameter.setText(p3.getCustomPluginExecuteOnContextName());
-		            			            	
-		            	if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.NONE) {
-		            		customPluginParametersOptions.setSelectedIndex(0);
-		            	} else if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.COMPLETE) {
-		            		customPluginParametersOptions.setSelectedIndex(1);
-		            	} else if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.HEADERS) {
-		            		customPluginParametersOptions.setSelectedIndex(2);
-		            	} else if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.BODY) {
-		            		customPluginParametersOptions.setSelectedIndex(3);
-		            	} else if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.REGEX) {
-		            		customPluginParametersOptions.setSelectedIndex(4);
-		            	} else if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.CONTEXT) {
-		            		customPluginParametersOptions.setSelectedIndex(5);
-		            	} else if(p3.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.FIXED) {
-		            		customPluginParametersOptions.setSelectedIndex(6);
-		            	} else {
-		            		customPluginParametersOptions.setSelectedIndex(7);
-		            	}
+		            	
+		            	Object[] iContextMenuParameters = CustomPlugin.functionParametersIContextMenu.toArray();
+		            	customPluginParametersOptions.setSelectedIndex(IntStream.range(0, iContextMenuParameters.length)
+		            	         .filter(i -> p3.getCustomPluginParameter() == (CustomPluginParameterValues)(iContextMenuParameters[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginParametersText.setText(p3.getCustomPluginParameterString());
 		            	
 		            	customPluginParameterEncodingTransformationList = new ArrayList<Transformation>(p3.getCustomPluginParameterEncoding());
@@ -1787,15 +1819,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            	customPluginOutputDecodingTransformationList = new ArrayList<Transformation>(p3.getCustomPluginOutputDecoding());
 		            	customPluginOutputDecodingText.setText(customPluginOutputDecodingTransformationList.toString());
 		            	
-		            	if(p3.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.BRIDA) {
-		            		customPluginOutputOptions.setSelectedIndex(0);
-		            	} else if(p3.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.POPUP) {
-		            		customPluginOutputOptions.setSelectedIndex(1);
-		            	} else if(p3.getCustomPluginFunctionOutput() == CustomPlugin.CustomPluginFunctionOutputValues.REGEX) {
-		            		customPluginOutputOptions.setSelectedIndex(2);	
-		            	} else {
-		            		customPluginOutputOptions.setSelectedIndex(3);
-		            	}
+		            	Object[] iContextMenuFunctionOutputValues = CustomPlugin.functionOutputValuesIContextMenu.toArray();
+		            	customPluginOutputOptions.setSelectedIndex(IntStream.range(0, iContextMenuFunctionOutputValues.length)
+		            	         .filter(i -> p3.getCustomPluginFunctionOutput() == (CustomPluginFunctionOutputValues)(iContextMenuFunctionOutputValues[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginOutputText.setText(p3.getCustomPluginFunctionOutputString());
 		            	
 		            	customPluginOutputEncodingTransformationList = new ArrayList<Transformation>(p3.getCustomPluginOutputEncoding());
@@ -1848,20 +1876,23 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		            		customPluginParametersPanel.setVisible(true);
 	                		customPluginParameterEncodingPanel.setVisible(true);
 		            	}
-		            			            	
-		            	if(p4.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.NONE) {
-		            		customPluginParametersOptions.setSelectedIndex(0);
-		            	} else if(p4.getCustomPluginParameter() == CustomPlugin.CustomPluginParameterValues.FIXED) {
-		            		customPluginParametersOptions.setSelectedIndex(1);
-		            	} else {
-		            		customPluginParametersOptions.setSelectedIndex(2);
-		            	}
+		            	
+		            	Object[] jButtonParameters = CustomPlugin.functionParametersJButton.toArray();
+		            	customPluginParametersOptions.setSelectedIndex(IntStream.range(0, jButtonParameters.length)
+		            	         .filter(i -> p4.getCustomPluginParameter() == (CustomPluginParameterValues)(jButtonParameters[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
 		            	customPluginParametersText.setText(p4.getCustomPluginParameterString());
 		            	
 		            	customPluginParameterEncodingTransformationList = new ArrayList<Transformation>(p4.getCustomPluginParameterEncoding());
 		            	customPluginParameterEncodingText.setText(customPluginParameterEncodingTransformationList.toString());
-		            			            	
-		            	customPluginOutputOptions.setSelectedIndex(0);
+		            		
+		            	Object[] jButtonFunctionOutputValues = CustomPlugin.functionOutputValuesJButton.toArray();
+		            	customPluginOutputOptions.setSelectedIndex(IntStream.range(0, jButtonFunctionOutputValues.length)
+		            	         .filter(i -> p4.getCustomPluginFunctionOutput() == (CustomPluginFunctionOutputValues)(jButtonFunctionOutputValues[i]))
+		            	         .findFirst()
+		            	         .orElse(0));
+		            	customPluginOutputText.setText(p4.getCustomPluginFunctionOutputString());
 		            			            
 		            }
 		            
@@ -1911,12 +1942,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	                	customPluginExecuteWhenPanel.setVisible(true);
 	                	// Parameter
 	                    customPluginParametersPanel.setVisible(true);
-	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(new String[] {"none", "complete request/response","headers","body","regex (with parenthesis)","fixed (#,# as separator)","ask to user with popup (#,# as separator)"});
+	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(CustomPlugin.functionParametersIHttpListener.stream().map(CustomPluginParameterValues::toString).toArray(String[]::new));
 	                	customPluginParametersOptions.setModel(customPluginParametersModel);
 	                	// Parameter encoding
 	                	customPluginParameterEncodingPanel.setVisible(true);
 	                	// Plugin output
-	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console","replace in request/response with regex (with parenthesys)"});
+	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(CustomPlugin.functionOutputValuesIHttpListener.stream().map(CustomPluginFunctionOutputValues::toString).toArray(String[]::new));
 	                	customPluginOutputOptions.setModel(customPluginOutputModel);
 	                	customPluginOutputText.setVisible(true);
 	                	// Frida output decoding
@@ -1956,13 +1987,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	                	customPluginExecuteWhenPanel.setVisible(true);  
 	                	// Parameter
 	                	customPluginParametersPanel.setVisible(true);
-	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(new String[] {"none", "complete request/response","headers","body","regex (with parenthesis)","fixed (#,# as separator)","ask to user with popup (#,# as separator)"});
+	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(CustomPlugin.functionParametersIMessageEditorTab.stream().map(CustomPluginParameterValues::toString).toArray(String[]::new));
 	                	customPluginParametersOptions.setModel(customPluginParametersModel);
 	                	// Parameter encoding
 	                	customPluginParameterEncodingPanel.setVisible(true);
 	                	// Plugin output
-	                	//DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console","replace in request/response with regex (with parenthesys)"});
-	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"Print in Message Editor tab named"});
+	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(CustomPlugin.functionOutputValuesIMessageEditorTab.stream().map(CustomPluginFunctionOutputValues::toString).toArray(String[]::new));
 	                	customPluginOutputOptions.setModel(customPluginOutputModel);
 	                	customPluginOutputText.setVisible(true);
 	                	// Frida output decoding
@@ -2002,12 +2032,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	                	customPluginExecuteWhenPanel.setVisible(false); 
 	                	// Parameter
 	                	customPluginParametersPanel.setVisible(true);
-	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(new String[] {"none", "complete request/response","headers","body","regex (with parenthesis)","highlighted value in request/response","fixed (#,# as separator)","ask to user with popup (#,# as separator)"});
+	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(CustomPlugin.functionParametersIContextMenu.stream().map(CustomPluginParameterValues::toString).toArray(String[]::new));
 	                	customPluginParametersOptions.setModel(customPluginParametersModel);
 	                	// Parameter encoding
 	                	customPluginParameterEncodingPanel.setVisible(true);
 	                	// Plugin output
-	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console","print in popup","replace in request/response with regex (with parenthesys)","replace highlighted value in request/response"});
+	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(CustomPlugin.functionOutputValuesIContextMenu.stream().map(CustomPluginFunctionOutputValues::toString).toArray(String[]::new));
 	                	customPluginOutputOptions.setModel(customPluginOutputModel);
 	                	customPluginOutputText.setVisible(true);
 	                	// Frida output decoding
@@ -2051,7 +2081,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	                	} else {
 	                		customPluginParametersPanel.setVisible(false);
 	                	}
-	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(new String[] {"none", "fixed (#,# as separator)","ask to user with popup (#,# as separator)"});
+	                	DefaultComboBoxModel<String> customPluginParametersModel = new DefaultComboBoxModel<String>(CustomPlugin.functionParametersJButton.stream().map(CustomPluginParameterValues::toString).toArray(String[]::new));
 	                	customPluginParametersOptions.setModel(customPluginParametersModel);
 	                	// Parameter encoding
 	                	if(customPluginButtonTypeRadioFunction.isSelected()) {
@@ -2060,7 +2090,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	                		customPluginParameterEncodingPanel.setVisible(false);
 	                	}
 	                	// Plugin output
-	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(new String[] {"print in Brida console"});
+	                	DefaultComboBoxModel<String> customPluginOutputModel = new DefaultComboBoxModel<String>(CustomPlugin.functionOutputValuesJButton.stream().map(CustomPluginFunctionOutputValues::toString).toArray(String[]::new));
 	                	customPluginOutputOptions.setModel(customPluginOutputModel);
 	                	customPluginOutputText.setVisible(false);
 	                	// Frida output decoding
@@ -2320,7 +2350,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 		Runtime rt = Runtime.getRuntime();
 
-		String[] fridaCompileCommand = {fridaCompilePath,"-x","-o",fridaJsFolder + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",fridaJsFolder + System.getProperty("file.separator") + "brida.js"};
+		String[] fridaCompileCommand;
+		if(fridaCompileOldCheckBox.isSelected()) {
+			fridaCompileCommand = new String[]{fridaCompilePath,"-x","-o",fridaJsFolder + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",fridaJsFolder + System.getProperty("file.separator") + "brida.js"};
+		} else {
+			fridaCompileCommand = new String[]{fridaCompilePath,"-o",fridaJsFolder + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",fridaJsFolder + System.getProperty("file.separator") + "brida.js"};
+		}
 		
 		Process processCompilation = null;
 		try {
@@ -2332,7 +2367,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			    processCompilation.destroyForcibly();
 			    return false;
 			}
-			
+						
 			BufferedReader stdInput = new BufferedReader(new InputStreamReader(processCompilation.getInputStream()));	
 			BufferedReader stdError = new BufferedReader(new InputStreamReader(processCompilation.getErrorStream()));
 		
@@ -2342,14 +2377,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			}
 		
 			// Read any errors from the attempted command
-			System.out.println("Here is the standard error of the command (if any):\n");
-			boolean hasExceptions = false;
 			while ((s = stdError.readLine()) != null) {
 			    printException(null,s);
-			    hasExceptions = true;
 			}
 			
-			if(!hasExceptions) {
+			if(processCompilation.exitValue() == 0) {
 				printSuccessMessage("frida-compile completed successfully");
 				return true;
 			} else {
@@ -2363,14 +2395,72 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		
 	}
 	
-	private void launchPyroServer(String pythonPath, String pyroServicePath) {
+	private void launchPyroServer(String pythonPathEnv, String pyroServicePath) {
 		
 		Runtime rt = Runtime.getRuntime();
 		
-		String[] startServerCommand = {pythonPath,"-i",pyroServicePath,pyroHost.getText().trim(),pyroPort.getText().trim()};
+		String[] startServerCommand;		
+		String[] execEnv;
+		String debugCommandToPrint;
+		
+		if(useVirtualEnvCheckBox.isSelected()) {			
+				
+			// Add / or \\ if not present
+			pythonPathEnv = pythonPathEnv.trim().endsWith(System.getProperty("file.separator")) ? pythonPathEnv.trim() : pythonPathEnv.trim() + System.getProperty("file.separator");
+			
+			//System.getProperty("file.separator")
+			if(System.getProperty("os.name").trim().toLowerCase().startsWith("win")) {
+				
+				startServerCommand= new String[]{pythonPathEnv+ "Scripts\\python.exe","-i",pyroServicePath,pyroHost.getText().trim(),pyroPort.getText().trim()};
+				execEnv = new String[]{"VIRTUAL_ENV=" + pythonPathEnv,"PATH="+pythonPathEnv+"Scripts"};
+				
+				debugCommandToPrint = "\"" + pythonPathEnv+ "Scripts\\python.exe\" -i \"" + pyroServicePath + "\" " + pyroHost.getText().trim() + " " + pyroPort.getText().trim();
+				
+			} else {
+				
+				startServerCommand= new String[]{pythonPathEnv+ "bin/python","-i",pyroServicePath,pyroHost.getText().trim(),pyroPort.getText().trim()};
+				execEnv = new String[]{"VIRTUAL_ENV=" + pythonPathEnv,"PATH="+pythonPathEnv+"bin/"};
+				
+				debugCommandToPrint = "\"" + pythonPathEnv+ "bin/python\" -i \"" + pyroServicePath + "\" " + pyroHost.getText().trim() + " " + pyroPort.getText().trim();
+				
+			}
+			
+			/*
+			// Instead of manually setting the ENV variables it is possible to run the activate script of the venv in the following way:
+			 			
+			if(System.getProperty("os.name").trim().toLowerCase().startsWith("win")) {
+				
+				startServerCommand= new String[]{pythonPathEnv,"&&","python","-i",pyroServicePath,pyroHost.getText().trim(),pyroPort.getText().trim()};
+				
+				debugCommandToPrint = "\"" + pythonPathEnv + "\" && python -i \"" + pyroServicePath + "\" " + pyroHost.getText().trim() + " " + pyroPort.getText().trim();
+				
+			} else {
+				
+				startServerCommand= new String[]{"bash","-c",pythonPathEnv.replace("\"", "'") + "; python -i '" + pyroServicePath + "' " + pyroHost.getText().trim() + " " + pyroPort.getText().trim()};
+				
+				debugCommandToPrint = "bash -c \"" + pythonPathEnv.replace("\"", "'") + "; python -i '" + pyroServicePath + "' " + pyroHost.getText().trim() + " " + pyroPort.getText().trim() + "\"";
+				
+			}
+			execEnv = null;
+			*/
+			
+			printSuccessMessage("Start Pyro server command: " + debugCommandToPrint);
+			if(execEnv != null)
+				printSuccessMessage("Start Pyro server environemnt variables: " + Arrays.toString(execEnv));
+									
+			
+		} else {
+			
+			startServerCommand = new String[]{pythonPathEnv,"-i",pyroServicePath,pyroHost.getText().trim(),pyroPort.getText().trim()};			
+			execEnv = null;
+			
+			debugCommandToPrint = "\"" + pythonPathEnv + "\" -i \"" + pyroServicePath + "\" " + pyroHost.getText().trim() + " " + pyroPort.getText().trim();
+			printSuccessMessage("Start Pyro server command: " + debugCommandToPrint);
+			
+		}
 			
 		try {
-			pyroServerProcess = rt.exec(startServerCommand);
+			pyroServerProcess = rt.exec(startServerCommand,execEnv);
 									
 			final BufferedReader stdOutput = new BufferedReader(new InputStreamReader(pyroServerProcess.getInputStream()));
 			final BufferedReader stdError = new BufferedReader(new InputStreamReader(pyroServerProcess.getErrorStream()));
@@ -2385,7 +2475,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 							try {
 								
 								final String line = stdOutput.readLine();
-								
+																
 								// Only used to handle Pyro first message (when server start)
 								if(line.equals("Ready.")) {
 									        	
@@ -2506,12 +2596,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	
 	private void savePersistentSettings() {
 		
-		callbacks.saveExtensionSetting("pythonPath",pythonPath.getText().trim());
+		callbacks.saveExtensionSetting("useVirtualEnvCheckBox",(useVirtualEnvCheckBox.isSelected() ? "true" : "false"));
+		callbacks.saveExtensionSetting("pythonPath",pythonPathVenv.getText().trim());
 		callbacks.saveExtensionSetting("pyroHost",pyroHost.getText().trim());
 		callbacks.saveExtensionSetting("pyroPort",pyroPort.getText().trim());
 		callbacks.saveExtensionSetting("fridaCompilePath",fridaCompilePath.getText().trim());
+		callbacks.saveExtensionSetting("fridaCompileOldCheckBox",(fridaCompileOldCheckBox.isSelected() ? "true" : "false"));	
 		callbacks.saveExtensionSetting("fridaPath",fridaPath.getText().trim());
-		callbacks.saveExtensionSetting("applicationId",applicationId.getText().trim());
+		callbacks.saveExtensionSetting("applicationId",applicationId.getText().trim());			
 		if(remoteRadioButton.isSelected()) { 
 			callbacks.saveExtensionSetting("device","remote");
 		} else if(usbRadioButton.isSelected()) { 
@@ -2553,10 +2645,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			try {
 				fw = new FileWriter(outputFile);
 				
-				fw.write("pythonPath:" + pythonPath.getText().trim() + "\n");
+				fw.write("useVirtualEnvCheckBox:" + (useVirtualEnvCheckBox.isSelected() ? "true" : "false") + "\n");
+				fw.write("pythonPath:" + pythonPathVenv.getText().trim() + "\n");
 				fw.write("pyroHost:" + pyroHost.getText().trim() + "\n");
 				fw.write("pyroPort:" + pyroPort.getText().trim() + "\n");
 				fw.write("fridaCompilePath:" + fridaCompilePath.getText().trim() + "\n");
+				fw.write("fridaCompileOldCheckBox:" + (fridaCompileOldCheckBox.isSelected() ? "true" : "false") + "\n");
 				fw.write("fridaPath:" + fridaPath.getText().trim() + "\n");
 				fw.write("applicationId:" + applicationId.getText().trim() + "\n");
 				if(remoteRadioButton.isSelected())  
@@ -2638,8 +2732,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 					if(lineParts.length > 1) {
 											
 						switch(lineParts[0]) {
+						case "useVirtualEnvCheckBox":
+							useVirtualEnvCheckBox.setSelected(lineParts[1].equals("true"));
+							break;
 						case "pythonPath":
-							pythonPath.setText(lineParts[1]);
+							pythonPathVenv.setText(lineParts[1]);
 							break;
 						case "pyroHost":
 							pyroHost.setText(lineParts[1]);
@@ -2649,7 +2746,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 							break;
 						case "fridaCompilePath":
 							fridaCompilePath.setText(lineParts[1]);
-							break;							
+							break;			
+						case "fridaCompileOldCheckBox":
+							fridaCompileOldCheckBox.setSelected(lineParts[1].equals("true"));
+							break;
 						case "fridaPath":
 							fridaPath.setText(lineParts[1]);
 							break;
@@ -2891,7 +2991,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 				// Brida compiled file does not exist. Compiling it...
 				if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
-					printException(null, "Error during frida-compile. Aborting.");
+					printException(null, "Error during frida-compile, potentially caused by compilation errors. Aborting. If exception details are not returned, try to run frida-compile manually. frida-compile command:");
+					
+					if(fridaCompileOldCheckBox.isSelected()) {
+						printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -x -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+					} else {
+						printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+					}
+					
 					return;
 				}
 				
@@ -2902,7 +3009,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		} else if(command.equals("compileSpawnApplication") && serverStarted) {
 			
 			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
-				printException(null, "Error during frida-compile. Aborting.");
+				printException(null, "Error during frida-compile, potentially caused by compilation errors. Aborting. If exception details are not returned, try to run frida-compile manually. frida-compile command:");
+				
+				if(fridaCompileOldCheckBox.isSelected()) {
+					printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -x -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+				} else {
+					printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+				}
 				return;
 			}
 			
@@ -2914,7 +3027,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				
 				// Brida compiled file does not exist. Compiling it...
 				if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
-					printException(null, "Error during frida-compile. Aborting.");
+					printException(null, "Error during frida-compile, potentially caused by compilation errors. Aborting. If exception details are not returned, try to run frida-compile manually. frida-compile command:");
+					
+					if(fridaCompileOldCheckBox.isSelected()) {
+						printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -x -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+					} else {
+						printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+					}
 					return;
 				}
 				
@@ -2925,7 +3044,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		} else if(command.equals("compileAttachApplication") && serverStarted) {
 			
 			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
-				printException(null, "Error during frida-compile. Aborting.");
+				printException(null, "Error during frida-compile, potentially caused by compilation errors. Aborting. If exception details are not returned, try to run frida-compile manually. frida-compile command:");
+				
+				if(fridaCompileOldCheckBox.isSelected()) {
+					printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -x -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+				} else {
+					printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+				}
 				return;
 			}
 			
@@ -2949,6 +3074,15 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		} else if(command.equals("compileReloadScript") && serverStarted && applicationSpawned) {
 			
 			if(!compileFridaCode(fridaCompilePath.getText().trim(), fridaPath.getText().trim())) {
+				
+				printException(null, "Error during frida-compile, potentially caused by compilation errors. Aborting. If exception details are not returned, try to run frida-compile manually. frida-compile command:");
+				
+				if(fridaCompileOldCheckBox.isSelected()) {
+					printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -x -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+				} else {
+					printException(null, "\"" + fridaCompilePath.getText().trim() + "\" -o \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js\" \"" + fridaPath.getText().trim() +  System.getProperty("file.separator") + "brida.js\"");
+				}
+				
 				return;
 			}
 				
@@ -3102,7 +3236,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			
 			try {
 				
-				launchPyroServer(pythonPath.getText().trim(),pythonScript);
+				launchPyroServer(pythonPathVenv.getText().trim(),pythonScript);
 
 			} catch (final Exception e) {
 								
@@ -3299,6 +3433,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				newRoot.add(modulesNode);				
 				
 				model.setRoot(newRoot);
+				
+				if(platform == BurpExtender.PLATFORM_ANDROID) {
+					printSuccessMessage("**** Tree created (Java unloaded classes and methods will NOT be present in the tree)");
+				} else {
+					printSuccessMessage("**** Tree created");
+				}
 
 			} catch (Exception e) {
 								
@@ -3310,16 +3450,21 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		
 			String toSearch = findTextField.getText().trim();
 			
-			HashMap<String, Integer> foundObjcMethods = null;
-			if(platform == BurpExtender.PLATFORM_IOS) {
+			HashMap<String, Integer> foundObjcJavaMethods = null;
+			
+			if(platform == BurpExtender.PLATFORM_IOS || platform == BurpExtender.PLATFORM_ANDROID) {
+				String fridaExportForPlatform = ((platform == BurpExtender.PLATFORM_IOS) ? "findobjcmethods" : "findjavamethods");
 				try {
-					//foundObjcMethods = (HashMap<String,Integer>)(pyroBridaService.call("callexportfunction","findobjcmethods",new String[] {toSearch}));
-					foundObjcMethods = (HashMap<String,Integer>)(executePyroCall(pyroBridaService, "callexportfunction",new Object[] {"findobjcmethods",new String[] {toSearch}}));
+					foundObjcJavaMethods = (HashMap<String,Integer>)(executePyroCall(pyroBridaService, "callexportfunction",new Object[] {fridaExportForPlatform,new String[] {toSearch}}));
 				} catch (Exception e) {
-					printException(e,"Exception searching OBJC methods");
+					if(platform == BurpExtender.PLATFORM_IOS)
+						printException(e,"Exception searching OBJC methods");
+					else
+						printException(e,"Exception searching Java methods");
 					return;
 				} 
 			}
+			
 			
 			HashMap<String, Integer> foundImports = null;
 			try {
@@ -3338,15 +3483,19 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				printException(e,"Exception searching exports");
 				return;
 			} 
-				
-			printJSMessage("**** Result of the search of " + findTextField.getText().trim());
 			
-			if(foundObjcMethods != null) {
+			if(platform == BurpExtender.PLATFORM_ANDROID) {
+				printSuccessMessage("**** Result of the search of " + findTextField.getText().trim() + " (Java unloaded classes and methods unloaded will NOT be present in the list)");
+			} else {
+				printSuccessMessage("**** Result of the search of " + findTextField.getText().trim());
+			}
+			
+			if(foundObjcJavaMethods != null) {
 				
-				ArrayList<String> objcMethodNames = new ArrayList<String>(foundObjcMethods.keySet());
+				ArrayList<String> objcJavaMethodNames = new ArrayList<String>(foundObjcJavaMethods.keySet());
 				
 				// Sort objc method names
-				Collections.sort(objcMethodNames, new Comparator<String>() {
+				Collections.sort(objcJavaMethodNames, new Comparator<String>() {
 			        @Override
 			        public int compare(String class1, String class2)
 			        {
@@ -3355,14 +3504,18 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			        }
 			    });	
 			
-				Iterator<String> currentClassMethodsIterator = objcMethodNames.iterator(); 
+				Iterator<String> currentClassMethodsIterator = objcJavaMethodNames.iterator(); 
 				
 				String currentMethodName;
 				
 				while(currentClassMethodsIterator.hasNext()) {
 					
 					currentMethodName = currentClassMethodsIterator.next();
-					printJSMessage("OBJC: " + currentMethodName);
+					if(platform == BurpExtender.PLATFORM_IOS) {
+						printJSMessage("OBJC: " + currentMethodName);
+					} else {
+						printJSMessage("JAVA: " + currentMethodName);
+					}
 					
 				}
 				
@@ -3477,12 +3630,22 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		} else if(command.equals("trapBacktrace")) {	
 			
 			trap(true);	
+			
+		} else if(command.equals("demangle")) {
+		
+			demangleSwift();
 
 		} else if(command.equals("pythonPathSelectFile")) {
 			
 			JFrame parentFrame = new JFrame();
 			JFileChooser fileChooser = new JFileChooser();
-			fileChooser.setDialogTitle("Python Path");
+			
+			if(useVirtualEnvCheckBox.isSelected()) {
+				fileChooser.setDialogTitle("Virtual Env Folder");
+				fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+			} else {
+				fileChooser.setDialogTitle("Python Path");
+			}
 			
 			int userSelection = fileChooser.showOpenDialog(parentFrame);
 			
@@ -3494,7 +3657,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 					
 		            @Override
 		            public void run() {
-		            	pythonPath.setText(pythonPathFile.getAbsolutePath());
+		            	pythonPathVenv.setText(pythonPathFile.getAbsolutePath());
 		            }
 				
 				});
@@ -3530,6 +3693,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			JFileChooser fileChooser = new JFileChooser();
 			fileChooser.setDialogTitle("Frida JS folder");
 			fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+			fileChooser.setCurrentDirectory(new File(fridaPath.getText().trim()));
 			
 			int userSelection = fileChooser.showOpenDialog(parentFrame);
 			
@@ -3554,6 +3718,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			JFileChooser fileChooser = new JFileChooser();
 			fileChooser.setDialogTitle("Select location for Frida default JS file");
 			fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+			fileChooser.setCurrentDirectory(new File(fridaPath.getText().trim()));
 			
 			String[] bridaFiles = new String[] {
 				"brida.js",
@@ -3597,16 +3762,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 						}
 						reader.close();
 						br.close();
-						
-						SwingUtilities.invokeLater(new Runnable() {
-							
-				            @Override
-				            public void run() {
-				            	fridaPath.setText(fridaPathFolder.getAbsolutePath());
-				            }
-						
-						});
-						
+					
 					} catch(Exception e) {
 						
 						printException(e,"Error copying Frida " + bridaFiles[i] + " JS file");
@@ -3614,6 +3770,15 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 					}
 					
 				}
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+		            @Override
+		            public void run() {
+		            	fridaPath.setText(fridaPathFolder.getAbsolutePath());
+		            }
+				
+				});
 				
 			}
 			
@@ -3728,24 +3893,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			}
 			
 			// Parameters
-			CustomPluginParameterValues customPluginParameter = null;
-			if(customPluginParametersOptions.getSelectedItem().toString().equals("none")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.NONE;
-			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("complete request/response")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.COMPLETE;
-			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("headers")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.HEADERS;
-			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("body")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.BODY;
-			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("highlighted value in request/response")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.CONTEXT;
-			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("regex (with parenthesis)")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.REGEX;
-			} else if(customPluginParametersOptions.getSelectedItem().toString().equals("fixed (#,# as separator)")) {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.FIXED;
-			} else {
-				customPluginParameter = CustomPlugin.CustomPluginParameterValues.POPUP;
-			}
+			CustomPluginParameterValues customPluginParameter = CustomPluginParameterValues.getEnumByName(customPluginParametersOptions.getSelectedItem().toString());
 			
 			// Parameter encoding
 			List<Transformation> customPluginParameterEncoding = new ArrayList<Transformation>(customPluginParameterEncodingTransformationList);
@@ -3754,18 +3902,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			List<Transformation> customPluginOutputDecoding = new ArrayList<Transformation>(customPluginOutputDecodingTransformationList);
 			
 			// Plugin output
-			CustomPluginFunctionOutputValues customPluginFunctionOutput = null;
-			if(customPluginOutputOptions.getSelectedItem().toString().equals("print in Brida console")) {
-				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.BRIDA;
-			} else if(customPluginOutputOptions.getSelectedItem().toString().equals("print in popup")) {
-				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.POPUP;				
-			} else if(customPluginOutputOptions.getSelectedItem().toString().equals("replace highlighted value in request/response")) {
-				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.CONTEXT;
-			} else if(customPluginOutputOptions.getSelectedItem().toString().equals("replace in request/response with regex (with parenthesys)")) {
-				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.REGEX;
-			} else {
-				customPluginFunctionOutput = CustomPlugin.CustomPluginFunctionOutputValues.MESSAGE_EDITOR;
-			}
+			CustomPluginFunctionOutputValues customPluginFunctionOutput = CustomPluginFunctionOutputValues.getEnumByName(customPluginOutputOptions.getSelectedItem().toString());
 			
 			// Encode output
 			List<Transformation> customPluginOutputEncoding = new ArrayList<Transformation>(customPluginOutputEncodingTransformationList);
@@ -3777,20 +3914,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			List<Transformation> customPluginOutputDecodingEditedContent = new ArrayList<Transformation>(customPluginMessageEditorModifiedDecodingOutputTransformationList);
 			
 			// Message editor output location (IMessageEditorTab only)
-			BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation customPluginEditedMessageOutputLocation = null;
-			if(pluginType == CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB) {
-				if(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString().equals("Discard (view only mode)")) {
-					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.NONE;
-				} else if(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString().equals("Print in Brida console and return original request/response")) {
-					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.CONSOLE;
-				} else if(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString().equals("Replace complete request/response")) {
-					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.COMPLETE;
-				} else if(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString().equals("Replace request/response body")) {
-					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.BODY;
-				} else {
-					customPluginEditedMessageOutputLocation = BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.REGEX;
-				}
-			}
+			BridaMessageEditorPluginOutputLocation customPluginEditedMessageOutputLocation = BridaMessageEditorPluginOutputLocation.getEnumByName(customPluginMessageEditorModifiedOutputLocationOptions.getSelectedItem().toString());
 			
 			// Encode output of Frida function executed on edited content (IMessageEditorTab only)
 			List<Transformation> customPluginEditedFunctionOutputEncoding = new ArrayList<Transformation>(customPluginMessageEditorModifiedOutputEncodingTransformationList);
@@ -3889,6 +4013,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			JFrame parentFrameExportPlugins = new JFrame();
 			JFileChooser fileChooserExportPlugins = new JFileChooser();
 			fileChooserExportPlugins.setDialogTitle("Export custom plugins to file");
+			fileChooserExportPlugins.setCurrentDirectory(new File(fridaPath.getText().trim()));
 	        int userSelectionExportPlugins = fileChooserExportPlugins.showSaveDialog(parentFrameExportPlugins);
 	        
 	        if (userSelectionExportPlugins == JFileChooser.APPROVE_OPTION) {
@@ -3927,6 +4052,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			JFrame parentFrameImportPlugins = new JFrame();
 			JFileChooser fileChooserImportPlugins = new JFileChooser();
 			fileChooserImportPlugins.setDialogTitle("Import custom plugins from file");
+			fileChooserImportPlugins.setCurrentDirectory(new File(fridaPath.getText().trim()));
 	        int userSelectionImportPlugins = fileChooserImportPlugins.showOpenDialog(parentFrameImportPlugins);
 	        
 	        if (userSelectionImportPlugins == JFileChooser.APPROVE_OPTION) {
@@ -4438,6 +4564,48 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		}
 		
 	}
+	
+	public void demangleSwift() {
+		
+		if(platform != BurpExtender.PLATFORM_IOS) {
+			
+			printException(null,"Swift demangle is available only on iOS OS");
+			return;
+			
+		}
+		
+		DefaultMutableTreeNode clickedNode = (DefaultMutableTreeNode)(tree.getSelectionPath().getLastPathComponent());
+		
+		String toDemangle = (String)clickedNode.getUserObject();
+		
+		if(toDemangle.startsWith("function: ") || toDemangle.startsWith("variable: ")) {
+			
+			toDemangle = toDemangle.replace("function: ", "");
+			toDemangle = toDemangle.replace("variable: ", "");
+			
+			if(toDemangle.startsWith("__T"))
+				toDemangle = toDemangle.substring(1);
+				
+			try {
+					
+				String ret = (String)executePyroCall(pyroBridaService, "callexportfunction",new Object[] {"demangle",new String[] {toDemangle}});
+				
+				JOptionPane.showMessageDialog(null, ret, toDemangle, JOptionPane.INFORMATION_MESSAGE);
+				
+			} catch (Exception e) {
+				
+				printException(e,"Exception with demangle");
+				
+			}
+			
+		} else {
+			
+			printException(null,"Only Swift names can be demangled");
+			
+		}
+		
+		
+	}
 
 	public void trap(boolean withBacktrace) {		
 
@@ -4527,7 +4695,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				} else if(type.startsWith("java")) {
 					defaultHookPlatform = BurpExtender.PLATFORM_IOS;
 				}
-				DefaultHook treeHook = new DefaultHook("Tree hook trace " +  type + ": " + pattern,defaultHookPlatform,"trace",true,new String[] {pattern,type,(withBacktrace ? "true" : "false")},null,false);
+				DefaultHook treeHook = new DefaultHook("Tree hook trace " +  type + ": " + pattern,defaultHookPlatform,"trace",true,new ArrayList<byte[]>(Arrays.asList(new byte[][] {pattern.getBytes(),type.getBytes(),(withBacktrace ? "true".getBytes() : "false".getBytes())})),null,false);				
 				treeHook.setEnabled(true);
 				treeHooks.add(treeHook);
 				
@@ -4631,7 +4799,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				} else if(type.startsWith("java")) {
 					defaultHookPlatform = BurpExtender.PLATFORM_IOS;
 				}
-				DefaultHook treeHook = new DefaultHook("Tree hook changereturnvalue " +  type + ": " + pattern,defaultHookPlatform,"changereturnvalue",true,new String[] {pattern,type,returnValueType,dialogResult},null,false);
+				DefaultHook treeHook = new DefaultHook("Tree hook changereturnvalue " +  type + ": " + pattern,defaultHookPlatform,"changereturnvalue",true,new ArrayList<byte[]>(Arrays.asList(new byte[][] {pattern.getBytes(),type.getBytes(),returnValueType.getBytes(),dialogResult.getBytes()})) ,null,false);
 				treeHook.setEnabled(true);
 				treeHooks.add(treeHook);
 								
@@ -4965,12 +5133,12 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 
             		if(applicationSpawned) {
 	            		// Parameters
-	    				String[] currentParameters;
+	    				List<byte[]> currentParameters = new ArrayList<byte[]>();
 	    				if(dh.isPopupParameters()) {
 	    					String parametersPopup = JOptionPane.showInputDialog("Enter parameter(s), delimited by \"#,#\"");
-	    					currentParameters = parametersPopup.split("#,#");
-	    					for(int i=0;i<currentParameters.length;i++) {
-        						currentParameters[i] = CustomPlugin.encodeCustomPluginValue(currentParameters[i].getBytes(),dh.getParametersEncoding(), BurpExtender.this);
+	    					String[] parametersPopupSplitString = parametersPopup.split("#,#");
+	    					for(int i=0;i<parametersPopupSplitString.length;i++) {
+        						currentParameters.add(CustomPlugin.encodeCustomPluginValue(parametersPopupSplitString[i].getBytes(),dh.getParametersEncoding(), BurpExtender.this));
         					}
 	    				} else {
         					// For cases different from POPUP parameters are already encoded	    					
@@ -4980,7 +5148,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	    				try {
 	    					printJSMessage("*** Output " + dh.getName() + ":");
 	    					//String ret = (String)pyroBridaService.call("callexportfunction",dh.getFridaExportName(),currentParameters);
-	    					String ret = (String)executePyroCall(pyroBridaService, "callexportfunction",new Object[] {dh.getFridaExportName(),currentParameters});
+	    					String ret = (String)executePyroCall(pyroBridaService, "callexportfunction",new Object[] {dh.getFridaExportName(),CustomPlugin.convertParametersForFrida(currentParameters,BurpExtender.this)});
 	    					printJSMessage("* Ret value: " + ret);
 						} catch (Exception e) {
 							printException(e,"Error while running function " + dh.getName());
