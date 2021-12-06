@@ -3,26 +3,24 @@
     It supports all platforms supported by Frida (Windows, macOS, Linux, iOS, Android, and QNX).
 </p>
 
-<p>This idea is a need that is born during the analysis of some mobile application that use strong symmetric cryptography using
-    random keys, without knowing the correct secret all data was not modifiable via Burp neither with a custom plugin.
-    More generally, applications' logic could be based on cryptographic tokens, it could use a complex challenge-response
-    algorithm as well, and so on. How can we tamper the messages? Most of the times the only viable approach is to
-    decompile/disassemble the application, identify the functions or methods we're interested in AND re-implement them.
-    This approach is obviously time consuming and not always really viable: i.e. the generation of tokens and/or the encryption
-    routines could be based on cryptographic material strictly tied to the device (state) or stored inside protected areas and
-    thus not directly accessible... That's when Brida comes in handy: instead of trying to extract keys/certificates and
-    re-writing the routines we're interested in, why don't we let the application do the dirty work for us?
-</p>
+<p>This idea is a need that is born during the analysis of some mobile application that use strong symmetric cryptography using random keys, without knowing the correct secret all data was not modifiable via Burp neither with a custom plugin. More generally, applications' logic could be based on cryptographic tokens, it could use a complex challenge-response algorithm as well, and so on. How can we tamper the messages? Most of the times the only viable approach is to decompile/disassemble the application, identify the functions or methods we’re interested in AND re-implement them. This approach is obviously time consuming and not always really viable: i.e. the generation of tokens and/or the encryption routines could be based on cryptographic material strictly tied to the device (state) or stored inside protected areas and thus not directly accessible... That’s when Brida comes in handy: instead of trying to extract keys/certificates and re-writing the routines we’re interested in, why don’t we let the application do the dirty work for us?</p>
 
-<p>Brida integrates many different tools that help pentesters during mobile
-application analysis, among which an integrated console in which output
-from all the Frida and Brida hooks are printed, an integrated JS editor
-with JavaScript syntax highlighting and an analysis tab, in which there is
-a tree representation of the binary (Java/OBJC classes and methods,
-imports/exports) and from which it is possible to graphically add
-inspection hooks (that print arguments and return value every time that the
-hooked function is executed) and tamper hooks (that dynamically change the
-return value of the hooked function every time that it is executed).</p>
+<p>Brida integrates many Frida hooks developed by various authors to inspect/bypass many security features. A list of projects (I hope quite exhaustive) from which I took Frida code for the "Hooks and functions" section of Brida is (random order):</p>
+<ul>
+<li>Piergiovanni Cipolloni - <a href="https://codeshare.frida.re/@pcipolloni/universal-android-ssl-pinning-bypass-with-frida/">Universal Android SSL Pinning Bypass with Frida</a></li>
+<li>Mattia Vinci and Maurizio Agazzini - <a href="https://codeshare.frida.re/@sowdust/universal-android-ssl-pinning-bypass-2/">Universal Android SSL Pinning Bypass 2</a></li>
+<li>Maurizio Siddu - <a href="https://codeshare.frida.re/@akabe1/frida-multiple-unpinning/">frida-multiple-unpinning</a></li>
+<li>dzonerzy - <a href="https://codeshare.frida.re/@dzonerzy/fridantiroot/">fridantiroot</a></li>
+<li>F-Secure Labs - <a href="https://github.com/FSecureLABS/android-keystore-audit">Android KeyStore Audit</a></li>
+<li>F-Secure Labs - <a href="https://github.com/FSecureLABS/android-keystore-audit">needle</a></li>
+<li>Alban Diquet - <a href="https://github.com/nabla-c0d3/ssl-kill-switch2/">SSL Kill Switch 2</a></li>
+<li>dki - <a href="https://codeshare.frida.re/@dki/ios10-ssl-bypass/">ios10-ssl-bypass</a></li>
+<li>macho_reverser - <a href="https://github.com/machoreverser/Frida-Scripts/blob/master/ssl_bypass.js">iOS 12 SSL Bypass</a></li>
+<li>Chaitin Tech - <a href="https://github.com/chaitin/passionfruit">Passionfruit</a></li>
+<li>lich0 - <a href="https://codeshare.frida.re/@lichao890427/dump-ios/">dump ios</a></li>
+<li>ay-kay - <a href="https://codeshare.frida.re/@ay-kay/ios-dataprotection/">iOS DataProtection</a></li>
+<li>neil-wu - <a href="https://codeshare.frida.re/@neil-wu/fridaswiftdump/">FridaSwiftDump</a></li>
+</ul>
 
 <p>Last
 version introduces the most recent Frida hooks developed by the community
@@ -45,18 +43,23 @@ requests and responses</li>
 
 <p><b>Requirements:</b></p>
 
-<ul>
-    <li>Python 2.7 or 3 with pyro4 module, frida client and frida-compile</li>
-    <li>An iOS or Android device with the frida-server running on it (root
-    privileges on the device required) or an application patched with the
-        Frida's Gadget (root privileges on the device not required).</li>
-</ul>
+<p>In order to be able to use Brida, you need:</p>
+<ol>
+<li>Burp Suite (1.X or 2.X)</li>
+<li>Frida client</li>
+<li>Pyro4</li>
+<li>frida-compile</li>
+<li>A jailbroken iOS device/rooted Android device with frida-server running on it (or an application patched with the frida-gadget)</li>
+<li>An application to analyze! :D</li>
+</ol>
 
-<p><b>Further information:</b></p>
-
+<p>The slides of our conference presented at <strong>HackInBo 2017 Winter Edition</strong> that describes the <strong>first version</strong> can be found at:</p>
 <ul>
-    <li><a href="https://github.com/federicodotta/Brida/wiki">Brida Wiki!</a></li>
-    <li>Hack in The Box 2018 Amsterdam presentation (on the previous version of
-Brida): <a href="https://conference.hitb.org/hitbsecconf2018ams/materials/D1T1%20-%20Federico%20Dotta%20and%20Piergiovanni%20Cipolloni%20-%20Brida%20When%20Burp%20Suite%20Meets%20Frida.pdf">slides</a> and
-        <a href="https://www.youtube.com/watch?v=wPepicuHDzs&t=18s">video</a></li>
+<li>(ENG) <a href="https://www.hackinbo.it/slides/1508354139_HackInBo%202017%20Winter%20Edition%20-%20Federico%20Dotta%20-%20Advanced%20mobile%20penetration%20testing%20with%20Brida%20-%20141017.pdf">https://www.hackinbo.it/slides/1508354139_HackInBo%202017%20Winter%20Edition%20-%20Federico%20Dotta%20-%20Advanced%20mobile%20penetration%20testing%20with%20Brida%20-%20141017.pdf</a></li>
 </ul>
+<p>The slides and the video of our conference presented at <strong>Hack In The Box 2018 Amsterdam</strong> that describes the new features of the <strong>version 0.2</strong> can be found at:</p>
+<ul>
+<li>(ENG) <a href="https://conference.hitb.org/hitbsecconf2018ams/materials/D1T1%20-%20Federico%20Dotta%20and%20Piergiovanni%20Cipolloni%20-%20Brida%20When%20Burp%20Suite%20Meets%20Frida.pdf">https://conference.hitb.org/hitbsecconf2018ams/materials/D1T1%20-%20Federico%20Dotta%20and%20Piergiovanni%20Cipolloni%20-%20Brida%20When%20Burp%20Suite%20Meets%20Frida.pdf</a></li>
+<li>(ENG) <a href="https://www.youtube.com/watch?v=wPepicuHDzs&amp;t=18s">https://www.youtube.com/watch?v=wPepicuHDzs&amp;t=18s</a></li>
+</ul>
+<p>The slides and the video of our conference presented at <strong>Hack In Paris <del>2020</del> 2021</strong> (postponed for the COVID-19 global situation) that describes the new features of the <strong>version <del>0.4</del> 0.5</strong> will be linked here as soon as they will be available.</p>
