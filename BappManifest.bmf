@@ -3,7 +3,7 @@ ExtensionType: 1
 Name: Brida, Burp to Frida bridge
 RepoName: brida
 ScreenVersion: 0.5
-SerialVersion: 8
+SerialVersion: 15
 MinPlatformVersion: 0
 ProOnly: False
 Author: Federico Dotta, Piergiovanni Cipolloni
