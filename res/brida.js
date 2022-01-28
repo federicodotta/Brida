@@ -1,18 +1,52 @@
-import { androidpinningwithca1, androidpinningwithoutca1, androidrooting1, androidfingerprintbypass1, androidfingerprintbypass2hook } from './androidDefaultHooks.js'
-import { androidfingerprintbypass2function, tracekeystore, listaliasesstatic, listaliasesruntime, dumpcryptostuff } from './androidDefaultHooks.js'
-import { ios10pinning, ios11pinning, ios12pinning, ios13pinning, iosbypasstouchid, iosjailbreak, iosdumpkeychain, iosdataprotectionkeys, iosdumpcurrentencryptedapp, dumpcryptostuffios, demangle } from './iosDefaultHooks.js'
-import { getallclasses, getallmodules, getmoduleimports, getmoduleexports, getclassmethods, findobjcmethods, findjavamethods } from './bridaFunctions.js'
-import { findimports, findexports, detachall, trace, changereturnvalue, getplatform } from './bridaFunctions.js'
+const androidpinningwithca1 = require("./androidDefaultHooks.js").androidpinningwithca1
+const androidpinningwithoutca1 = require("./androidDefaultHooks.js").androidpinningwithoutca1
+const androidrooting1 = require("./androidDefaultHooks.js").androidrooting1
+const androidfingerprintbypass1 = require("./androidDefaultHooks.js").androidfingerprintbypass1
+const androidfingerprintbypass2hook = require("./androidDefaultHooks.js").androidfingerprintbypass2hook
+const androidfingerprintbypass2function = require("./androidDefaultHooks.js").androidfingerprintbypass2function
+const tracekeystore = require("./androidDefaultHooks.js").tracekeystore
+const listaliasesstatic = require("./androidDefaultHooks.js").listaliasesstatic
+const listaliasesruntime = require("./androidDefaultHooks.js").listaliasesruntime
+const dumpcryptostuff = require("./androidDefaultHooks.js").dumpcryptostuff
+const ios10pinning = require("./iosDefaultHooks.js").ios10pinning
+const ios11pinning = require("./iosDefaultHooks.js").ios11pinning
+const ios12pinning = require("./iosDefaultHooks.js").ios12pinning
+const ios13pinning = require("./iosDefaultHooks.js").ios13pinning
+const iosbypasstouchid = require("./iosDefaultHooks.js").iosbypasstouchid
+const iosjailbreak = require("./iosDefaultHooks.js").iosjailbreak
+const iosdumpkeychain = require("./iosDefaultHooks.js").iosdumpkeychain
+const iosdataprotectionkeys = require("./iosDefaultHooks.js").iosdataprotectionkeys
+const iosdumpcurrentencryptedapp = require("./iosDefaultHooks.js").iosdumpcurrentencryptedapp
+const dumpcryptostuffios = require("./iosDefaultHooks.js").dumpcryptostuffios
+const demangle = require("./iosDefaultHooks.js").demangle
+const getallclasses = require("./bridaFunctions").getallclasses
+const getallmodules = require("./bridaFunctions").getallmodules
+const getmoduleimports = require("./bridaFunctions").getmoduleimports
+const getmoduleexports = require("./bridaFunctions").getmoduleexports
+const getclassmethods = require("./bridaFunctions").getclassmethods
+const findobjcmethods = require("./bridaFunctions").findobjcmethods
+const findjavamethods = require("./bridaFunctions").findjavamethods
+const findimports = require("./bridaFunctions").findimports
+const findexports = require("./bridaFunctions").findexports
+const detachall = require("./bridaFunctions").detachall
+const trace = require("./bridaFunctions").trace
+const changereturnvalue = require("./bridaFunctions").changereturnvalue
+const getplatform = require("./bridaFunctions").getplatform
 
 // Brida User file: use this file to insert your Frida exports/hooks/functions.
 // Do not remove existing code (it is necessary for Brida)
 
 rpc.exports = {
-	androidpinningwithca1, androidpinningwithoutca1, androidrooting1, androidfingerprintbypass1, androidfingerprintbypass2hook, 
-    androidfingerprintbypass2function, tracekeystore, listaliasesstatic, listaliasesruntime, dumpcryptostuff,
-	ios10pinning, ios11pinning, ios12pinning, ios13pinning, iosbypasstouchid, iosjailbreak, iosdumpkeychain, iosdataprotectionkeys, iosdumpcurrentencryptedapp, dumpcryptostuffios, demangle,
-	getallclasses, getallmodules, getmoduleimports, getmoduleexports, getclassmethods, findobjcmethods, findjavamethods,
-	findimports, findexports, detachall, trace, changereturnvalue, getplatform,
+	androidpinningwithca1, androidpinningwithoutca1, androidrooting1, 
+    androidfingerprintbypass1, androidfingerprintbypass2hook, 
+    androidfingerprintbypass2function, tracekeystore, listaliasesstatic, 
+    listaliasesruntime, dumpcryptostuff,
+	ios10pinning, ios11pinning, ios12pinning, ios13pinning, 
+    iosbypasstouchid, iosjailbreak, iosdumpkeychain, iosdataprotectionkeys, 
+    iosdumpcurrentencryptedapp, dumpcryptostuffios, demangle,
+	getallclasses, getallmodules, getmoduleimports, getmoduleexports, 
+    getclassmethods, findobjcmethods, findjavamethods, findimports, 
+    findexports, detachall, trace, changereturnvalue, getplatform,
 
 	// BE CAREFUL: Do not use uppercase characters in exported function name (automatically converted lowercase by Pyro)
 	exportedfunction: function() {

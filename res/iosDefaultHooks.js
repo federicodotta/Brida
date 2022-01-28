@@ -1,4 +1,10 @@
-export function demangle(name) {
+module.exports = {
+	ios10pinning, ios11pinning, ios12pinning, ios13pinning, 
+    iosbypasstouchid, iosjailbreak, iosdumpkeychain, iosdataprotectionkeys, 
+    iosdumpcurrentencryptedapp, dumpcryptostuffios, demangle
+}
+
+function demangle(name) {
 
 	var _swift_demangle = null
 	var _free = null
@@ -49,7 +55,7 @@ export function demangle(name) {
 
 }
 
-export function ios10pinning() {
+function ios10pinning() {
 
 	var tls_helper_create_peer_trust = new NativeFunction(
 		Module.findExportByName(null, "tls_helper_create_peer_trust"),
@@ -65,7 +71,7 @@ export function ios10pinning() {
 
 }
 
-export function ios11pinning() {
+function ios11pinning() {
 
 	/* OSStatus nw_tls_create_peer_trust(tls_handshake_t hdsk, bool server, SecTrustRef *trustRef); */
 	var tls_helper_create_peer_trust = new NativeFunction(
@@ -82,7 +88,7 @@ export function ios11pinning() {
 
 }
 
-export function ios12pinning() {
+function ios12pinning() {
 
 	var SSL_VERIFY_NONE = 0;
 	var ssl_ctx_set_custom_verify;
@@ -127,7 +133,7 @@ export function ios12pinning() {
 
 }
 
-export function ios13pinning() {
+function ios13pinning() {
 
 	try {
 		Module.ensureInitialized("libboringssl.dylib");
@@ -176,7 +182,7 @@ export function ios13pinning() {
 
 }
 
-export function iosbypasstouchid() {
+function iosbypasstouchid() {
 
 	var hook = ObjC.classes.LAContext["- evaluatePolicy:localizedReason:reply:"];
     Interceptor.attach(hook.implementation, {
@@ -193,7 +199,7 @@ export function iosbypasstouchid() {
 
 }
 
-export function iosjailbreak() {
+function iosjailbreak() {
 
 	const paths = [ '/Applications/Cydia.app',
 	'/Applications/FakeCarrier.app',
@@ -401,7 +407,7 @@ export function iosjailbreak() {
 
 } 
 
-export function iosdumpkeychain() {
+function iosdumpkeychain() {
 
 	function constantLookup(v) {
 	  if(v in kSecConstantReverse) {
@@ -650,7 +656,7 @@ export function iosdumpkeychain() {
 
 }
 
-export function iosdataprotectionkeys() {
+function iosdataprotectionkeys() {
 
 	function listDirectoryContentsAtPath(path) {
 	  var fileManager = ObjC.classes.NSFileManager.defaultManager();
@@ -723,7 +729,7 @@ export function iosdataprotectionkeys() {
 
 }
 
-export function iosdumpcurrentencryptedapp() {
+function iosdumpcurrentencryptedapp() {
 
 	var O_RDONLY = 0;
 	var O_WRONLY = 1;
@@ -1032,7 +1038,7 @@ export function iosdumpcurrentencryptedapp() {
 }
 
 
-export function dumpcryptostuffios() {
+function dumpcryptostuffios() {
 
 	Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CCCrypt"),
 	  {
@@ -1273,3 +1279,5 @@ export function dumpcryptostuffios() {
 	}
 
 }
+
+

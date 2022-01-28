@@ -1,4 +1,11 @@
-export function androidpinningwithca1() {
+module.exports = {
+	androidpinningwithca1, androidpinningwithoutca1, androidrooting1, 
+    androidfingerprintbypass1, androidfingerprintbypass2hook, 
+    androidfingerprintbypass2function, tracekeystore, listaliasesstatic, 
+    listaliasesruntime, dumpcryptostuff
+}
+
+function androidpinningwithca1() {
 
 	Java.perform(function () {
 
@@ -56,7 +63,7 @@ export function androidpinningwithca1() {
 	});
 }
 
-export function androidpinningwithoutca1() {
+function androidpinningwithoutca1() {
 
 	Java.perform(function () {
 
@@ -97,7 +104,7 @@ export function androidpinningwithoutca1() {
 	});
 }
 
-export function androidrooting1() {
+function androidrooting1() {
 
 	Java.perform(function() {
 	    var RootPackages = ["com.noshufou.android.su", "com.noshufou.android.su.elite", "eu.chainfire.supersu",
@@ -439,7 +446,7 @@ export function androidrooting1() {
 
 // By FSecureLABS
 // https://raw.githubusercontent.com/FSecureLABS/android-keystore-audit/master/frida-scripts/fingerprint-bypass.js
-export function androidfingerprintbypass1() {
+function androidfingerprintbypass1() {
 
 	console.log("Fingerprint hooks loaded!");
 
@@ -590,7 +597,7 @@ export function androidfingerprintbypass1() {
 // By FSecureLABS
 // https://raw.githubusercontent.com/FSecureLABS/android-keystore-audit/master/frida-scripts/fingerprint-bypass-via-exception-handling.js
 
-export function androidfingerprintbypass2hook() {
+function androidfingerprintbypass2hook() {
 
 
 	/*
@@ -1058,7 +1065,7 @@ export function androidfingerprintbypass2hook() {
 
 // By FSecureLABS
 // https://raw.githubusercontent.com/FSecureLABS/android-keystore-audit/master/frida-scripts/fingerprint-bypass-via-exception-handling.js
-export function androidfingerprintbypass2function() {
+function androidfingerprintbypass2function() {
 
     Java.perform(function () {
 
@@ -1098,7 +1105,7 @@ export function androidfingerprintbypass2function() {
 
 // FSecureLABS
 // https://raw.githubusercontent.com/FSecureLABS/android-keystore-audit/master/frida-scripts/tracer-keystore.js
-export function tracekeystore() {
+function tracekeystore() {
 
 	Java.perform(function () {
 		hookKeystoreGetInstance();
@@ -1296,7 +1303,7 @@ export function tracekeystore() {
 /*
 * Dump all aliasses in keystores of all types(predefined in keystoreTypes)	
 */
-export function listaliasesstatic() {
+function listaliasesstatic() {
 	// BCPKCS12/PKCS12-DEF - exceptions
 	var keystoreTypes = ["AndroidKeyStore", "AndroidCAStore", /*"BCPKCS12",*/ "BKS", "BouncyCastle", "PKCS12", /*"PKCS12-DEF"*/];
 	keystoreTypes.forEach(function (entry) {
@@ -1309,7 +1316,7 @@ export function listaliasesstatic() {
 * Dump all aliasses in keystores of all instances obtained during app runtime. 
 * Instances that will be dumped are collected via hijacking Keystre.getInstance() -> hookKeystoreGetInstance()
 */
-export function listaliasesruntime() {
+function listaliasesruntime() {
 	Java.perform(function () {
 		console.log("[ListAliasesRuntime] Instances: " + keystoreList);
 		keystoreList.forEach(function (entry) {
@@ -1323,7 +1330,7 @@ export function listaliasesruntime() {
 // FSecureLABS
 // https://github.com/FSecureLABS/android-keystore-audit/blob/master/frida-scripts/tracer-cipher.js
 // https://github.com/FSecureLABS/android-keystore-audit/blob/master/frida-scripts/tracer-secretkeyfactory.js
-export function dumpcryptostuff() {
+function dumpcryptostuff() {
 	
 	console.log("Cipher hooks loaded!");
 
@@ -2195,3 +2202,5 @@ function charArrayToString(charArray) {
 	else
 		return StringCls.$new(charArray);
 }
+
+

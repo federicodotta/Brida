@@ -1,4 +1,10 @@
-export function getallclasses() {
+module.exports = {
+	getallclasses, getallmodules, getmoduleimports, getmoduleexports, 
+    getclassmethods, findobjcmethods, findjavamethods, findimports, 
+    findexports, detachall, trace, changereturnvalue, getplatform
+}
+
+function getallclasses() {
 	var result = []
 	if (ObjC.available) {
 		for (var className in ObjC.classes) {
@@ -20,7 +26,7 @@ export function getallclasses() {
 	return result;
 }
 
-export function getallmodules() {
+function getallmodules() {
 	var results = {}
 	var matches = Process.enumerateModules( {
 		onMatch: function (module) {
@@ -32,7 +38,7 @@ export function getallmodules() {
 	return results;
 }
 
-export function getmoduleimports(importname) {
+function getmoduleimports(importname) {
 	var results = {}
 	var matches = Module.enumerateImports(importname, {
 		onMatch: function (module) {
@@ -44,7 +50,7 @@ export function getmoduleimports(importname) {
 	return results;
 }
 
-export function getmoduleexports(exportname) {
+function getmoduleexports(exportname) {
 	var results = {}
 	var matches = Module.enumerateExports(exportname, {
 		onMatch: function (module) {
@@ -56,7 +62,7 @@ export function getmoduleexports(exportname) {
 	return results;
 }
 
-export function getclassmethods(classname) {
+function getclassmethods(classname) {
 	var results = {}
 	if (ObjC.available) {
 		var resolver = new ApiResolver("objc");
@@ -75,7 +81,7 @@ export function getclassmethods(classname) {
 	return results;
 }
 
-export function findjavamethods(searchstring) {
+function findjavamethods(searchstring) {
 	var results = {}
 	if(Java.available) {
 	    Java.perform(function() {	    	
@@ -100,7 +106,7 @@ export function findjavamethods(searchstring) {
 
 
 
-export function findobjcmethods(searchstring) {
+function findobjcmethods(searchstring) {
 	var results = {}
 	var resolver = new ApiResolver("objc");
 	var matches = resolver.enumerateMatches("*[*" + searchstring + "* *]", {
@@ -120,7 +126,7 @@ export function findobjcmethods(searchstring) {
 	return results;
 }
 
-export function findimports(searchstring) {
+function findimports(searchstring) {
 	var results = {}
 	var resolver = new ApiResolver("module");
 	var matches = resolver.enumerateMatches("imports:*" + searchstring + "*!*", {
@@ -140,7 +146,7 @@ export function findimports(searchstring) {
 	return results;
 }
 
-export function findexports(searchstring) {
+function findexports(searchstring) {
 	var results = {}
 	var resolver = new ApiResolver("module");
 	var matches = resolver.enumerateMatches("exports:*" + searchstring + "*!*", {
@@ -160,12 +166,12 @@ export function findexports(searchstring) {
 	return results;
 }
 
-export function detachall() {
+function detachall() {
 	Interceptor.detachAll();
 }
 
 // generic trace
-export function trace(pattern,type,backtrace) {
+function trace(pattern,type,backtrace) {
 	// SINGLE EXPORT (ALL EXPORT OF A MODULE CAN BE A MESS AND CRASH THE APP)
 	if(type == "export") {
 		var res = new ApiResolver("module");
@@ -209,7 +215,7 @@ export function trace(pattern,type,backtrace) {
 	}
 }
 
-export function changereturnvalue(pattern, type, typeret, newret)	{
+function changereturnvalue(pattern, type, typeret, newret)	{
 	if(ObjC.available) {
 		changeReturnValueIOS(pattern, type, typeret, newret);
 	} else if(Java.available) {
@@ -221,7 +227,7 @@ export function changereturnvalue(pattern, type, typeret, newret)	{
 	}
 }
 
-export function getplatform() {
+function getplatform() {
 
 	if(Java.available) {
 		return 0;
