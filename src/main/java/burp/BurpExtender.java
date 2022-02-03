@@ -1399,6 +1399,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
             	            	
             	// *** CONSOLE            	
             	pluginConsoleTextArea = new JEditorPane("text/html", "<font color=\"green\"><b>*** Brida Console ***</b></font><br/><br/>");
+                pluginConsoleTextArea.putClientProperty("html.disable", null);
                 JScrollPane scrollPluginConsoleTextArea = new JScrollPane(pluginConsoleTextArea);
                 scrollPluginConsoleTextArea.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
                 pluginConsoleTextArea.setEditable(false);
