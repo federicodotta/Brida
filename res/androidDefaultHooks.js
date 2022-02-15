@@ -2,7 +2,38 @@ module.exports = {
 	androidpinningwithca1, androidpinningwithoutca1, androidrooting1, 
     androidfingerprintbypass1, androidfingerprintbypass2hook, 
     androidfingerprintbypass2function, tracekeystore, listaliasesstatic, 
-    listaliasesruntime, dumpcryptostuff
+    listaliasesruntime, dumpcryptostuff, okhttphostnameverifier
+}
+
+function okhttphostnameverifier() {
+	
+    Java.perform(function() {
+        
+        var HostnameVerifierInterface = Java.use('javax.net.ssl.HostnameVerifier')
+        const MyHostnameVerifier = Java.registerClass({
+          name: 'org.dummyPackage.MyHostnameVerifier',
+          implements: [HostnameVerifierInterface],
+          methods: {  
+            verify: [{
+              returnType: 'boolean',
+              argumentTypes: ['java.lang.String', 'javax.net.ssl.SSLSession'],
+              implementation(hostname, session) {
+                console.log('[+] Hostname verification bypass');
+                return true;
+              }
+            }],      
+          }
+        });
+
+        var hostnameVerifierRef = Java.use('okhttp3.OkHttpClient')['hostnameVerifier'].overload();
+        hostnameVerifierRef.implementation = function() {
+            return MyHostnameVerifier.$new();
+        }
+
+        console.log("[+] OkHttp Hostname Verifier replaced")
+
+    });
+
 }
 
 function androidpinningwithca1() {

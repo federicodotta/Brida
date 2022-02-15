@@ -8,6 +8,7 @@ const tracekeystore = require("./androidDefaultHooks.js").tracekeystore
 const listaliasesstatic = require("./androidDefaultHooks.js").listaliasesstatic
 const listaliasesruntime = require("./androidDefaultHooks.js").listaliasesruntime
 const dumpcryptostuff = require("./androidDefaultHooks.js").dumpcryptostuff
+const okhttphostnameverifier = require("./androidDefaultHooks.js").okhttphostnameverifier
 const ios10pinning = require("./iosDefaultHooks.js").ios10pinning
 const ios11pinning = require("./iosDefaultHooks.js").ios11pinning
 const ios12pinning = require("./iosDefaultHooks.js").ios12pinning
@@ -40,7 +41,7 @@ rpc.exports = {
 	androidpinningwithca1, androidpinningwithoutca1, androidrooting1, 
     androidfingerprintbypass1, androidfingerprintbypass2hook, 
     androidfingerprintbypass2function, tracekeystore, listaliasesstatic, 
-    listaliasesruntime, dumpcryptostuff,
+    listaliasesruntime, dumpcryptostuff, okhttphostnameverifier,
 	ios10pinning, ios11pinning, ios12pinning, ios13pinning, 
     iosbypasstouchid, iosjailbreak, iosdumpkeychain, iosdataprotectionkeys, 
     iosdumpcurrentencryptedapp, dumpcryptostuffios, demangle,

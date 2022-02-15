@@ -329,6 +329,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     	// Default Android hooks
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass with CA certificate, more reliable (requires CA public certificate in /data/local/tmp/cert-der.crt)",BurpExtender.PLATFORM_ANDROID,"androidpinningwithca1",true,new ArrayList<byte[]>(),null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass without CA certificate, less reliable",BurpExtender.PLATFORM_ANDROID,"androidpinningwithoutca1",true,new ArrayList<byte[]>(),null,false));
+    	addButtonToHooksAndFunctions(new DefaultHook("OkHttp Hostname Verifier bypass",BurpExtender.PLATFORM_ANDROID,"okhttphostnameverifier",true,new ArrayList<byte[]>(),null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Rooting check bypass",BurpExtender.PLATFORM_ANDROID,"androidrooting1",true,new ArrayList<byte[]>(),null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Hook keystore stuff",BurpExtender.PLATFORM_ANDROID,"tracekeystore",true,new ArrayList<byte[]>(),null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("Hook crypto stuff",BurpExtender.PLATFORM_ANDROID,"dumpcryptostuff",true,new ArrayList<byte[]>(),null,false));
