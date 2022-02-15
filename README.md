@@ -78,13 +78,14 @@ The slides and the video of our conference presented at **Hack In The Box 2018 A
 - (ENG) https://conference.hitb.org/hitbsecconf2018ams/materials/D1T1%20-%20Federico%20Dotta%20and%20Piergiovanni%20Cipolloni%20-%20Brida%20When%20Burp%20Suite%20Meets%20Frida.pdf
 - (ENG) https://www.youtube.com/watch?v=wPepicuHDzs&t=18s
 
-The slides and the video of our conference presented at **Hack In Paris ~~2020~~ 2021** (postponed for the COVID-19 global situation) that describes the new features of the **version ~~0.4~~ 0.5** will be linked here as soon as they will be available.
+The video of our conference presented at **Hack In Paris ~~2020~~ 2021** (postponed for the COVID-19 global situation) that describes the new features of the **version ~~0.4~~ 0.5** can be found at:
+- (ENG) https://www.youtube.com/watch?v=RawqXSslsQk&list=PLaS1tu_LcHA8WE8ITALpeCX7b07rOBZcj
 
 # Demo
 
 Two different demo applications can be found in the **[Demo](https://github.com/federicodotta/Brida/tree/master/Demo)** folder, one Android and one iOS. 
 
-We will publish soon also the Brida plugin that can be used to bypass the encryption and signature mechanisms used by the apps!
+The demo folder contains also the Brida plugins that can be used to bypass the encryption mechanisms used by the apps!
 
 # Authors
 - Federico Dotta, Principal Security Analyst at HN Security
