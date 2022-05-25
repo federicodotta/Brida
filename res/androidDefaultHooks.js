@@ -147,7 +147,7 @@ function androidrooting1() {
 	        "eu.chainfire.supersu.pro", "com.kingouser.com" , "com.topjohnwu.magisk"
 	    ];
 
-	    var RootBinaries = ["su", "busybox", "supersu", "Superuser.apk", "KingoUser.apk", "SuperSu.apk"];
+	    var RootBinaries = ["su", "busybox", "supersu", "Superuser.apk", "KingoUser.apk", "SuperSu.apk", "magisk"];
 
 	    var RootProperties = {
 	        "ro.build.selinux": "1",
