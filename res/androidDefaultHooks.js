@@ -144,10 +144,10 @@ function androidrooting1() {
 	        "com.ramdroid.appquarantine", "com.ramdroid.appquarantinepro", "com.devadvance.rootcloak", "com.devadvance.rootcloakplus",
 	        "de.robv.android.xposed.installer", "com.saurik.substrate", "com.zachspong.temprootremovejb", "com.amphoras.hidemyroot",
 	        "com.amphoras.hidemyrootadfree", "com.formyhm.hiderootPremium", "com.formyhm.hideroot", "me.phh.superuser",
-	        "eu.chainfire.supersu.pro", "com.kingouser.com"
+	        "eu.chainfire.supersu.pro", "com.kingouser.com" , "com.topjohnwu.magisk"
 	    ];
 
-	    var RootBinaries = ["su", "busybox", "supersu", "Superuser.apk", "KingoUser.apk", "SuperSu.apk"];
+	    var RootBinaries = ["su", "busybox", "supersu", "Superuser.apk", "KingoUser.apk", "SuperSu.apk", "magisk"];
 
 	    var RootProperties = {
 	        "ro.build.selinux": "1",
