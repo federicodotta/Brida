@@ -144,6 +144,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     private JRadioButton remoteRadioButton;
     private JRadioButton usbRadioButton;
     private JRadioButton localRadioButton;
+    private JRadioButton hostRadioButton;
+    private JRadioButton deviceRadioButton;
+
+    private JTextField hostPortDevice;
     	
 	private Style redStyle;
 	private Style greenStyle;
@@ -380,7 +384,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
         stdout.println("Welcome to Brida, the new bridge between Burp Suite and Frida!");
         stdout.println("Created by Piergiovanni Cipolloni and Federico Dotta");
         stdout.println("Contributors: Maurizio Agazzini");
-        stdout.println("Version: 0.5");
+        stdout.println("Version: 0.6");
         stdout.println("");
         stdout.println("Github: https://github.com/federicodotta/Brida");
         stdout.println("");
@@ -657,6 +661,19 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 applicationId.setMaximumSize( applicationId.getPreferredSize() );
                 applicationIdPanel.add(labelApplicationId);
                 applicationIdPanel.add(applicationId);
+
+                JPanel hostPortDevicePanel = new JPanel();
+                hostPortDevicePanel.setLayout(new BoxLayout(hostPortDevicePanel, BoxLayout.X_AXIS));
+                hostPortDevicePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JLabel labelHostPortDevice = new JLabel("Host:port (Frida Host) / Device ID (Frida Device): ");
+                hostPortDevice = new JTextField(200);
+                if(callbacks.loadExtensionSetting("hostPortDevice") != null)
+                    hostPortDevice.setText(callbacks.loadExtensionSetting("hostPortDevice"));
+                else
+                    hostPortDevice.setText("");
+                hostPortDevice.setMaximumSize( hostPortDevice.getPreferredSize() );
+                hostPortDevicePanel.add(labelHostPortDevice);
+                hostPortDevicePanel.add(hostPortDevice);
                                 
                 JPanel localRemotePanel = new JPanel();
                 localRemotePanel.setLayout(new BoxLayout(localRemotePanel, BoxLayout.X_AXIS));
@@ -664,13 +681,21 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 remoteRadioButton = new JRadioButton("Frida Remote");
                 usbRadioButton =  new JRadioButton("Frida USB");
                 localRadioButton = new JRadioButton("Frida Local");
+                // process = frida.get_device_manager().add_remote_device("192.168.1.12:2703").attach("package name")
+                hostRadioButton = new JRadioButton("Frida Host");
+                deviceRadioButton = new JRadioButton("Frida Device");
+
                 if(callbacks.loadExtensionSetting("device") != null) {                	
                 	if(callbacks.loadExtensionSetting("device").equals("remote"))
                 		remoteRadioButton.setSelected(true);
                 	else if(callbacks.loadExtensionSetting("device").equals("usb"))
                 		usbRadioButton.setSelected(true);
+                    else if(callbacks.loadExtensionSetting("device").equals("local"))
+                        localRadioButton.setSelected(true);
+                    else if(callbacks.loadExtensionSetting("device").equals("host"))
+                        hostRadioButton.setSelected(true);
                 	else
-                		localRadioButton.setSelected(true);                	
+                        deviceRadioButton.setSelected(true);
                 } else {
                 	remoteRadioButton.setSelected(true);
                 }
@@ -678,9 +703,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 localRemoteButtonGroup.add(remoteRadioButton);
                 localRemoteButtonGroup.add(usbRadioButton);
                 localRemoteButtonGroup.add(localRadioButton);
+                localRemoteButtonGroup.add(hostRadioButton);
+                localRemoteButtonGroup.add(deviceRadioButton);
                 localRemotePanel.add(remoteRadioButton);
                 localRemotePanel.add(usbRadioButton);
                 localRemotePanel.add(localRadioButton);
+                localRemotePanel.add(hostRadioButton);
+                localRemotePanel.add(deviceRadioButton);
             	  
                 configurationConfPanel.add(serverStatusPanel);
                 configurationConfPanel.add(applicationStatusPanel);
@@ -693,6 +722,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
                 configurationConfPanel.add(fridaPathPanel);
                 configurationConfPanel.add(applicationIdPanel); 
                 configurationConfPanel.add(localRemotePanel);
+                configurationConfPanel.add(hostPortDevicePanel);
                 
                 // **** END CONFIGURATION PANEL
                 
@@ -2609,9 +2639,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			callbacks.saveExtensionSetting("device","remote");
 		} else if(usbRadioButton.isSelected()) { 
 			callbacks.saveExtensionSetting("device","usb");
+        } else if(localRadioButton.isSelected()) {
+            callbacks.saveExtensionSetting("device","local");
+        } else if(hostRadioButton.isSelected()) {
+            callbacks.saveExtensionSetting("device","host");
 		} else {
-			callbacks.saveExtensionSetting("device","local");
+			callbacks.saveExtensionSetting("device","device");
 		}
+        callbacks.saveExtensionSetting("hostPortDevice",hostPortDevice.getText().trim());
 		callbacks.saveExtensionSetting("executeMethodName",executeMethodName.getText().trim());
 		int sizeArguments = executeMethodInsertedArgumentList.getSize();
 		callbacks.saveExtensionSetting("executeMethodSizeArguments",Integer.toString(sizeArguments));
@@ -2658,8 +2693,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 					fw.write("device:remote\n");
 				else if(usbRadioButton.isSelected())
 					fw.write("device:usb\n");
+                else if(localRadioButton.isSelected())
+                    fw.write("device:local\n");
+                else if(hostRadioButton.isSelected())
+                    fw.write("device:host\n");
 				else
-					fw.write("device:local\n");
+					fw.write("device:device\n");
+                fw.write("hostPortDevice:" + hostPortDevice.getText().trim() + "\n");
 				fw.write("executeMethodName:" + executeMethodName.getText().trim() + "\n");
 				
 				int sizeArguments = executeMethodInsertedArgumentList.getSize();
@@ -2762,10 +2802,17 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 								remoteRadioButton.setSelected(true); 
 							} else if (lineParts[1].equals("usb")) {
 								usbRadioButton.setSelected(true);
+                            } else if (lineParts[1].equals("local")) {
+                                localRadioButton.setSelected(true);
+                            } else if (lineParts[1].equals("host")) {
+                                hostRadioButton.setSelected(true);
 							} else {
-								localRadioButton.setSelected(true);
+								deviceRadioButton.setSelected(true);
 							}
 							break;
+                        case "hostPortDevice":
+                            hostPortDevice.setText(lineParts[1]);
+                            break;
 						case "executeMethodSizeArguments":
 							executeMethodInsertedArgumentList.clear();
 							break;
@@ -2854,14 +2901,18 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				device = "remote";
 			else if(usbRadioButton.isSelected())
 				device = "usb";
+            else if(localRadioButton.isSelected())
+                device = "local";
+            else if(hostRadioButton.isSelected())
+                device = "host";
 			else
-				device = "local";
+				device = "device";
 			
 			if(spawn) {
 				
 				//pyroBridaService.call("spawn_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device);
-				executePyroCall(pyroBridaService, "spawn_application",new Object[] {applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device});
-	
+				executePyroCall(pyroBridaService, "spawn_application",new Object[] {applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device,hostPortDevice.getText().trim()});
+
 				execute_startup_scripts();
 				
 				// Wait for 3 seconds in order to load hooks
@@ -2873,8 +2924,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			} else {
 				
 				//pyroBridaService.call("attach_application", applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device);
-				executePyroCall(pyroBridaService, "attach_application",new Object[] {applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device});
-				
+				executePyroCall(pyroBridaService, "attach_application",new Object[] {applicationId.getText().trim(), fridaPath.getText().trim() + System.getProperty("file.separator") + "bridaGeneratedCompiledOutput.js",device,hostPortDevice.getText().trim()});
+
 				execute_startup_scripts();
 								
 			}
