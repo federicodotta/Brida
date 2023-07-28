@@ -44,7 +44,7 @@ In order to be able to use Brida, you need:
 1.	Burp Suite (1.X or 2.X)
 2.	Frida client
 3.	Pyro4
-4.	frida-compile
+4.	frida-compile (**!!! use version 10.2.5, last version of frida-compile do not work at the moment, debug in progress... !!!**)
 5.	A jailbroken iOS device/rooted Android device with frida-server running on it (or an application patched with the frida-gadget)
 6.	An application to analyze! :D
 
