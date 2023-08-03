@@ -4,11 +4,11 @@ In this folder there is the Android demo application used to show Brida features
 
 The backend is a simple Flask Python application.
 
-The application implements **SSL Pinning**, that can be bypassed using Brida scripts.
+The application implements **TLS Pinning** and **Hostname validation**, that can be bypassed using Brida scripts. TLS Pinning can be bypassed using the two pinning bypass scripts that can be enabled in the "Hooks and functions" tab. Hostname validation script has been directly included in the Brida code supplied with the demo (it can also be enabled in the "Hooks and functions" tab present in the last Git Brida code).
 
 ## Run the Flask backend
 
-1. Install dependencies
+1. Install dependencies (pycypto should be installed **before** pycryptodome, otherwise exceptions can occur)
 
 	```
 	pip install flask
@@ -30,7 +30,26 @@ The application implements **SSL Pinning**, that can be bypassed using Brida scr
 2. Run the application
 3. Set the URL of the backend in the upper part
 
-**Note**: it is necessary to bypass pinning in order to be able to use the application. If you want to try the application without Burp Suite in the middle and without bypassing the pinning read the next paragraph.
+**Note**: it is necessary to bypass pinning and hostname validation in order to be able to use the application. If you want to try the application without Burp Suite in the middle and without bypassing the pinning read the paragraph "Make the application work without bypassing the pinning and without Burp Suite in the middle" (**not** necessary to use the demo).
+
+## Load Brida plugins
+
+1. Configure Brida (refer to the [documentation](https://github.com/federicodotta/Brida/wiki/Start) for details). The application ID of the demo is **com.dombroks.android_flask**
+2. Click on the "Select folder" button of the "Frida JS files folder" and select the supplied "DemoAndroidFridaJS" folder
+3. Enable **one of** the Brida pinning bypass in the "Hooks and functions" -> "Android" section
+4. Load the plugins, by clicking on the button "Import plugins" in the "Custom plugins" tab and choosing the supplied "exportedPluginsDemoAndroid.csv" file
+5. Enable the plugin(s) you want to try using the corresponding "Enable" button in the same tab
+6. Spawn/attach the application
+
+## Supplied Brida plugins
+
+1. **Decrypt_context**: it adds an entry to the context menu that decrypts the higlighted value using Brida, replacing it with its decrypted form, if possible. If the highlighted value is in a non-editable pane, a pop-up appears
+2. **Encrypt_context**: it adds an entry to the context menu that encrypts the higlighted value using Brida, replacing it with its encrypted form, if possible. If the highlighted value is in a non-editable pane, a pop-up appears
+3. **Decrypt_messageEditorTab**: it adds a message editor tab to HTTP requests and responses, that shows the decrypted form of the body of the current HTTP message. If the tab is editable and the decrypted value is modified, Brida replace the original body with a new one containing the encrypted modified body
+4. **EncryptRequest_IHttpListener**: when it is enabled, it encrypts transparently the bodies of all requests generated from the Scanner and the Intruder Burp Suite tools (but it can be edited to add other Burp Suite tools). It can be used by sending a request to the Intruder/Scanner **with the body already decrypted**. In this way Burp Suite can adds his payloads and the body will be transparently encrypted by Brida before the transmission to the backend
+5. **DecryptResponse_IHttpListener**: when it is enabled, it decrypts transparently the bodies of all responses received by the Scanner and the Intruder Burp Suite tools (but it can be edited to add other Burp Suite tools). It can be used in conjunction with the previous plugin to have the body of the HTTP responses decrypted in the Scanner and in the Intruder tools, allowing Burp Suite or the pentester to understand if the attack vector succeeded in an easy way
+6. **Decrypt_button**: it adds a button to the "Hooks and functions" -> "Android" section that decrypt the supplied input
+7. **Encrypt_button**: it adds a button to the "Hooks and functions" -> "Android" section that encrypt the supplied input
 
 ## Make the application work without bypassing the pinning and without Burp Suite in the middle
 

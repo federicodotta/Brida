@@ -18,7 +18,7 @@ function okhttphostnameverifier() {
               returnType: 'boolean',
               argumentTypes: ['java.lang.String', 'javax.net.ssl.SSLSession'],
               implementation(hostname, session) {
-                console.log('[+] Hostname verification bypass');
+                console.log('Hostname verification bypass');
                 return true;
               }
             }],      
@@ -27,10 +27,9 @@ function okhttphostnameverifier() {
 
         var hostnameVerifierRef = Java.use('okhttp3.OkHttpClient')['hostnameVerifier'].overload();
         hostnameVerifierRef.implementation = function() {
+            console.log("Hostname verifier replaced")
             return MyHostnameVerifier.$new();
         }
-
-        console.log("[+] OkHttp Hostname Verifier replaced")
 
     });
 
@@ -144,10 +143,10 @@ function androidrooting1() {
 	        "com.ramdroid.appquarantine", "com.ramdroid.appquarantinepro", "com.devadvance.rootcloak", "com.devadvance.rootcloakplus",
 	        "de.robv.android.xposed.installer", "com.saurik.substrate", "com.zachspong.temprootremovejb", "com.amphoras.hidemyroot",
 	        "com.amphoras.hidemyrootadfree", "com.formyhm.hiderootPremium", "com.formyhm.hideroot", "me.phh.superuser",
-	        "eu.chainfire.supersu.pro", "com.kingouser.com" , "com.topjohnwu.magisk"
+	        "eu.chainfire.supersu.pro", "com.kingouser.com"
 	    ];
 
-	    var RootBinaries = ["su", "busybox", "supersu", "Superuser.apk", "KingoUser.apk", "SuperSu.apk", "magisk"];
+	    var RootBinaries = ["su", "busybox", "supersu", "Superuser.apk", "KingoUser.apk", "SuperSu.apk"];
 
 	    var RootProperties = {
 	        "ro.build.selinux": "1",

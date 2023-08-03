@@ -49,15 +49,38 @@ rpc.exports = {
     getclassmethods, findobjcmethods, findjavamethods, findimports, 
     findexports, detachall, trace, changereturnvalue, getplatform,
 
-	// BE CAREFUL: Do not use uppercase characters in exported function name (automatically converted lowercase by Pyro)
-	exportedfunction: function() {
+    encrypt: function(content) {
 
-		// Do stuff...	
-		// This functions can be called from custom plugins
+        if (ObjC.available) {
+        
+            var encryptionClass = ObjC.classes.Encryption;
+            return encodeURIComponent(encryptionClass.encryptRequest_(content).toString());
 
-	}
+        }
 
-	// Put here the exported functions called by your custom plugins
+    },
+
+    decrypt: function(content) {
+
+        if (ObjC.available) {
+
+            var encryptionClass = ObjC.classes.Encryption;
+            return encryptionClass.decryptResponse_(decodeURIComponent(content)).toString();
+
+        }
+
+    },
+
+    encryptpassword: function(password) {
+
+        if (ObjC.available) {
+
+            var loginUtilClass = ObjC.classes.LoginUtil;
+            return encodeURIComponent(loginUtilClass.encryptPassword_(password).toString());
+
+        }       
+
+    }
 
 }
 

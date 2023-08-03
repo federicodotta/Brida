@@ -2,38 +2,7 @@ module.exports = {
 	androidpinningwithca1, androidpinningwithoutca1, androidrooting1, 
     androidfingerprintbypass1, androidfingerprintbypass2hook, 
     androidfingerprintbypass2function, tracekeystore, listaliasesstatic, 
-    listaliasesruntime, dumpcryptostuff, okhttphostnameverifier
-}
-
-function okhttphostnameverifier() {
-	
-    Java.perform(function() {
-        
-        var HostnameVerifierInterface = Java.use('javax.net.ssl.HostnameVerifier')
-        const MyHostnameVerifier = Java.registerClass({
-          name: 'org.dummyPackage.MyHostnameVerifier',
-          implements: [HostnameVerifierInterface],
-          methods: {  
-            verify: [{
-              returnType: 'boolean',
-              argumentTypes: ['java.lang.String', 'javax.net.ssl.SSLSession'],
-              implementation(hostname, session) {
-                console.log('[+] Hostname verification bypass');
-                return true;
-              }
-            }],      
-          }
-        });
-
-        var hostnameVerifierRef = Java.use('okhttp3.OkHttpClient')['hostnameVerifier'].overload();
-        hostnameVerifierRef.implementation = function() {
-            return MyHostnameVerifier.$new();
-        }
-
-        console.log("[+] OkHttp Hostname Verifier replaced")
-
-    });
-
+    listaliasesruntime, dumpcryptostuff
 }
 
 function androidpinningwithca1() {
@@ -144,10 +113,10 @@ function androidrooting1() {
 	        "com.ramdroid.appquarantine", "com.ramdroid.appquarantinepro", "com.devadvance.rootcloak", "com.devadvance.rootcloakplus",
 	        "de.robv.android.xposed.installer", "com.saurik.substrate", "com.zachspong.temprootremovejb", "com.amphoras.hidemyroot",
 	        "com.amphoras.hidemyrootadfree", "com.formyhm.hiderootPremium", "com.formyhm.hideroot", "me.phh.superuser",
-	        "eu.chainfire.supersu.pro", "com.kingouser.com" , "com.topjohnwu.magisk"
+	        "eu.chainfire.supersu.pro", "com.kingouser.com"
 	    ];
 
-	    var RootBinaries = ["su", "busybox", "supersu", "Superuser.apk", "KingoUser.apk", "SuperSu.apk", "magisk"];
+	    var RootBinaries = ["su", "busybox", "supersu", "Superuser.apk", "KingoUser.apk", "SuperSu.apk"];
 
 	    var RootProperties = {
 	        "ro.build.selinux": "1",
