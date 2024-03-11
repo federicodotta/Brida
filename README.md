@@ -57,7 +57,7 @@ In order to be able to use Brida, you need:
 
 # Installation from Burp Suite BApp Store
 1.	Install Python 2.7 or Python 3, Pyro4 (pip install pyro4) and frida (pip install frida). python virtual environments are fully supported.
-2.	Install Node.js, npm and frida-compile (npm install frida-compile@9). At the moment there are issues with version 10 of frida-compile, but we are trying to solve them.
+2.	Install Node.js, npm and frida-compile (npm install frida-compile@10.2.5). At the moment there are issues with version 10 of frida-compile, but we are trying to solve them.
 3.	Download Burp Suite: http://portswigger.net/burp/download.html
 4.	Open Burp -> Extender -> BApp Store -> Brida, Burp to Frida bridge -> Install
 
