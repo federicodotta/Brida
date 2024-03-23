@@ -189,8 +189,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     
     private TextEditorPane jsEditorTextArea;
 	
-    private Thread stdoutThread;
-    private Thread stderrThread;
+    private BridaThread stdoutThread;
+    private BridaThread stderrThread;
     
     private JTextField findTextField;
     
@@ -2425,6 +2425,41 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		}
 		
 	}
+
+    public void setServerRunning() {
+
+        try {
+            pyroBridaService = new PyroProxy(new PyroURI("PYRO:BridaServicePyro@" + pyroHost.getText().trim() + ":" + pyroPort.getText().trim()));
+        } catch (IOException e) {
+            printException(e,"Error reading Pyro stdout");
+            return;
+        }
+        serverStarted = true;
+
+        SwingUtilities.invokeLater(new Runnable() {
+
+            @Override
+            public void run() {
+
+                serverStatus.setText("");
+                serverStatusButtons.setText("");
+                applicationStatus.setText("");
+                applicationStatusButtons.setText("");
+                try {
+                    documentServerStatus.insertString(0, "running", greenStyle);
+                    documentServerStatusButtons.insertString(0, "Server running", greenStyle);
+                    documentApplicationStatus.insertString(0, "NOT hooked", redStyle);
+                    documentApplicationStatusButtons.insertString(0, "App not hooked", redStyle);
+                } catch (BadLocationException e) {
+
+                    printException(e,"Exception setting labels");
+
+                }
+
+            }
+        });
+
+    }
 	
 	private void launchPyroServer(String pythonPathEnv, String pyroServicePath) {
 		
@@ -2497,88 +2532,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			final BufferedReader stdError = new BufferedReader(new InputStreamReader(pyroServerProcess.getErrorStream()));
 		    
 			// Initialize thread that will read stdout
-			stdoutThread = new Thread() {
-				
-				public void run() {
-					
-						while(true) {
-					
-							try {
-								
-								final String line = stdOutput.readLine();
-																
-								// Only used to handle Pyro first message (when server start)
-								if(line.equals("Ready.")) {
-									        	
-						        	pyroBridaService = new PyroProxy(new PyroURI("PYRO:BridaServicePyro@" + pyroHost.getText().trim() + ":" + pyroPort.getText().trim()));
-						        	serverStarted = true;	 
-						        	
-						        	SwingUtilities.invokeLater(new Runnable() {
-										
-							            @Override
-							            public void run() {
-							            	
-							            	serverStatus.setText("");
-							            	serverStatusButtons.setText("");
-							            	applicationStatus.setText("");
-							            	applicationStatusButtons.setText("");
-							            	try {
-							                	documentServerStatus.insertString(0, "running", greenStyle);
-							                	documentServerStatusButtons.insertString(0, "Server running", greenStyle);
-							                	documentApplicationStatus.insertString(0, "NOT hooked", redStyle);
-							                	documentApplicationStatusButtons.insertString(0, "App not hooked", redStyle);							                	
-											} catch (BadLocationException e) {
-												
-												printException(e,"Exception setting labels");
-	
-											}
-											
-							            }
-									});
-						        	
-						        	printSuccessMessage("Pyro server started correctly");
-								
-						        // Standard line	
-								} else {
-									
-									printJSMessage(line);
-									
-								}
-								
-								
-							} catch (IOException e) {
-								printException(e,"Error reading Pyro stdout");
-							}
-							
-						}
-				}
-				
-			};			
+			stdoutThread = new BridaThread(stdOutput, this, true);
 			stdoutThread.start();
 			
 			// Initialize thread that will read stderr
-			stderrThread = new Thread() {
-				
-				public void run() {
-					
-						while(true) {
-												
-							try {
-								
-								final String line = stdError.readLine();								
-								printException(null,line);								
-								
-							} catch (IOException e) {
-								
-								printException(e,"Error reading Pyro stderr");
-								
-							}
-							
-						}
-				}
-				
-			};			
-			stderrThread.start();
+            stderrThread = new BridaThread(stdError, this, false);
+            stderrThread.start();
+
 			
 		} catch (final Exception e1) {
 			
