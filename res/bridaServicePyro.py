@@ -72,6 +72,9 @@ class BridaServicePyro:
 
         self.pid = self.device.spawn([self.application_id])
 
+        # Spawn and launch a specified activity
+        #self.pid = self.device.spawn([self.application_id],activity="com.test.myApp.myActivity")
+
         self.session = self.device.attach(self.pid)
 
         with codecs.open(self.frida_script, 'r', 'utf-8') as f:
