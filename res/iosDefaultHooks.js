@@ -187,7 +187,7 @@ function iosbypasstouchid() {
 	var hook = ObjC.classes.LAContext["- evaluatePolicy:localizedReason:reply:"];
     Interceptor.attach(hook.implementation, {
         onEnter: function(args) {
-            send("Hooking Touch Id..")
+            console.log("Hooking Touch Id..")
             var block = new ObjC.Block(args[4]);
             const appCallback = block.implementation;
             block.implementation = function (error, value)  {
