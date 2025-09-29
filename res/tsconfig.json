@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "lib": ["es2020"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "strict": false,
+    "forceConsistentCasingInFileNames": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": false,
+    "noEmit": true,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./types"
+    ],
+    "types": []
+  },
+  "include": [
+    "*.js",
+    "*.mjs",
+    "*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.compiled.js"
+  ],
+  "ts-node": {
+    "esm": true
+  }
+}

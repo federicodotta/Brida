@@ -1,0 +1,29 @@
+{
+  "name": "brida-frida-hooks",
+  "version": "1.0.0",
+  "description": "Brida Frida hooks and functions",
+  "main": "brida.js",
+  "scripts": {
+    "build": "frida-compile brida.js -o bridaGeneratedCompiledOutput.js",
+    "build:watch": "frida-compile brida.js -o bridaGeneratedCompiledOutput.js -w",
+    "build:compress": "frida-compile brida.js -o bridaGeneratedCompiledOutput.js -c"
+  },
+  "keywords": [
+    "brida",
+    "frida",
+    "mobile-security",
+    "android",
+    "ios",
+    "security-testing",
+    "reverse-engineering"
+  ],
+  "author": "apps3c",
+  "license": "MIT",
+  "devDependencies": {
+    "frida-compile": "latest"
+
+  },
+  "engines": {
+    "node": ">=12.0.0"
+  }
+}
