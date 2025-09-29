@@ -1,6 +1,9 @@
+import Java from 'frida-java-bridge';
+import ObjC from 'frida-objc-bridge';
+
 module.exports = {
-	getallclasses, getallmodules, getmoduleimports, getmoduleexports, 
-    getclassmethods, findobjcmethods, findjavamethods, findimports, 
+	getallclasses, getallmodules, getmoduleimports, getmoduleexports,
+    getclassmethods, findobjcmethods, findjavamethods, findimports,
     findexports, detachall, trace, changereturnvalue, getplatform
 }
 
@@ -27,38 +30,59 @@ function getallclasses() {
 }
 
 function getallmodules() {
+
 	var results = {}
-	var matches = Process.enumerateModules( {
-		onMatch: function (module) {
-			results[module['name']] = module['base'];
-		},
-		onComplete: function () {
-		}
+	var allModules = Process.enumerateModules();
+	allModules.forEach(function (item, index) {
+		results[item['name']] = item['base'];
 	});
+
 	return results;
 }
 
 function getmoduleimports(importname) {
 	var results = {}
-	var matches = Module.enumerateImports(importname, {
-		onMatch: function (module) {
-			results[module['type'] + ": " + module['name']] = module['address'];
-		},
-		onComplete: function () {
+
+	var matches;
+	var allModules = Process.enumerateModules();
+	allModules.every(function (item, index) {
+		if(item['name'] == importname) {
+
+			var allImports = item.enumerateImports();
+			allImports.forEach(function (item, index) {
+				results[item['type'] + ": " + item['name']] = item['address'];
+			  	//console.log(item, index);
+			});
+
+
+			return false;
 		}
+		return true;
 	});
+
 	return results;
 }
 
 function getmoduleexports(exportname) {
 	var results = {}
-	var matches = Module.enumerateExports(exportname, {
-		onMatch: function (module) {
-			results[module['type'] + ": " + module['name']] = module['address'];
-		},
-		onComplete: function () {
+
+	var matches;
+	var allModules = Process.enumerateModules();
+	allModules.every(function (item, index) {
+		if(item['name'] == exportname) {
+
+			var allExports = item.enumerateExports();
+			allExports.forEach(function (item, index) {
+				results[item['type'] + ": " + item['name']] = item['address'];
+			  	//console.log(item, index);
+			});
+
+
+			return false;
 		}
+		return true;
 	});
+
 	return results;
 }
 
@@ -84,7 +108,7 @@ function getclassmethods(classname) {
 function findjavamethods(searchstring) {
 	var results = {}
 	if(Java.available) {
-	    Java.perform(function() {	    	
+	    Java.perform(function() {
 	        var groups = []
 	        groups.push(Java.enumerateMethods('*' + searchstring + '*!*/s'))
 	        groups.push(Java.enumerateMethods('*!*' + searchstring + '*/s'))
@@ -96,7 +120,7 @@ function findjavamethods(searchstring) {
 	                        var methodSignature = className + "!" + m;
 	                        results[methodSignature] = null;
 	                    });
-	                }); 
+	                });
 	            });
 	        });
 	    });
@@ -129,40 +153,32 @@ function findobjcmethods(searchstring) {
 function findimports(searchstring) {
 	var results = {}
 	var resolver = new ApiResolver("module");
-	var matches = resolver.enumerateMatches("imports:*" + searchstring + "*!*", {
-		onMatch: function (match) {
-			results[match['name']] = match['address'];
-		},
-		onComplete: function () {
-		}
+	var matches = resolver.enumerateMatches("imports:*" + searchstring + "*!*");
+	matches.forEach(function (item, index) {
+		results[item['name']] = item['address'];
 	});
-	matches = resolver.enumerateMatches("imports:*!*" + searchstring + "*", {
-		onMatch: function (match) {
-			results[match['name']] = match['address'];
-		},
-		onComplete: function () {
-		}
+
+	matches = resolver.enumerateMatches("imports:*!*" + searchstring + "*");
+	matches.forEach(function (item, index) {
+		results[item['name']] = item['address'];
 	});
+
 	return results;
 }
 
 function findexports(searchstring) {
 	var results = {}
 	var resolver = new ApiResolver("module");
-	var matches = resolver.enumerateMatches("exports:*" + searchstring + "*!*", {
-		onMatch: function (match) {
-			results[match['name']] = match['address'];
-		},
-		onComplete: function () {
-		}
+	var matches = resolver.enumerateMatches("exports:*" + searchstring + "*!*");
+	matches.forEach(function (item, index) {
+		results[item['name']] = item['address'];
 	});
-	matches = resolver.enumerateMatches("exports:*!*" + searchstring + "*", {
-		onMatch: function (match) {
-			results[match['name']] = match['address'];
-		},
-		onComplete: function () {
-		}
+
+	matches = resolver.enumerateMatches("exports:*!*" + searchstring + "*");
+	matches.forEach(function (item, index) {
+		results[item['name']] = item['address'];
 	});
+
 	return results;
 }
 
@@ -176,8 +192,10 @@ function trace(pattern,type,backtrace) {
 	if(type == "export") {
 		var res = new ApiResolver("module");
 		pattern = "exports:" + pattern;
-		var matches = res.enumerateMatchesSync(pattern);
+		var matches = res.enumerateMatches(pattern);
+		console.log(matches)
 		var targets = uniqBy(matches, JSON.stringify);
+		console.log(targets)
 		targets.forEach(function(target) {
 			traceModule(target.address, target.name, backtrace);
 		});
@@ -191,7 +209,7 @@ function trace(pattern,type,backtrace) {
 			} else if(type === "objc_method") {
 				res = new ApiResolver("objc");
 			}
-			var matches = res.enumerateMatchesSync(pattern);
+			var matches = res.enumerateMatches(pattern);
 			var targets = uniqBy(matches, JSON.stringify);
 			targets.forEach(function(target) {
 				traceObjC(target.address, target.name,backtrace);
@@ -209,7 +227,7 @@ function trace(pattern,type,backtrace) {
 					});
 				} else {
 					traceJavaMethod(pattern,backtrace);
-				}					
+				}
 			});
 		}
 	}
@@ -229,6 +247,8 @@ function changereturnvalue(pattern, type, typeret, newret)	{
 
 function getplatform() {
 
+	//return 0;
+
 	if(Java.available) {
 		return 0;
 	} else if(ObjC.available){
@@ -237,7 +257,7 @@ function getplatform() {
 		return 2;
 	}
 
-}	
+}
 
 
 /*
@@ -245,13 +265,13 @@ This method is used to get Java methods with arguments in bytecode syntex. By si
 and then calling toString on each Method object we do not get types in bytecode format. For example we get 'byte[]' instead of
 '[B'. This function uses overload object of frida to get types in correct bytecode form.
 */
-function getJavaMethodArgumentTypes(classname) {	
-	if(Java.available) {	
+function getJavaMethodArgumentTypes(classname) {
+	if(Java.available) {
 		var results = {};
 		Java.perform(function() {
 			var hook = Java.use(classname);
-			var res = hook.class.getDeclaredMethods();			
-			res.forEach(function(s) { 
+			var res = hook.class.getDeclaredMethods();
+			res.forEach(function(s) {
 				//console.log("s " + s);
 				var targetClassMethod = parseJavaMethod(s.toString());
 				//console.log("targetClassMethod " + targetClassMethod);
@@ -264,8 +284,8 @@ function getJavaMethodArgumentTypes(classname) {
 				var hookClass = Java.use(targetClass);
 				var classMethodOverloads = hookClass[targetMethod].overloads;
 				classMethodOverloads.forEach(function(cmo) {
-					// overload.argumentTypes is an array of objects representing the arguments. In the "className" field of each object there 
-					// is the bytecode form of the class of the current argument 
+					// overload.argumentTypes is an array of objects representing the arguments. In the "className" field of each object there
+					// is the bytecode form of the class of the current argument
 					var argumentTypes = cmo.argumentTypes;
 					var argumentTypesArray = []
 					argumentTypes.forEach(function(cmo) {
@@ -279,8 +299,8 @@ function getJavaMethodArgumentTypes(classname) {
 					results[newPattern] = 0;
 				});
 				hookClass.$dispose;
-			});				
-			hook.$dispose;			
+			});
+			hook.$dispose;
 		});
 		return results;
 	}
@@ -295,7 +315,7 @@ function changeReturnValueIOS(pattern, type, typeret, newret) {
 		res = new ApiResolver("module");
 		pattern = "exports:" + pattern;
 	}
-	var matches = res.enumerateMatchesSync(pattern);
+	var matches = res.enumerateMatches(pattern);
 	var targets = uniqBy(matches, JSON.stringify);
 	targets.forEach(function(target) {
 		Interceptor.attach(target.address, {
@@ -305,7 +325,7 @@ function changeReturnValueIOS(pattern, type, typeret, newret) {
 				if(typeret === "String") {
 					var a1 = ObjC.classes.NSString.stringWithString_(newret);
 					try {
-						console.log("*** " + pattern + " Replacing " + ObjC.Object(retval) + " with " + a1);						
+						console.log("*** " + pattern + " Replacing " + ObjC.Object(retval) + " with " + a1);
 					} catch(err) {
 						console.log("*** " + pattern + " Replacing " + retval + " with " + a1);
 					}
@@ -327,14 +347,14 @@ function changeReturnValueIOS(pattern, type, typeret, newret) {
 				}
 			}
 		});
-	});	
+	});
 	console.log("*** Replacing return value of " + pattern + " with " + newret);
 }
 
 function changeReturnValueGeneric(pattern, type, typeret, newret) {
 	var res = new ApiResolver("module");
 	pattern = "exports:" + pattern;
-	var matches = res.enumerateMatchesSync(pattern);
+	var matches = res.enumerateMatches(pattern);
 	var targets = uniqBy(matches, JSON.stringify);
 	targets.forEach(function(target) {
 		Interceptor.attach(target.address, {
@@ -358,7 +378,7 @@ function changeReturnValueGeneric(pattern, type, typeret, newret) {
 				}
 			}
 		});
-	});	
+	});
 	console.log("*** Replacing return value of " + pattern + " with " + newret);
 }
 
@@ -389,7 +409,7 @@ function changeReturnValueAndroid(pattern, type, typeret, newret) {
 				} else {
 					toRet = false;
 				}
-			}			
+			}
 			console.log("*** " + pattern + " Replacing " + retval + " with " + toRet);
 			return toRet;
 		}
@@ -397,7 +417,7 @@ function changeReturnValueAndroid(pattern, type, typeret, newret) {
 	} else {
 		var res = new ApiResolver("module");
 		var pattern = "exports:" + pattern;
-		var matches = res.enumerateMatchesSync(pattern);
+		var matches = res.enumerateMatches(pattern);
 		var targets = uniqBy(matches, JSON.stringify);
 		targets.forEach(function(target) {
 			Interceptor.attach(target.address, {

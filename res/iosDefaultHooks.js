@@ -1,3 +1,5 @@
+import ObjC from 'frida-objc-bridge';
+
 module.exports = {
 	ios10pinning, ios11pinning, ios12pinning, ios13pinning, 
     iosbypasstouchid, iosjailbreak, iosdumpkeychain, iosdataprotectionkeys, 
