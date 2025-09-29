@@ -1,0 +1,37 @@
+plugins {
+    id 'java'
+}
+
+group = 'org.fd.brida'
+version = '0.6'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'net.portswigger.burp.extender:burp-extender-api:+'
+    implementation 'org.apache.commons:commons-lang3:3.7'
+    implementation 'commons-codec:commons-codec:1.14'
+    implementation 'org.json:json:20171018'
+    implementation 'net.razorvine:pyrolite:4.30'
+    implementation 'net.razorvine:serpent:1.23'
+    implementation files('libs/rsyntaxtextarea-2.6.1.edited.jar')
+}
+
+
+
+jar {
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    from('res') {
+        include '*'
+        into("res")
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+
+
+
