@@ -112,7 +112,7 @@ class BridaServicePyro:
         return
 
     def callexportfunction(self, methodName, args):
-        method_to_call = getattr(self.script.exports, methodName)
+        method_to_call = getattr(self.script.exports_sync, methodName)
 
         # Take the Java list passed as argument and create a new variable list of argument
         # (necessary for bridge Python - Java, I think)
