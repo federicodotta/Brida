@@ -90,13 +90,10 @@ function getclassmethods(classname) {
 	var results = {}
 	if (ObjC.available) {
 		var resolver = new ApiResolver("objc");
-		var matches = resolver.enumerateMatches("*[" + classname + " *]", {
-			onMatch: function (match) {
-				results[match['name']] = match['address'];
-			},
-			onComplete: function () {
-			}
-		});
+        var matches = resolver.enumerateMatches("*[" + classname + " *]");
+        matches.forEach(function (item, index) {
+            results[item['name']] = item['address'];
+        });
 	} else if(Java.available) {
 		Java.perform(function() {
 			results = getJavaMethodArgumentTypes(classname);
@@ -133,20 +130,16 @@ function findjavamethods(searchstring) {
 function findobjcmethods(searchstring) {
 	var results = {}
 	var resolver = new ApiResolver("objc");
-	var matches = resolver.enumerateMatches("*[*" + searchstring + "* *]", {
-		onMatch: function (match) {
-			results[match['name']] = match['address'];
-		},
-		onComplete: function () {
-		}
-	});
-	matches = resolver.enumerateMatches("*[* *" + searchstring + "*]", {
-		onMatch: function (match) {
-			results[match['name']] = match['address'];
-		},
-		onComplete: function () {
-		}
-	});
+
+    var matches = resolver.enumerateMatches("*[*" + searchstring + "* *]");
+    matches.forEach(function (item, index) {
+        results[item['name']] = item['address'];
+    });
+	matches = resolver.enumerateMatches("*[* *" + searchstring + "*]");
+    matches.forEach(function (item, index) {
+        results[item['name']] = item['address'];
+    });
+
 	return results;
 }
 
@@ -193,9 +186,9 @@ function trace(pattern,type,backtrace) {
 		var res = new ApiResolver("module");
 		pattern = "exports:" + pattern;
 		var matches = res.enumerateMatches(pattern);
-		console.log(matches)
+		//console.log(matches)
 		var targets = uniqBy(matches, JSON.stringify);
-		console.log(targets)
+		//console.log(targets)
 		targets.forEach(function(target) {
 			traceModule(target.address, target.name, backtrace);
 		});
