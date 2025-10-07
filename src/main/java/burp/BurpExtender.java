@@ -48,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.zip.DeflaterOutputStream;
@@ -2681,7 +2682,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		}
 		
 	}
-	
+
 	private void execute_startup_scripts() {
 		
 		DefaultHook currentHook;
@@ -2699,8 +2700,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		for(int i=0; i < treeHooks.size();i++) {
 			currentHook = treeHooks.get(i);			
 			if(currentHook.isEnabled()) {				
-				try {					
-					executePyroCall(pyroBridaService, "callexportfunction",new Object[] {currentHook.getFridaExportName(),currentHook.getParameters()});					
+				try {
+                    // With all the recent changes in frida and frida-compile List<byte[]> as parameter breaks everything. Added a lambda expression to
+                    // convert to List<Stirng>
+					//executePyroCall(pyroBridaService, "callexportfunction",new Object[] {currentHook.getFridaExportName(),convertByteArrayListInStringList(currentHook.getParameters())});
+                    executePyroCall(pyroBridaService, "callexportfunction",new Object[] {currentHook.getFridaExportName(),
+                            currentHook.getParameters().stream().map(ba -> new String(ba)).collect(Collectors.toList())
+                    });
 				} catch (Exception e) {						
 					 printException(e,"Exception running starting tree hook " + currentHook.getName());						
 				}				
