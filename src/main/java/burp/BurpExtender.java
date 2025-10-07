@@ -2701,12 +2701,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			currentHook = treeHooks.get(i);			
 			if(currentHook.isEnabled()) {				
 				try {
-                    // With all the recent changes in frida and frida-compile List<byte[]> as parameter breaks everything. Added a lambda expression to
-                    // convert to List<Stirng>
-					//executePyroCall(pyroBridaService, "callexportfunction",new Object[] {currentHook.getFridaExportName(),convertByteArrayListInStringList(currentHook.getParameters())});
-                    executePyroCall(pyroBridaService, "callexportfunction",new Object[] {currentHook.getFridaExportName(),
-                            currentHook.getParameters().stream().map(ba -> new String(ba)).collect(Collectors.toList())
-                    });
+                    executePyroCall(pyroBridaService, "callexportfunction",new Object[] {currentHook.getFridaExportName(),CustomPlugin.convertParametersForFrida(currentHook.getParameters(),BurpExtender.this)});
 				} catch (Exception e) {						
 					 printException(e,"Exception running starting tree hook " + currentHook.getName());						
 				}				
