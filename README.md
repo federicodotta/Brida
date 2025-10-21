@@ -115,6 +115,7 @@ Furthermore, Brida integrates many Frida hooks developed by various authors to i
 - lich0 - [dump ios](https://codeshare.frida.re/@lichao890427/dump-ios/)
 - ay-kay - [iOS DataProtection](https://codeshare.frida.re/@ay-kay/ios-dataprotection/)
 - neil-wu - [FridaSwiftDump](https://codeshare.frida.re/@neil-wu/fridaswiftdump/)
+- DevTraleski - [iOS Jailbreak Detection Bypass Palera1n](https://codeshare.frida.re/@DevTraleski/ios-jailbreak-detection-bypass-palera1n/)
 
 # Screenshot
 ![Brida Screenshot](https://raw.githubusercontent.com/federicodotta/Brida/master/BridaScreen1.PNG)
