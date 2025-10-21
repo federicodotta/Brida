@@ -2346,7 +2346,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 
         // Install dependencies
         String[] fridaInstallDependencies;
-        fridaInstallDependencies = new String[]{"npm","install"};
+
+        if(System.getProperty("os.name").startsWith("Windows")) {
+            fridaInstallDependencies = new String[]{"cmd", "/c","npm","install"};
+        } else {
+            fridaInstallDependencies = new String[]{"npm", "install"};
+        }
+
         ProcessBuilder pbDependencies = new ProcessBuilder(fridaInstallDependencies);
         pbDependencies.directory(new File(fridaJsFolder));
 
@@ -2387,7 +2393,13 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 
         // Build
         String[] fridaCompileCommand;
-        fridaCompileCommand = new String[]{"npm","run","build"};
+
+        if(System.getProperty("os.name").startsWith("Windows")) {
+            fridaCompileCommand = new String[]{"cmd", "/c", "npm", "run", "build"};
+        } else {
+            fridaCompileCommand = new String[]{"npm","run","build"};
+        }
+
         ProcessBuilder pbBuild = new ProcessBuilder(fridaCompileCommand);
         pbBuild.directory(new File(fridaJsFolder));
 
