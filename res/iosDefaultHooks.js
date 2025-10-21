@@ -14,13 +14,17 @@ function demangle(name) {
 	if(ObjC.available) {
 
 		// Is Swift available?
-		var tmp = Module.findBaseAddress("libswiftCore.dylib");
+		//var tmp = Module.findBaseAddress("libswiftCore.dylib");
+		var tmp_module = Process.findModuleByName('libswiftCore.dylib');
 
-	    if (tmp != null) {
-	        var addr_swift_demangle = Module.getExportByName("libswiftCore.dylib", "swift_demangle");
+	    if (tmp_module != null) {
+	        var tmp = tmp_module.base;
+	        //var addr_swift_demangle = Module.getExportByName("libswiftCore.dylib", "swift_demangle");
+	        var addr_swift_demangle = Process.getModuleByName('libswiftCore.dylib').getExportByName('swift_demangle');
 	        var size_t = Process.pointerSize === 8 ? 'uint64' : Process.pointerSize === 4 ? 'uint32' : "unsupported platform";
 	        _swift_demangle = new NativeFunction(addr_swift_demangle, "pointer", ["pointer", size_t, "pointer", "pointer", 'int32']);
-	        var addr_free = Module.getExportByName("libsystem_malloc.dylib", "free");
+	        //var addr_free = Module.getExportByName("libsystem_malloc.dylib", "free");
+	        var addr_free = Process.getModuleByName('libsystem_malloc.dylib').getExportByName('free');
 	        _free = new NativeFunction(addr_free, "void", ["pointer"]);
 	    
 	    } 
@@ -60,7 +64,7 @@ function demangle(name) {
 function ios10pinning() {
 
 	var tls_helper_create_peer_trust = new NativeFunction(
-		Module.findExportByName(null, "tls_helper_create_peer_trust"),
+		Module.findGlobalExportByName("tls_helper_create_peer_trust"),
 		'int', ['pointer', 'bool', 'pointer']
 		);
 
@@ -77,7 +81,7 @@ function ios11pinning() {
 
 	/* OSStatus nw_tls_create_peer_trust(tls_handshake_t hdsk, bool server, SecTrustRef *trustRef); */
 	var tls_helper_create_peer_trust = new NativeFunction(
-		Module.findExportByName(null, "nw_tls_create_peer_trust"),
+		Module.findGlobalExportByName("nw_tls_create_peer_trust"),
 		'int', ['pointer', 'bool', 'pointer']
 		);
 
@@ -100,7 +104,8 @@ function ios12pinning() {
 	*  Function signature https://github.com/google/boringssl/blob/7540cc2ec0a5c29306ed852483f833c61eddf133/include/openssl/ssl.h#L2294
 	*/
 	ssl_ctx_set_custom_verify = new NativeFunction(
-		Module.findExportByName("libboringssl.dylib", "SSL_CTX_set_custom_verify"),
+	    Process.getModuleByName('libboringssl.dylib').findExportByName('SSL_CTX_set_custom_verify'),
+		//Module.findExportByName("libboringssl.dylib", "SSL_CTX_set_custom_verify"),
 		'void', ['pointer', 'int', 'pointer']
 	);
 
@@ -108,7 +113,8 @@ function ios12pinning() {
 	* Function signature https://commondatastorage.googleapis.com/chromium-boringssl-docs/ssl.h.html#SSL_get_psk_identity
 	*/
 	ssl_get_psk_identity = new NativeFunction(
-		Module.findExportByName("libboringssl.dylib", "SSL_get_psk_identity"),
+	    Process.getModuleByName('libboringssl.dylib').findExportByName('SSL_get_psk_identity'),
+		//Module.findExportByName("libboringssl.dylib", "SSL_get_psk_identity"),
 		'pointer', ['pointer']
 	);
 
@@ -138,7 +144,8 @@ function ios12pinning() {
 function ios13pinning() {
 
 	try {
-		Module.ensureInitialized("libboringssl.dylib");
+	    Process.getModuleByName('libboringssl.dylib').ensureInitialized();
+		//Module.ensureInitialized("libboringssl.dylib");
 	} catch(err) {
 		console.log("libboringssl.dylib module not loaded. Trying to manually load it.")
 		Module.load("libboringssl.dylib");	
@@ -149,7 +156,8 @@ function ios13pinning() {
 	var ssl_get_psk_identity;	
 
 	ssl_set_custom_verify = new NativeFunction(
-		Module.findExportByName("libboringssl.dylib", "SSL_set_custom_verify"),
+		//Module.findExportByName("libboringssl.dylib", "SSL_set_custom_verify"),
+		Process.getModuleByName('libboringssl.dylib').findExportByName('SSL_set_custom_verify'),
 		'void', ['pointer', 'int', 'pointer']
 	);
 
@@ -157,7 +165,8 @@ function ios13pinning() {
 	* Function signature https://commondatastorage.googleapis.com/chromium-boringssl-docs/ssl.h.html#SSL_get_psk_identity
 	*/
 	ssl_get_psk_identity = new NativeFunction(
-		Module.findExportByName("libboringssl.dylib", "SSL_get_psk_identity"),
+		//Module.findExportByName("libboringssl.dylib", "SSL_get_psk_identity"),
+		Process.getModuleByName('libboringssl.dylib').findExportByName('SSL_get_psk_identity'),
 		'pointer', ['pointer']
 	);
 
@@ -240,7 +249,7 @@ function iosjailbreak() {
 	if(ObjC.available) {
 	//function bypassJailbreak() {
 	  /* eslint no-param-reassign: 0, camelcase: 0, prefer-destructuring: 0 */
-	  Interceptor.attach(Module.findExportByName(null, 'open'), {
+	  Interceptor.attach(Module.findGlobalExportByName('open'), {
 	    onEnter(args) {
 	      if (!args[0])
 	        return
@@ -297,10 +306,10 @@ function iosjailbreak() {
 	      }
 	    }
 	  }
-	  Interceptor.attach(Module.findExportByName(null, 'stat'), statHandler)
-	  Interceptor.attach(Module.findExportByName(null, 'stat64'), statHandler)
+	  Interceptor.attach(Module.findGlobalExportByName('stat'), statHandler)
+	  Interceptor.attach(Module.findGlobalExportByName('stat64'), statHandler)
 
-	  Interceptor.attach(Module.findExportByName(null, 'getenv'), {
+	  Interceptor.attach(Module.findGlobalExportByName('getenv'), {
 	    onEnter(args) {
 	      //const key = Memory.readUtf8String(args[0])
 	      const key = args[0].readUtf8String()
@@ -332,14 +341,14 @@ function iosjailbreak() {
 	    }
 	  })
 
-	  Interceptor.attach(Module.findExportByName(null, '_dyld_get_image_name'), {
+	  Interceptor.attach(Module.findGlobalExportByName('_dyld_get_image_name'), {
 	    onLeave(retVal) {
 	      if (Memory.readUtf8String(retVal).indexOf('MobileSubstrate') > -1)
 	        retVal.replace(ptr(0x00))
 	    }
 	  })
 
-	  Interceptor.attach(Module.findExportByName(null, 'fork'), {
+	  Interceptor.attach(Module.findGlobalExportByName('fork'), {
 	    onLeave(retVal) {
 	      retVal.replace(ptr(-1))
 	      // todo: send
@@ -586,10 +595,13 @@ function iosdumpkeychain() {
 
 	const NSMutableDictionary = ObjC.classes.NSMutableDictionary
 
-	const SecItemCopyMatching = new NativeFunction(ptr(Module.findExportByName('Security', 'SecItemCopyMatching')), 'pointer', ['pointer', 'pointer'])
-	const SecItemDelete = new NativeFunction(ptr(Module.findExportByName('Security', 'SecItemDelete')), 'pointer', ['pointer'])
+	//const SecItemCopyMatching = new NativeFunction(ptr(Module.findExportByName('Security', 'SecItemCopyMatching')), 'pointer', ['pointer', 'pointer'])
+	const SecItemCopyMatching = new NativeFunction(ptr(Process.getModuleByName('Security').findExportByName('SecItemCopyMatching')), 'pointer', ['pointer', 'pointer'])
+	//const SecItemDelete = new NativeFunction(ptr(Module.findExportByName('Security', 'SecItemDelete')), 'pointer', ['pointer'])
+	const SecItemDelete = new NativeFunction(ptr(Process.getModuleByName('Security').findExportByName('SecItemDelete')), 'pointer', ['pointer'])
 	const SecAccessControlGetConstraints = new NativeFunction(
-	ptr(Module.findExportByName('Security', 'SecAccessControlGetConstraints')),
+	//ptr(Module.findExportByName('Security', 'SecAccessControlGetConstraints')),
+	ptr(Process.getModuleByName('Security').findExportByName('SecAccessControlGetConstraints')),
 	'pointer', ['pointer']
 	)
 
@@ -613,7 +625,8 @@ function iosdumpkeychain() {
 	if (status != 0x00)
 	  return
 
-	const arr = new ObjC.Object(Memory.readPointer(p))
+	//const arr = new ObjC.Object(Memory.readPointer(p))
+	const arr = new ObjC.Object(ptr(p).readPointer())
 	var i,size;
 	for (i = 0, size = arr.count(); i < size; i++) {
 	  const item = arr.objectAtIndex_(i)
@@ -706,12 +719,14 @@ function iosdataprotectionkeys() {
 	var paths = listHomeDirectoryContents();
 
 	var isDir = Memory.alloc(Process.pointerSize);
-	Memory.writePointer(isDir,NULL);
+	//Memory.writePointer(isDir,NULL);
+	ptr(isDir).writePointer(NULL);
 
 	for (var i = 0; i < paths.length; i++) {
 		fileManager.fileExistsAtPath_isDirectory_(paths[i], isDir);
 
-		if (Memory.readPointer(isDir) == 0) {
+		//if (Memory.readPointer(isDir) == 0) {
+		if (ptr(isDir).readPointer() == 0) {
 		  dict.push({
 		    path: paths[i],
 		    fileProtectionKey: getDataProtectionKeyForPath(paths[i])
@@ -757,91 +772,104 @@ function iosdumpcurrentencryptedapp() {
 	    if (typeof addr == "number") {
 	        addr = ptr(addr);
 	    }
-	    return Memory.readUtf8String(addr);
+	    //return Memory.readUtf8String(addr);
+	    return ptr(addr).readUtf8String();
 	}
 
 	function getStrSize(addr, size) {
 	    if (typeof addr == "number") {
 	        addr = ptr(addr);
 	    }
-	    return Memory.readUtf8String(addr, size);
+	    //return Memory.readUtf8String(addr, size);
+	    return ptr(addr).readUtf8String(size);
 	}
 
 	function putStr(addr, str) {
 	    if (typeof addr == "number") {
 	        addr = ptr(addr);
 	    }
-	    return Memory.writeUtf8String(addr, str);
+	    //return Memory.writeUtf8String(addr, str);
+	    return ptr(addr).writeUtf8String(str);
 	}
 
 	function getByteArr(addr, l) {
 	    if (typeof addr == "number") {
 	        addr = ptr(addr);
 	    }
-	    return Memory.readByteArray(addr, l);
+	    //return Memory.readByteArray(addr, l);
+	    return ptr(addr).readByteArray(l);
 	}
 
 	function getU8(addr) {
 	    if (typeof addr == "number") {
 	        addr = ptr(addr);
 	    }
-	    return Memory.readU8(addr);
+	    //return Memory.readU8(addr);
+	    return ptr(addr).readU8();
 	}
 
 	function putU8(addr, n) {
 	    if (typeof addr == "number") {
 	        addr = ptr(addr);
 	    }
-	    return Memory.writeU8(addr, n);
+	    //return Memory.writeU8(addr, n);
+	    return ptr(addr).writeU8(n);
 	}
 
 	function getU16(addr) {
 	    if (typeof addr == "number") {
 	        addr = ptr(addr);
 	    }
-	    return Memory.readU16(addr);
+	    //return Memory.readU16(addr);
+	    return ptr(addr).readU16();
 	}
 
 	function putU16(addr, n) {
 	    if (typeof addr == "number") {
 	        addr = ptr(addr);
 	    }
-	    return Memory.writeU16(addr, n);
+	    //return Memory.writeU16(addr, n);
+	    return ptr(addr).writeU16(n);
 	}
 
 	function getU32(addr) {
 	    if (typeof addr == "number") {
 	        addr = ptr(addr);
 	    }
-	    return Memory.readU32(addr);
+	    //return Memory.readU32(addr);
+	    return ptr(addr).readU32();
 	}
 
 	function putU32(addr, n) {
 	    if (typeof addr == "number") {
 	        addr = ptr(addr);
 	    }
-	    return Memory.writeU32(addr, n);
+	    //return Memory.writeU32(addr, n);
+	    return ptr(addr).writeU32(n);
 	}
 
 	function getU64(addr) {
 	    if (typeof addr == "number") {
 	        addr = ptr(addr);
 	    }
-	    return Memory.readU64(addr);
+	    //return Memory.readU64(addr);
+	    return ptr(addr).readU64();
 	}
 
 	function putU64(addr, n) {
 	    if (typeof addr == "number") {
 	        addr = ptr(addr);
 	    }
-	    return Memory.writeU64(addr, n);
+	    //return Memory.writeU64(addr, n);
+	    return ptr(addr).writeU64(n);
 	}
 
 	function getPt(addr) {
 	    if (typeof addr == "number") {
 	        addr = ptr(addr);
 	    }
-	    return Memory.readPointer(addr);
+	    //return Memory.readPointer(addr);
+	    return ptr(addr).readPointer();
 	}
 
 	function putPt(addr, n) {
@@ -851,7 +879,8 @@ function iosdumpcurrentencryptedapp() {
 	    if (typeof n == "number") {
 	        n = ptr(n);
 	    }
-	    return Memory.writePointer(addr, n);
+	    //return Memory.writePointer(addr, n);
+	    return ptr(addr).writePointer(n);
 	}
 
 	function malloc(size) {
@@ -860,7 +889,7 @@ function iosdumpcurrentencryptedapp() {
 
 	function getExportFunction(type, name, ret, args) {
 	    var nptr;
-	    nptr = Module.findExportByName(null, name);
+	    nptr = Module.findGlobalExportByName(name);
 	    if (nptr === null) {
 	        console.log("cannot find " + name);
 	        return null;
@@ -873,7 +902,8 @@ function iosdumpcurrentencryptedapp() {
 	            }
 	            return funclet;
 	        } else if (type === "d") {
-	            var datalet = Memory.readPointer(nptr);
+	            //var datalet = Memory.readPointer(nptr);
+	            var datalet = ptr(nptr).readPointer();
 	            if (typeof datalet === "undefined") {
 	                console.log("parse error " + name);
 	                return null;
@@ -884,7 +914,8 @@ function iosdumpcurrentencryptedapp() {
 	}
 
 	function dumpMemory(addr, length) {
-	    console.log(hexdump(Memory.readByteArray(addr, length), {
+	    //console.log(hexdump(Memory.readByteArray(addr, length), {
+	    console.log(hexdump(ptr(addr).readByteArray(length), {
 	        offset: 0,
 	        length: length,
 	        header: true,
@@ -921,7 +952,7 @@ function iosdumpcurrentencryptedapp() {
 	function getAllAppModules() {
 		if (modules == null) {
 			modules = new Array();
-			var tmpmods = Process.enumerateModulesSync();
+			var tmpmods = Process.enumerateModules();
 			for (var i = 0; i < tmpmods.length; i++) {
 				if (tmpmods[i].path.indexOf(".app") != -1) {
 					modules.push(tmpmods[i]);
@@ -1042,7 +1073,8 @@ function iosdumpcurrentencryptedapp() {
 
 function dumpcryptostuffios() {
 
-	Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CCCrypt"),
+	//Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CCCrypt"),
+	Interceptor.attach(Process.getModuleByName('libSystem.B.dylib').findExportByName('CCCrypt'),
 	  {
 	    onEnter: function(args) {
 
@@ -1053,14 +1085,16 @@ function dumpcryptostuffios() {
 	        
 	        if(ptr(args[3]) != 0 ) {
 	        	console.log("Key:");
-	        	console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[3]),parseInt(args[4]))));
+	        	//console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[3]),parseInt(args[4]))));
+	        	console.log(base64ArrayBuffer(ptr(args[3]).readByteArray(parseInt(args[4]))));
 		    } else {
 		    	console.log("Key: 0");
 		    }
 
 		    if(ptr(args[5]) != 0 ) {
 	        	console.log("IV:");
-	        	console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[5]),16)));
+	        	//console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[5]),16)));
+	        	console.log(base64ArrayBuffer(ptr(args[5]).readByteArray(16)));
 		    } else {
 		    	console.log("IV: 0");
 		    }
@@ -1070,7 +1104,8 @@ function dumpcryptostuffios() {
 	        if(ptr(args[6]) != 0 ) {
 
 	        	console.log("Data in ****:");
-	        	console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[6]),this.dataInLength)));
+	        	//console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[6]),this.dataInLength)));
+                console.log(base64ArrayBuffer(ptr(args[6]).readByteArray(this.dataInLength)));
 
 		    } else {
 		    	console.log("Data in: null");
@@ -1085,7 +1120,8 @@ function dumpcryptostuffios() {
 
 	        if(ptr(this.dataOut) != 0 ) {
 		        console.log("Data out");
-		        console.log(base64ArrayBuffer(Memory.readByteArray(this.dataOut,parseInt(ptr(Memory.readU32(ptr(this.dataOutLength),4))))));
+		        //console.log(base64ArrayBuffer(Memory.readByteArray(this.dataOut,parseInt(ptr(Memory.readU32(ptr(this.dataOutLength),4))))));
+                console.log(base64ArrayBuffer(ptr(this.dataOut).readByteArray(parseInt(ptr(this.dataOutLength).readU32()))));
 
 		    } else {
 		    	console.log("Data out: null");
@@ -1097,7 +1133,8 @@ function dumpcryptostuffios() {
 
 	});
 
-	Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CCCryptorCreate"),
+	//Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CCCryptorCreate"),
+	Interceptor.attach(Process.getModuleByName('libSystem.B.dylib').findExportByName('CCCryptorCreate'),
 	  {
 	    onEnter: function(args) {
 
@@ -1108,7 +1145,8 @@ function dumpcryptostuffios() {
 
 	        if(ptr(args[3]) != 0 ) {
 	        	console.log("Key:");
-	        	console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[3]),parseInt(args[4]))));
+	        	//console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[3]),parseInt(args[4]))));
+	        	console.log(base64ArrayBuffer(ptr(args[3]).readByteArray(parseInt(args[4]))));
 
 		    } else {
 		    	console.log("Key: 0");
@@ -1116,7 +1154,8 @@ function dumpcryptostuffios() {
 
 		    if(ptr(args[5]) != 0 ) {
 	        	console.log("IV:");
-		        console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[5]),16)));
+		        //console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[5]),16)));
+		        console.log(base64ArrayBuffer(ptr(args[5]).readByteArray(16)));
 		    } else {
 		    	console.log("IV: 0");
 		    }
@@ -1129,13 +1168,15 @@ function dumpcryptostuffios() {
 	});
 
 	
-	Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CCCryptorUpdate"),
+	//Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CCCryptorUpdate"),
+	Interceptor.attach(Process.getModuleByName('libSystem.B.dylib').findExportByName('CCCryptorUpdate'),
 	  {
 	    onEnter: function(args) {
 	    	console.log("*** CCCryptorUpdate ENTER ****");
 	    	if(ptr(args[1]) != 0) {
 		        console.log("Data in:");
-		        console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[1]),parseInt(args[2]))));
+		        //console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[1]),parseInt(args[2]))));
+		        console.log(base64ArrayBuffer(ptr(args[1]).readByteArray(parseInt(args[2]))));
 
 		    } else {
 		    	console.log("Data in: null");
@@ -1151,7 +1192,8 @@ function dumpcryptostuffios() {
 
 	    	if(ptr(this.out) != 0) {
 		    	console.log("Data out CCUpdate:");
-		    	console.log(base64ArrayBuffer(Memory.readByteArray(this.out,parseInt(ptr(Memory.readU32(ptr(this.len),4))))));
+		    	//console.log(base64ArrayBuffer(Memory.readByteArray(this.out,parseInt(ptr(Memory.readU32(ptr(this.len),4))))));
+		    	console.log(base64ArrayBuffer(ptr(this.out).readByteArray(parseInt( ptr(this.len).readU32() ))));
 
 		    } else {
 		    	console.log("Data out: null");
@@ -1161,7 +1203,8 @@ function dumpcryptostuffios() {
 
 	});
 
-	Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CCCryptorFinal"),
+	//Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CCCryptorFinal"),
+	Interceptor.attach(Process.getModuleByName('libSystem.B.dylib').findExportByName('CCCryptorFinal'),
 	  {
 	    onEnter: function(args) {
 	    	console.log("*** CCCryptorFinal ENTER ****");
@@ -1172,7 +1215,8 @@ function dumpcryptostuffios() {
 	    onLeave: function(retval) {
 	    	if(ptr(this.out2) != 0) {
 		    	console.log("Data out CCCryptorFinal:");
-		    	console.log(base64ArrayBuffer(Memory.readByteArray(this.out2,parseInt(ptr(Memory.readU32(ptr(this.len2),4))))));
+		    	//console.log(base64ArrayBuffer(Memory.readByteArray(this.out2,parseInt(ptr(Memory.readU32(ptr(this.len2),4))))));
+		    	console.log(base64ArrayBuffer(ptr(this.out2).readByteArray(parseInt( ptr(this.len2).readU32() ))));
 
 		    } else {
 		    	console.log("Data out: null")
@@ -1183,7 +1227,8 @@ function dumpcryptostuffios() {
 	});
 
 	//CC_SHA1_Init(CC_SHA1_CTX *c);
-	Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CC_SHA1_Init"),
+	//Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CC_SHA1_Init"),
+	Interceptor.attach(Process.getModuleByName('libSystem.B.dylib').findExportByName('CC_SHA1_Init'),
 	{
 	  onEnter: function(args) {
 	  	console.log("*** CC_SHA1_Init ENTER ****");	  	
@@ -1192,14 +1237,16 @@ function dumpcryptostuffios() {
 	});
 
 	//CC_SHA1_Update(CC_SHA1_CTX *c, const void *data, CC_LONG len);
-	Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CC_SHA1_Update"),
+	//Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CC_SHA1_Update"),
+	Interceptor.attach(Process.getModuleByName('libSystem.B.dylib').findExportByName('CC_SHA1_Update'),
 	{
 	  onEnter: function(args) {
 	  	console.log("*** CC_SHA1_Update ENTER ****");
 	  	console.log("Context address: " + args[0]);
 	  	if(ptr(args[1]) != 0) {
 		  	console.log("data:");
-			console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[1]),parseInt(args[2]))));
+			//console.log(base64ArrayBuffer(Memory.readByteArray(ptr(args[1]),parseInt(args[2]))));
+			console.log(base64ArrayBuffer(ptr(args[1]).readByteArray(parseInt(args[2]))));
 		} else {
 			console.log("data: null");
 		}
@@ -1207,7 +1254,8 @@ function dumpcryptostuffios() {
 	});
 
 	//CC_SHA1_Final(unsigned char *md, CC_SHA1_CTX *c);
-	Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CC_SHA1_Final"),
+	//Interceptor.attach(Module.findExportByName("libSystem.B.dylib","CC_SHA1_Final"),
+	Interceptor.attach(Process.getModuleByName('libSystem.B.dylib').findExportByName('CC_SHA1_Final'),
 	{
 	  onEnter: function(args) {
 	  	this.mdSha = args[0];
@@ -1218,7 +1266,8 @@ function dumpcryptostuffios() {
 	  	console.log("Context address: " + this.ctxSha);
 	  	if(ptr(this.mdSha) != 0) {
 		  	console.log("Hash:");
-		  	console.log(base64ArrayBuffer(Memory.readByteArray(ptr(this.mdSha),20)));
+		  	//console.log(base64ArrayBuffer(Memory.readByteArray(ptr(this.mdSha),20)));
+		  	console.log(base64ArrayBuffer(ptr(this.mdSha).readByteArray(20)));
 
 		} else {
 			console.log("Hash: null");
