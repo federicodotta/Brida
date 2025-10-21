@@ -701,7 +701,7 @@ function androidfingerprintbypass2hook() {
 	        var cryptoInst = cryptoObj.$new(sweet_cipher);
 	        
 	        var authenticationResultObj = Java.use('android.hardware.biometrics.BiometricPrompt$AuthenticationResult');
-	        global.authenticationResultInst = authenticationResultObj.$new(cryptoInst,null,0);
+	        globalThis.authenticationResultInst = authenticationResultObj.$new(cryptoInst,null,0);
 	        console.log("cryptoInst:, " + cryptoInst + " class: "+ cryptoInst.$className);
 
 	        callback.onAuthenticationSucceeded(authenticationResultInst);  
@@ -720,8 +720,8 @@ function androidfingerprintbypass2hook() {
 
 	        
 	        var authenticationResultObj = Java.use('android.hardware.biometrics.BiometricPrompt$AuthenticationResult');
-	        global.authenticationResultInst = authenticationResultObj.$new(crypto,null,0);
-	        global.callbackG = callback; 
+	        globalThis.authenticationResultInst = authenticationResultObj.$new(crypto,null,0);
+	        globalThis.callbackG = callback;
 
 	        //callback.onAuthenticationSucceeded(authenticationResultInst);
 
@@ -766,8 +766,8 @@ function androidfingerprintbypass2hook() {
 	           
 	        }   
 	        
-	        global.authenticationResultInst = authenticationResultObj.$new(crypto,null,0);
-	        global.callbackG = callback; 
+	        globalThis.authenticationResultInst = authenticationResultObj.$new(crypto,null,0);
+	        globalThis.callbackG = callback;
 
 	        return this.authenticate(crypto,flags, cancel, callback, handler);
 	    }   
@@ -802,8 +802,8 @@ function androidfingerprintbypass2hook() {
 	    fingerprintManager_authenticate.implementation = function(crypto,cancel, flags, callback, handler) {
 	        console.log("[FingerprintManager.authenticate()]: crypto: " + crypto + ", flags: "+ flags + ", cancel:" + cancel + ", callback: " + callback + ", handler: "+ handler );
 	        
-	        global.authenticationResultInst = authenticationResultObj.$new(crypto,null,0);
-	        global.callbackG = callback;
+	        globalThis.authenticationResultInst = authenticationResultObj.$new(crypto,null,0);
+	        globalThis.callbackG = callback;
 
 	        return this.authenticate(crypto, cancel,flags, callback, handler);
 	    }   
@@ -1167,7 +1167,7 @@ function tracekeystore() {
 	});
 	console.log("KeyStore hooks loaded!");
 
-	global.keystoreList = [];
+	globalThis.keystoreList = [];
 	var StringCls = null;
 	Java.perform(function () {
 		StringCls = Java.use('java.lang.String');
@@ -1191,7 +1191,7 @@ function tracekeystore() {
 			//console.log("[Call] Keystore.getInstance(java.lang.String )")
 			console.log("[Keystore.getInstance()]: type: " + type);
 			var tmp = this.getInstance(type);
-			global.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
+			globalThis.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
 			return tmp;
 		}
 	}
@@ -1202,7 +1202,7 @@ function tracekeystore() {
 			//console.log("[Call] Keystore.getInstance(java.lang.String, java.lang.String )")
 			console.log("[Keystore.getInstance2()]: type: " + type + ", provider: " + provider);
 			var tmp = this.getInstance(type, proivder);
-			global.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
+			globalThis.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
 			return tmp;
 		}
 	}
@@ -1213,7 +1213,7 @@ function tracekeystore() {
 			//console.log("[Call] Keystore.getInstance(java.lang.String, java.security.Provider )")
 			console.log("[Keystore.getInstance2()]: type: " + type + ", provider: " + provider);
 			var tmp = this.getInstance(type, proivder);
-			global.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
+			globalThis.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
 			return tmp;
 		}
 	}
