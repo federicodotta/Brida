@@ -701,10 +701,10 @@ function androidfingerprintbypass2hook() {
 	        var cryptoInst = cryptoObj.$new(sweet_cipher);
 	        
 	        var authenticationResultObj = Java.use('android.hardware.biometrics.BiometricPrompt$AuthenticationResult');
-	        globalThis.authenticationResultInst = authenticationResultObj.$new(cryptoInst,null,0);
+	        globalThis.authenticationResultInst = Java.retain(authenticationResultObj.$new(cryptoInst,null,0));
 	        console.log("cryptoInst:, " + cryptoInst + " class: "+ cryptoInst.$className);
 
-	        callback.onAuthenticationSucceeded(authenticationResultInst);  
+	        callback.onAuthenticationSucceeded(globalThis.authenticationResultInst);
 	        //return this.authenticate(cancellationSignal,executor,callback);
 	    }   
 
@@ -720,10 +720,10 @@ function androidfingerprintbypass2hook() {
 
 	        
 	        var authenticationResultObj = Java.use('android.hardware.biometrics.BiometricPrompt$AuthenticationResult');
-	        globalThis.authenticationResultInst = authenticationResultObj.$new(crypto,null,0);
-	        globalThis.callbackG = callback;
+	        globalThis.authenticationResultInst = Java.retain(authenticationResultObj.$new(crypto,null,0));
+	        globalThis.callbackG = Java.retain(callback);
 
-	        //callback.onAuthenticationSucceeded(authenticationResultInst);
+	        //callback.onAuthenticationSucceeded(globalThis.authenticationResultInst);
 
 	        return this.authenticate(crypto,cancellationSignal,executor,callback);
 	    }   
@@ -766,8 +766,8 @@ function androidfingerprintbypass2hook() {
 	           
 	        }   
 	        
-	        globalThis.authenticationResultInst = authenticationResultObj.$new(crypto,null,0);
-	        globalThis.callbackG = callback;
+	        globalThis.authenticationResultInst = Java.retain(authenticationResultObj.$new(crypto,null,0));
+	        globalThis.callbackG = Java.retain(callback);
 
 	        return this.authenticate(crypto,flags, cancel, callback, handler);
 	    }   
@@ -802,8 +802,8 @@ function androidfingerprintbypass2hook() {
 	    fingerprintManager_authenticate.implementation = function(crypto,cancel, flags, callback, handler) {
 	        console.log("[FingerprintManager.authenticate()]: crypto: " + crypto + ", flags: "+ flags + ", cancel:" + cancel + ", callback: " + callback + ", handler: "+ handler );
 	        
-	        globalThis.authenticationResultInst = authenticationResultObj.$new(crypto,null,0);
-	        globalThis.callbackG = callback;
+	        globalThis.authenticationResultInst = Java.retain(authenticationResultObj.$new(crypto,null,0));
+	        globalThis.callbackG = Java.retain(callback);
 
 	        return this.authenticate(crypto, cancel,flags, callback, handler);
 	    }   
@@ -1117,7 +1117,7 @@ function androidfingerprintbypass2function() {
                         {
                             try
                             { 
-                                callbackG.onAuthenticationSucceeded(authenticationResultInst); // we just need to call this single line (other code is needed to call this on UI thread)
+                                globalThis.callbackG.onAuthenticationSucceeded(globalThis.authenticationResultInst); // we just need to call this single line (other code is needed to call this on UI thread)
                             } 
                             catch (error)
                             {
@@ -1191,7 +1191,7 @@ function tracekeystore() {
 			//console.log("[Call] Keystore.getInstance(java.lang.String )")
 			console.log("[Keystore.getInstance()]: type: " + type);
 			var tmp = this.getInstance(type);
-			globalThis.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
+			globalThis.keystoreList.push(Java.retain(tmp)); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
 			return tmp;
 		}
 	}
@@ -1201,8 +1201,8 @@ function tracekeystore() {
 		keyStoreGetInstance.implementation = function (type, provider) {
 			//console.log("[Call] Keystore.getInstance(java.lang.String, java.lang.String )")
 			console.log("[Keystore.getInstance2()]: type: " + type + ", provider: " + provider);
-			var tmp = this.getInstance(type, proivder);
-			globalThis.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
+			var tmp = this.getInstance(type, provider);
+			globalThis.keystoreList.push(Java.retain(tmp)); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
 			return tmp;
 		}
 	}
@@ -1212,8 +1212,8 @@ function tracekeystore() {
 		keyStoreGetInstance.implementation = function (type, provider) {
 			//console.log("[Call] Keystore.getInstance(java.lang.String, java.security.Provider )")
 			console.log("[Keystore.getInstance2()]: type: " + type + ", provider: " + provider);
-			var tmp = this.getInstance(type, proivder);
-			globalThis.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
+			var tmp = this.getInstance(type, provider);
+			globalThis.keystoreList.push(Java.retain(tmp)); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
 			return tmp;
 		}
 	}
@@ -1352,12 +1352,12 @@ function listaliasesstatic() {
 
 /*
 * Dump all aliasses in keystores of all instances obtained during app runtime. 
-* Instances that will be dumped are collected via hijacking Keystre.getInstance() -> hookKeystoreGetInstance()
+* Instances that will be dumped are collected via hijacking Keystore.getInstance() -> hookKeystoreGetInstance()
 */
 function listaliasesruntime() {
 	Java.perform(function () {
-		console.log("[ListAliasesRuntime] Instances: " + keystoreList);
-		keystoreList.forEach(function (entry) {
+		console.log("[ListAliasesRuntime] Instances: " + globalThis.keystoreList);
+		globalThis.keystoreList.forEach(function (entry) {
 			console.log("[ListAliasesRuntime] keystoreObj: " + entry + " type: " + entry.getType() + " \n" + ListAliasesObj(entry));
 		});
 	});
@@ -2155,9 +2155,9 @@ function ListAliasesObj(obj) {
 function GetKeyStore(keystoreName) {
 	var result = null;
 	Java.perform(function () {
-		for (var i = 0; i < keystoreList.length; i++) {
-			if (keystoreName.localeCompare("" + keystoreList[i]) == 0)
-				result = keystoreList[i];
+		for (var i = 0; i < globalThis.keystoreList.length; i++) {
+			if (keystoreName.localeCompare("" + globalThis.keystoreList[i]) == 0)
+				result = globalThis.keystoreList[i];
 		}
 	});
 	return result;
