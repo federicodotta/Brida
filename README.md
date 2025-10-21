@@ -38,31 +38,51 @@ More in detail, Brida allows to graphically create the plugins that:
 
 And if Brida custom plugin engine is not enough for our super-complex situations, it is also possible to write external Python/Java Burp Suite extensions that leave to Brida the task of executing the functions of the target mobile application on the data of the extension. Brida "Generate Stubs" tool generates the Java or Python code that can be pasted in external Python or Java extensions to use the Brida bridge.
 
+# Brida >= 0.6 - Requirements and installation (frida >= 17)
 
-# Requirements
-In order to be able to use Brida, you need:
-1.	Burp Suite (1.X or 2.X)
-2.	Frida client
-3.	Pyro4
-4.	frida-compile (**!!! use version 10.2.5, last version of frida-compile do not work at the moment, debug in progress... !!!**)
-5.	A jailbroken iOS device/rooted Android device with frida-server running on it (or an application patched with the frida-gadget)
-6.	An application to analyze! :D
+Frida 17 brings major updates in the tool itself and in its JavaScript APIs. A major refactor of JS code was necessary, that broke compatibility with previous frida versions. Consequently last versions of Brida require a version of frida greater or equals to 17. If you need to use an older version of Frida, you can download version 0.6pre from the GitHub releases.
 
-# Installation from GitHub
-1.	Install Python 2.7 or Python 3, Pyro4 (pip install pyro4) and frida (pip install frida). python virtual environments are fully supported.
-2.	Install Node.js, npm and frida-compile (npm install frida-compile@9). At the moment there are issues with version 10 of frida-compile, but we are trying to solve them.
-3.	Download Burp Suite: http://portswigger.net/burp/download.html
-4.	Download the last release of Brida: https://github.com/federicodotta/Brida/releases
-5.	Open Burp -> Extender -> Extensions -> Add -> Choose BridaXX.jar file
+**Requirements:**
 
-# Installation from Burp Suite BApp Store
-1.	Install Python 2.7 or Python 3, Pyro4 (pip install pyro4) and frida (pip install frida). python virtual environments are fully supported.
-2.	Install Node.js, npm and frida-compile (npm install frida-compile@10.2.5). At the moment there are issues with version 10 of frida-compile, but we are trying to solve them.
-3.	Download Burp Suite: http://portswigger.net/burp/download.html
-4.	Open Burp -> Extender -> BApp Store -> Brida, Burp to Frida bridge -> Install
+1.	Install Burp Suite (Community or Pro)
+2.	Install NodeJS and npm and add them to the system path (in MacOS this can be challenging; refer to [this link](https://github.com/ersiner/osx-env-sync/issues/1#issuecomment-230053839) if you have issues with this point)
+3.	Install frida and pyro4 python packages, in the system or in a virtual environment (`pip install frida frida-tools pyro4`)
+4.	A jailbroken iOS device/rooted Android device with frida-server running on it (or an application patched with the frida-gadget)
+
+**Installation from GitHub:**
+
+1.	Download the last release of Brida: https://github.com/federicodotta/Brida/releases
+2.	Open Burp -> Extender -> Extensions -> Add -> Choose BridaXX.jar file
+
+**Installation from Burp Suite BApp Store:**
+
+1.	Open Burp -> Extender -> BApp Store -> Brida, Burp to Frida bridge -> Install
+
+*Updates in BApp Store require time. Checks on GitHub for latest version.*
+
+# Brida <= 0.6pre - Requirements and installation (frida < 17)
+
+**Requirements:**
+
+1.  Install Burp Suite (Community or Pro)
+2.  Install Node.js, npm and frida-compile 10.2.5 (npm install frida-compile@10.2.5). 
+3.  Install frida and pyro4 python packages, in the system or in a virtual environment (`pip install frida frida-tools pyro4`)
+4.  A jailbroken iOS device/rooted Android device with frida-server running on it (or an application patched with the frida-gadget)
+
+**Installation from GitHub:**
+
+1.  Download release 0.6pre of Brida: https://github.com/federicodotta/Brida/releases
+2.  Open Burp -> Extender -> Extensions -> Add -> Choose BridaXX.jar file
+
+*Path errors on MacOS are quite common; refer to [this link](https://github.com/ersiner/osx-env-sync/issues/1#issuecomment-230053839) if you have issues with system path*.
 
 # Build
-You can build Brida using Maven. Brida uses a modified version of RSyntaxTextArea, that you can find in this [fork](https://github.com/federicodotta/RSyntaxTextArea). In order to be able to build Brida you have to download the [last release](https://github.com/federicodotta/RSyntaxTextArea/releases) of the modified version of RSyntaxTextArea or build it and then install it locally with Maven using the following parameters:
+
+You can build Brida using Gradle or Maven. Brida uses a modified version of RSyntaxTextArea, that you can find in this [fork](https://github.com/federicodotta/RSyntaxTextArea). 
+
+Building with Gradle is simpler. The "jar" task will do all the job, using a compiled version of the modified RSyntaxTextArea (folder "libs").
+
+In order to be able to build Brida with Maven you have to install the modified RSyntaxTextArea version locally with Maven using the following parameters:
 
 - groupId: com.fifesoft
 - artifactId: rsyntaxtextarea
@@ -121,7 +141,7 @@ Furthermore, Brida integrates many Frida hooks developed by various authors to i
 ![Brida Screenshot](https://raw.githubusercontent.com/federicodotta/Brida/master/BridaScreen1.PNG)
 
 # MIT License
-Copyright (c) 2021 Brida  
+Copyright (c) 2025 Brida  
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:  
 
