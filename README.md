@@ -138,7 +138,7 @@ Furthermore, Brida integrates many Frida hooks developed by various authors to i
 - DevTraleski - [iOS Jailbreak Detection Bypass Palera1n](https://codeshare.frida.re/@DevTraleski/ios-jailbreak-detection-bypass-palera1n/)
 
 # Screenshot
-![Brida Screenshot](https://raw.githubusercontent.com/federicodotta/Brida/master/BridaScreen1.PNG)
+![Brida Screenshot](https://raw.githubusercontent.com/federicodotta/Brida/master/images/BridaScreen1.PNG)
 
 # MIT License
 Copyright (c) 2025 Brida  
