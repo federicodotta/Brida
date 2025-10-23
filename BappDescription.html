@@ -1,0 +1,40 @@
+<p>This extension works as a bridge between Burp Suite and Frida, lets you use and manipulate applications' own methods
+    while tampering the traffic exchanged between the applications and their back-end services/servers.
+    It supports all platforms supported by Frida (iOS, Android, Windows, macOS, Linux, and QNX).
+</p>
+
+<p>This idea is a need that is born during the analysis of some mobile application that use strong symmetric cryptography using random keys, without knowing the correct secret all data was not modifiable via Burp neither with a custom plugin. More generally, applications' logic could be based on cryptographic tokens, it could use a complex challenge-response algorithm as well, and so on. How can we tamper the messages? Most of the times the only viable approach is to decompile/disassemble the application, identify the functions or methods we're interested in AND re-implement them. This approach is obviously time consuming and not always really viable: i.e. the generation of tokens and/or the encryption routines could be based on cryptographic material strictly tied to the device (state) or stored inside protected areas and thus not directly accessible... That's when Brida comes in handy: instead of trying to extract keys/certificates and re-writing the routines we're interested in, why don't we let the application do the dirty work for us?</p>
+
+<p>Last version introduces the most recent Frida hooks developed by the community for Android and iOS platforms to bypass and inspect security features and new highly-customizable engine that allows to graphically create custom plugins to:</p>
+
+<ul>
+	<li>Process requests/responses that pass through every Burp Suite tool, in order to be able to encrypt/decrypt/resign elements of requests and responses using Frida exported functions</li>
+	<li>Add custom tab to Burp Suite request/response pane, in order to be able to decrypt/decode/process requests/responses (or portion of them) using Frida exported functions (and then encrypt/encode/process modifications and replacing the original request/response, if any)</li>
+	<li>Add custom context menu options to invoke Frida exported functions on requests and responses</li>
+	<li>Add buttons that invoke/enable Frida exported functions</li>
+</ul>
+
+<p><b>Requirements:</b></p>
+
+<p>In order to be able to use Brida, you need (more details in the <a href="https://github.com/federicodotta/Brida/wiki">Brida wiki</a>):</p>
+<ol>
+	<li>Burp Suite (both Community and Pro versions supported)</li>
+	<li>Python (virtual environments supported) and some python modules (frida, frida-tools and pyro4)</li>
+	<li>NodeJS and npm (in the system PATH)</li>
+	<li>A jailbroken iOS device/rooted Android device with frida-server running on it (or an application patched with the frida-gadget)</li>
+	<li>An application to analyze (<a href="https://github.com/federicodotta/Brida/tree/master/Demo">demo applications</a> available in the GitHub repo)! :D</li>
+</ol>
+
+<p>The slides of our conference presented at <strong>HackInBo 2017 Winter Edition</strong> that describes the <strong>first version</strong> can be found at:</p>
+<ul>
+	<li>(ENG) <a href="https://www.hackinbo.it/slides/1508354139_HackInBo%202017%20Winter%20Edition%20-%20Federico%20Dotta%20-%20Advanced%20mobile%20penetration%20testing%20with%20Brida%20-%20141017.pdf">https://www.hackinbo.it/slides/1508354139_HackInBo%202017%20Winter%20Edition%20-%20Federico%20Dotta%20-%20Advanced%20mobile%20penetration%20testing%20with%20Brida%20-%20141017.pdf</a></li>
+</ul>
+<p>The slides and the video of our conference presented at <strong>Hack In The Box 2018 Amsterdam</strong> that describes the new features of the <strong>version 0.2</strong> can be found at:</p>
+<ul>
+	<li>(ENG) <a href="https://conference.hitb.org/hitbsecconf2018ams/materials/D1T1%20-%20Federico%20Dotta%20and%20Piergiovanni%20Cipolloni%20-%20Brida%20When%20Burp%20Suite%20Meets%20Frida.pdf">https://conference.hitb.org/hitbsecconf2018ams/materials/D1T1%20-%20Federico%20Dotta%20and%20Piergiovanni%20Cipolloni%20-%20Brida%20When%20Burp%20Suite%20Meets%20Frida.pdf</a></li>
+	<li>(ENG) <a href="https://www.youtube.com/watch?v=wPepicuHDzs&amp;t=18s">https://www.youtube.com/watch?v=wPepicuHDzs&amp;t=18s</a></li>
+</ul>
+<p>The video of our conference presented at <strong>Hack In Paris 2021</strong> that describes the new features of the <strong>version 0.5</strong> can be found at:</p>
+<ul>
+	<li>(ENG) <a href="https://www.youtube.com/watch?v=RawqXSslsQk&list=PLaS1tu_LcHA8WE8ITALpeCX7b07rOBZcj">https://www.youtube.com/watch?v=RawqXSslsQk&list=PLaS1tu_LcHA8WE8ITALpeCX7b07rOBZcj</a></li>
+</ul>
