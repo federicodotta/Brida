@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -48,7 +49,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.zip.DeflaterOutputStream;
@@ -113,12 +113,25 @@ import burp.CustomPlugin.CustomPluginParameterValues;
 import net.razorvine.pickle.PickleException;
 import net.razorvine.pyro.*;
 
-public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseListener, IExtensionStateListener {
+import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.BurpExtension;
+import burp.api.montoya.logging.Logging;
+import burp.api.montoya.persistence.PersistedObject;
+import burp.api.montoya.persistence.PersistedList;
+import burp.api.montoya.ui.menu.Menu;
+import burp.api.montoya.ui.menu.MenuItem;
+import burp.api.montoya.ui.menu.BasicMenuItem;
+
+public class BurpExtender implements BurpExtension, IBurpExtender, ITab, ActionListener, MouseListener, IExtensionStateListener {
 	
 	public static final int PLATFORM_ANDROID = 0;
 	public static final int PLATFORM_IOS = 1;
 	public static final int PLATFORM_GENERIC = 2;
 
+    private MontoyaApi montoyaApi;
+    private PersistedObject myExtensionData;
+    private String myProjectSettings;
+    private PersistedList<String> enabledHooks = PersistedList.persistedStringList();
 	public IBurpExtenderCallbacks callbacks;
 	public IExtensionHelpers helpers;
     
@@ -157,6 +170,7 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	DefaultStyledDocument documentApplicationStatusButtons;
     private JTextPane serverStatusButtons;
     private JTextPane applicationStatusButtons;
+    private JPanel applicationIdPanel;
 	
 	private JTextField executeMethodName;
 	private JTextField executeMethodArgument;
@@ -166,7 +180,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	
 	public boolean serverStarted;
 	public boolean applicationSpawned;
-	public boolean customPluginEnabled;
 		
 	private ITextEditor stubTextEditor;
     
@@ -202,7 +215,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     private int platform;
     
     private List<DefaultHook> defaultHooks;
-    
+
+    private JPanel configurationConfPanel;
     private JPanel customPluginToolsPanel;
     private JPanel customPluginScopePanel;
     private JPanel customPluginButtonTypePanel;
@@ -277,7 +291,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     private boolean customPluginPluginTypeListenerEnabled;
     
     private ArrayList<DefaultHook> treeHooks;
-    		
+    private Logging logging;
+
     /*
      * TODO
      * - Pop-up in Context menu
@@ -328,7 +343,6 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     
     
     public void initializeDefaultHooks() {
-    	
     	// Default Android hooks
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass with CA certificate, more reliable (requires CA public certificate in /data/local/tmp/cert-der.crt)",BurpExtender.PLATFORM_ANDROID,"androidpinningwithca1",true,new ArrayList<byte[]>(),null,false));
     	addButtonToHooksAndFunctions(new DefaultHook("SSL Pinning bypass without CA certificate, less reliable",BurpExtender.PLATFORM_ANDROID,"androidpinningwithoutca1",true,new ArrayList<byte[]>(),null,false));
@@ -360,7 +374,46 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
     	addButtonToHooksAndFunctions(new DefaultHook("Demagle Swift name",BurpExtender.PLATFORM_IOS,"demangle",false,new ArrayList<byte[]>(),new ArrayList<BurpExtender.Transformation>(),true));
     	    	
     }
-    
+
+    //Invoked Last - Example from https://github.com/PortSwigger/burp-extensions-montoya-api/blob/7c36d5dac3ee8765a32111b45426df8221d2eb7b/examples/src/main/java/net/portswigger/burp/extensions/multiapi/MultiApiExample.java
+    @Override
+    public void initialize(MontoyaApi api)
+    {
+        this.montoyaApi = api;
+        this.logging = api.logging();
+
+        //this.logging.logToOutput("Montoya API Init - Importing saved settings if found");
+
+        api.extension().setName("Brida");
+        myExtensionData = api.persistence().extensionData();
+
+        String myApplicationId = myExtensionData.getString("applicationId");
+        if (myApplicationId != null && !myApplicationId.isEmpty()) {
+            applicationId.setText(myExtensionData.getString("applicationId"));
+        }
+
+        PersistedList<String> myEnabledHooks = myExtensionData.getStringList("Enabled Hooks");
+        if (myEnabledHooks != null && !myEnabledHooks.isEmpty()) {
+            enabledHooks = myEnabledHooks;
+        }
+        initializeDefaultHooks();
+
+
+        myProjectSettings = myExtensionData.getString("Plugins Export");
+        if (myProjectSettings != null && !myProjectSettings.isEmpty()) {
+            String[] rows = myProjectSettings.split("\n");
+
+            for (int row = 0; row < rows.length; row++) {
+                boolean result = importPlugin(rows[row]);
+
+                if (!result) {
+                    this.logging.logToError("Skipping row " + (row + 1) + ": invalid type of custom plugin or number of arguments");
+                }
+            }
+        }
+
+    }
+
 	public void registerExtenderCallbacks(IBurpExtenderCallbacks c) {
 			
 		
@@ -382,8 +435,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
         
         stdout.println("Welcome to Brida, the new bridge between Burp Suite and Frida!");
         stdout.println("Created by Piergiovanni Cipolloni and Federico Dotta");
-        stdout.println("Contributors: Maurizio Agazzini");
-        stdout.println("Version: 0.6");
+        stdout.println("Contributors: Maurizio Agazzini, Cezar Lungu");
+        stdout.println("Version: 0.7");
         stdout.println("");
         stdout.println("Github: https://github.com/federicodotta/Brida");
         stdout.println("");
@@ -430,1162 +483,1172 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			printException(e,"Error copying Pyro Server file");
 			
 		}
-		       
-        SwingUtilities.invokeLater(new Runnable()  {
-        	
-            @Override
-            public void run()  {   	
-            	
-            	mainPanel = new JPanel();
-            	mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
-            	
-            	JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-            	
-            	// **** Left panel (tabbed plus console)            	
-            	JSplitPane consoleTabbedSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);            	
-            	
-            	// Tabbed Pabel            	
-            	final JTabbedPane tabbedPanel = new JTabbedPane();
-            	tabbedPanel.addChangeListener(new ChangeListener() {
-                    public void stateChanged(ChangeEvent e) {
-                       
-                        SwingUtilities.invokeLater(new Runnable() {
-            				
-            	            @Override
-            	            public void run() {
-            	            	
-            	            	showHideButtons(tabbedPanel.getSelectedIndex());
-            					
-            	            }
-            			});	
-                        
-                    }
-                });
-            	
-            	// **** TABS
 
-            	// **** CONFIGURATION PANEL
-            	
-            	JPanel configurationConfPanel = new JPanel();
-                configurationConfPanel.setLayout(new BoxLayout(configurationConfPanel, BoxLayout.Y_AXIS));
-                                
-                // RED STYLE
-                StyleContext styleContext = new StyleContext();
-                redStyle = styleContext.addStyle("red", null);
-                StyleConstants.setForeground(redStyle, Color.RED);
-                // GREEN STYLE                
-                greenStyle = styleContext.addStyle("green", null);
-                StyleConstants.setForeground(greenStyle, Color.GREEN);
-                                
-                JPanel serverStatusPanel = new JPanel();
-                serverStatusPanel.setLayout(new BoxLayout(serverStatusPanel, BoxLayout.X_AXIS));
-                serverStatusPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelServerStatus = new JLabel("Server status: ");
-                documentServerStatus = new DefaultStyledDocument();
-                serverStatus = new JTextPane(documentServerStatus);                
-                try {
-                	documentServerStatus.insertString(0, "NOT running", redStyle);
-				} catch (BadLocationException e) {
-					printException(e,"Error setting labels");
-				}
-                serverStatus.setMaximumSize( serverStatus.getPreferredSize() );
-                serverStatusPanel.add(labelServerStatus);
-                serverStatusPanel.add(serverStatus);
-                
-                JPanel applicationStatusPanel = new JPanel();
-                applicationStatusPanel.setLayout(new BoxLayout(applicationStatusPanel, BoxLayout.X_AXIS));
-                applicationStatusPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelApplicationStatus = new JLabel("Application status: ");
-                documentApplicationStatus = new DefaultStyledDocument();
-                applicationStatus = new JTextPane(documentApplicationStatus);                      
-                try {
-                	documentApplicationStatus.insertString(0, "NOT hooked", redStyle);
-				} catch (BadLocationException e) {
-					printException(e,"Error setting labels");
-				}
-                applicationStatus.setMaximumSize( applicationStatus.getPreferredSize() );
-                applicationStatusPanel.add(labelApplicationStatus);
-                applicationStatusPanel.add(applicationStatus);
-                                
-                JPanel virtualEnvPanel = new JPanel();
-                virtualEnvPanel.setLayout(new BoxLayout(virtualEnvPanel, BoxLayout.X_AXIS));
-                virtualEnvPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelUseVirtualEnv = new JLabel("Use virtual env: ");
-                useVirtualEnvCheckBox = new JCheckBox();                
-                if(callbacks.loadExtensionSetting("useVirtualEnvCheckBox") != null)
-                	useVirtualEnvCheckBox.setSelected(callbacks.loadExtensionSetting("useVirtualEnvCheckBox").equals("true"));
-                else
-                	useVirtualEnvCheckBox.setSelected(false);
-                useVirtualEnvCheckBox.addItemListener(new ItemListener() {
-                    @Override
-                    public void itemStateChanged(ItemEvent e) {                        
-                    	if(e.getStateChange() == ItemEvent.SELECTED) {
-                    		//labelPythonPathVenv.setText("Virtual env activation command: ");
-                    		labelPythonPathVenv.setText("Virtual env folder: ");
+        try {
+            SwingUtilities.invokeAndWait(new Runnable()  {
+
+                @Override
+                public void run()  {
+
+                    mainPanel = new JPanel();
+                    mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+
+                    JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+
+                    // **** Left panel (tabbed plus console)
+                    JSplitPane consoleTabbedSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+
+                    // Tabbed Pabel
+                    final JTabbedPane tabbedPanel = new JTabbedPane();
+                    tabbedPanel.addChangeListener(new ChangeListener() {
+                        public void stateChanged(ChangeEvent e) {
+
+                            SwingUtilities.invokeLater(new Runnable() {
+
+                                @Override
+                                public void run() {
+
+                                    showHideButtons(tabbedPanel.getSelectedIndex());
+
+                                }
+                            });
+
+                        }
+                    });
+
+                    // **** TABS
+
+                    // **** CONFIGURATION PANEL
+
+                    configurationConfPanel = new JPanel();
+                    configurationConfPanel.setLayout(new BoxLayout(configurationConfPanel, BoxLayout.Y_AXIS));
+
+                    // RED STYLE
+                    StyleContext styleContext = new StyleContext();
+                    redStyle = styleContext.addStyle("red", null);
+                    StyleConstants.setForeground(redStyle, Color.RED);
+                    // GREEN STYLE
+                    greenStyle = styleContext.addStyle("green", null);
+                    StyleConstants.setForeground(greenStyle, Color.GREEN);
+
+                    JPanel serverStatusPanel = new JPanel();
+                    serverStatusPanel.setLayout(new BoxLayout(serverStatusPanel, BoxLayout.X_AXIS));
+                    serverStatusPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel labelServerStatus = new JLabel("Server status: ");
+                    documentServerStatus = new DefaultStyledDocument();
+                    serverStatus = new JTextPane(documentServerStatus);
+                    try {
+                        documentServerStatus.insertString(0, "NOT running", redStyle);
+                    } catch (BadLocationException e) {
+                        printException(e,"Error setting labels");
+                    }
+                    serverStatus.setMaximumSize( serverStatus.getPreferredSize() );
+                    serverStatusPanel.add(labelServerStatus);
+                    serverStatusPanel.add(serverStatus);
+
+                    JPanel applicationStatusPanel = new JPanel();
+                    applicationStatusPanel.setLayout(new BoxLayout(applicationStatusPanel, BoxLayout.X_AXIS));
+                    applicationStatusPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel labelApplicationStatus = new JLabel("Application status: ");
+                    documentApplicationStatus = new DefaultStyledDocument();
+                    applicationStatus = new JTextPane(documentApplicationStatus);
+                    try {
+                        documentApplicationStatus.insertString(0, "NOT hooked", redStyle);
+                    } catch (BadLocationException e) {
+                        printException(e,"Error setting labels");
+                    }
+                    applicationStatus.setMaximumSize( applicationStatus.getPreferredSize() );
+                    applicationStatusPanel.add(labelApplicationStatus);
+                    applicationStatusPanel.add(applicationStatus);
+
+                    JPanel virtualEnvPanel = new JPanel();
+                    virtualEnvPanel.setLayout(new BoxLayout(virtualEnvPanel, BoxLayout.X_AXIS));
+                    virtualEnvPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel labelUseVirtualEnv = new JLabel("Use virtual env: ");
+                    useVirtualEnvCheckBox = new JCheckBox();
+                    if(callbacks.loadExtensionSetting("useVirtualEnvCheckBox") != null)
+                        useVirtualEnvCheckBox.setSelected(callbacks.loadExtensionSetting("useVirtualEnvCheckBox").equals("true"));
+                    else
+                        useVirtualEnvCheckBox.setSelected(false);
+                    useVirtualEnvCheckBox.addItemListener(new ItemListener() {
+                        @Override
+                        public void itemStateChanged(ItemEvent e) {
+                            if(e.getStateChange() == ItemEvent.SELECTED) {
+                                //labelPythonPathVenv.setText("Virtual env activation command: ");
+                                labelPythonPathVenv.setText("Virtual env folder: ");
+                            } else {
+                                labelPythonPathVenv.setText("Python binary path: ");
+                            }
+                        }
+                    });
+                    virtualEnvPanel.add(labelUseVirtualEnv);
+                    virtualEnvPanel.add(useVirtualEnvCheckBox);
+
+                    // The same field is used to take the virtual env folder, if virtual env checkbox is selected
+                    JPanel pythonPathVenvPanel = new JPanel();
+                    pythonPathVenvPanel.setLayout(new BoxLayout(pythonPathVenvPanel, BoxLayout.X_AXIS));
+                    pythonPathVenvPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    if(callbacks.loadExtensionSetting("useVirtualEnvCheckBox") != null && callbacks.loadExtensionSetting("useVirtualEnvCheckBox").equals("true")) {
+                        //labelPythonPathVenv = new JLabel("Virtual env activation command: ");
+                        labelPythonPathVenv = new JLabel("Virtual env folder: ");
+                    } else {
+                        labelPythonPathVenv = new JLabel("Python binary path: ");
+                    }
+                    pythonPathVenv = new JTextField(200);
+                    if(callbacks.loadExtensionSetting("pythonPath") != null)
+                        pythonPathVenv.setText(callbacks.loadExtensionSetting("pythonPath"));
+                    else {
+                        if(callbacks.loadExtensionSetting("useVirtualEnvCheckBox") != null && callbacks.loadExtensionSetting("useVirtualEnvCheckBox").equals("true")) {
+                            pythonPathVenv.setText("");
                         } else {
-                        	labelPythonPathVenv.setText("Python binary path: ");
-                        }                            
-                    }
-                });
-                virtualEnvPanel.add(labelUseVirtualEnv);
-                virtualEnvPanel.add(useVirtualEnvCheckBox);
-                  
-                // The same field is used to take the virtual env folder, if virtual env checkbox is selected
-                JPanel pythonPathVenvPanel = new JPanel();
-                pythonPathVenvPanel.setLayout(new BoxLayout(pythonPathVenvPanel, BoxLayout.X_AXIS));
-                pythonPathVenvPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                if(callbacks.loadExtensionSetting("useVirtualEnvCheckBox") != null && callbacks.loadExtensionSetting("useVirtualEnvCheckBox").equals("true")) {
-                	//labelPythonPathVenv = new JLabel("Virtual env activation command: ");
-                	labelPythonPathVenv = new JLabel("Virtual env folder: ");
-                } else {
-                	labelPythonPathVenv = new JLabel("Python binary path: ");
-                }
-                pythonPathVenv = new JTextField(200);                
-                if(callbacks.loadExtensionSetting("pythonPath") != null)
-                	pythonPathVenv.setText(callbacks.loadExtensionSetting("pythonPath"));
-                else {
-                	if(callbacks.loadExtensionSetting("useVirtualEnvCheckBox") != null && callbacks.loadExtensionSetting("useVirtualEnvCheckBox").equals("true")) {
-                		pythonPathVenv.setText("");
-                	} else {
-	                	if(System.getProperty("os.name").startsWith("Windows")) {
-	                		pythonPathVenv.setText("C:\\python27\\python");
-	                	} else {
-	                		pythonPathVenv.setText("/usr/bin/python");
-	                	}
-                	}
-                }
-                pythonPathVenv.setMaximumSize( pythonPathVenv.getPreferredSize() );
-                JButton pythonPathVenvButton = new JButton("Select file");
-                pythonPathVenvButton.setActionCommand("pythonPathSelectFile");
-                pythonPathVenvButton.addActionListener(BurpExtender.this);
-                pythonPathVenvPanel.add(labelPythonPathVenv);
-                pythonPathVenvPanel.add(pythonPathVenv);
-                pythonPathVenvPanel.add(pythonPathVenvButton);
-                                
-                JPanel pyroHostPanel = new JPanel();
-                pyroHostPanel.setLayout(new BoxLayout(pyroHostPanel, BoxLayout.X_AXIS));
-                pyroHostPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel labelPyroHost = new JLabel("Pyro host: ");
-                pyroHost = new JTextField(200);                
-                if(callbacks.loadExtensionSetting("pyroHost") != null)
-                	pyroHost.setText(callbacks.loadExtensionSetting("pyroHost"));
-                else
-                	pyroHost.setText("localhost");
-                pyroHost.setMaximumSize( pyroHost.getPreferredSize() );
-                pyroHostPanel.add(labelPyroHost);
-                pyroHostPanel.add(pyroHost);
-                                
-                JPanel pyroPortPanel = new JPanel();
-                pyroPortPanel.setLayout(new BoxLayout(pyroPortPanel, BoxLayout.X_AXIS));
-                pyroPortPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel labelPyroPort = new JLabel("Pyro port: ");
-                pyroPort = new JTextField(200);                
-                if(callbacks.loadExtensionSetting("pyroPort") != null)
-                	pyroPort.setText(callbacks.loadExtensionSetting("pyroPort"));
-                else
-                	pyroPort.setText("9999");
-                pyroPort.setMaximumSize( pyroPort.getPreferredSize() );
-                pyroPortPanel.add(labelPyroPort);
-                pyroPortPanel.add(pyroPort);
-
-                JPanel fridaPathPanel = new JPanel();
-                fridaPathPanel.setLayout(new BoxLayout(fridaPathPanel, BoxLayout.X_AXIS));
-                fridaPathPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelFridaPath = new JLabel("Frida JS files folder: ");
-                fridaPath = new JTextField(200);                
-                if(callbacks.loadExtensionSetting("fridaPath") != null)
-                	fridaPath.setText(callbacks.loadExtensionSetting("fridaPath"));
-                else {                	
-                	if(System.getProperty("os.name").startsWith("Windows")) {
-                		fridaPath.setText("C:\\burp\\brida\\");
-                	} else {
-                		fridaPath.setText("/opt/burp/brida/");
-                	}
-                }
-                fridaPath.setMaximumSize( fridaPath.getPreferredSize() );
-                JButton fridaPathButton = new JButton("Select folder");
-                fridaPathButton.setActionCommand("fridaPathSelectFile");
-                fridaPathButton.addActionListener(BurpExtender.this);
-                JButton fridaDefaultPathButton = new JButton("Create default JS files");
-                fridaDefaultPathButton.setActionCommand("fridaPathSelectDefaultFile");
-                fridaDefaultPathButton.addActionListener(BurpExtender.this);
-                fridaPathPanel.add(labelFridaPath);
-                fridaPathPanel.add(fridaPath);
-                fridaPathPanel.add(fridaPathButton);
-                fridaPathPanel.add(fridaDefaultPathButton);
-                
-                JPanel applicationIdPanel = new JPanel();
-                applicationIdPanel.setLayout(new BoxLayout(applicationIdPanel, BoxLayout.X_AXIS));
-                applicationIdPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelApplicationId = new JLabel("Application ID (spawn) / PID (attach): ");
-                applicationId = new JTextField(200);                
-                if(callbacks.loadExtensionSetting("applicationId") != null)
-                	applicationId.setText(callbacks.loadExtensionSetting("applicationId"));
-                else
-                	applicationId.setText("org.test.application");
-                applicationId.setMaximumSize( applicationId.getPreferredSize() );
-                applicationIdPanel.add(labelApplicationId);
-                applicationIdPanel.add(applicationId);
-
-                JPanel hostPortDevicePanel = new JPanel();
-                hostPortDevicePanel.setLayout(new BoxLayout(hostPortDevicePanel, BoxLayout.X_AXIS));
-                hostPortDevicePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel labelHostPortDevice = new JLabel("Host:port (Frida Host) / Device ID (Frida Device): ");
-                hostPortDevice = new JTextField(200);
-                if(callbacks.loadExtensionSetting("hostPortDevice") != null)
-                    hostPortDevice.setText(callbacks.loadExtensionSetting("hostPortDevice"));
-                else
-                    hostPortDevice.setText("");
-                hostPortDevice.setMaximumSize( hostPortDevice.getPreferredSize() );
-                hostPortDevicePanel.add(labelHostPortDevice);
-                hostPortDevicePanel.add(hostPortDevice);
-                                
-                JPanel localRemotePanel = new JPanel();
-                localRemotePanel.setLayout(new BoxLayout(localRemotePanel, BoxLayout.X_AXIS));
-                localRemotePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                remoteRadioButton = new JRadioButton("Frida Remote");
-                usbRadioButton =  new JRadioButton("Frida USB");
-                localRadioButton = new JRadioButton("Frida Local");
-                // process = frida.get_device_manager().add_remote_device("192.168.1.12:2703").attach("package name")
-                hostRadioButton = new JRadioButton("Frida Host");
-                deviceRadioButton = new JRadioButton("Frida Device");
-
-                if(callbacks.loadExtensionSetting("device") != null) {                	
-                	if(callbacks.loadExtensionSetting("device").equals("remote"))
-                		remoteRadioButton.setSelected(true);
-                	else if(callbacks.loadExtensionSetting("device").equals("usb"))
-                		usbRadioButton.setSelected(true);
-                    else if(callbacks.loadExtensionSetting("device").equals("local"))
-                        localRadioButton.setSelected(true);
-                    else if(callbacks.loadExtensionSetting("device").equals("host"))
-                        hostRadioButton.setSelected(true);
-                	else
-                        deviceRadioButton.setSelected(true);
-                } else {
-                	remoteRadioButton.setSelected(true);
-                }
-                ButtonGroup localRemoteButtonGroup = new ButtonGroup();
-                localRemoteButtonGroup.add(remoteRadioButton);
-                localRemoteButtonGroup.add(usbRadioButton);
-                localRemoteButtonGroup.add(localRadioButton);
-                localRemoteButtonGroup.add(hostRadioButton);
-                localRemoteButtonGroup.add(deviceRadioButton);
-                localRemotePanel.add(remoteRadioButton);
-                localRemotePanel.add(usbRadioButton);
-                localRemotePanel.add(localRadioButton);
-                localRemotePanel.add(hostRadioButton);
-                localRemotePanel.add(deviceRadioButton);
-            	  
-                configurationConfPanel.add(serverStatusPanel);
-                configurationConfPanel.add(applicationStatusPanel);
-                configurationConfPanel.add(virtualEnvPanel);
-                configurationConfPanel.add(pythonPathVenvPanel);
-                configurationConfPanel.add(pyroHostPanel);
-                configurationConfPanel.add(pyroPortPanel);
-                configurationConfPanel.add(fridaPathPanel);
-                configurationConfPanel.add(applicationIdPanel); 
-                configurationConfPanel.add(localRemotePanel);
-                configurationConfPanel.add(hostPortDevicePanel);
-                
-                // **** END CONFIGURATION PANEL
-                
-            	// **** JS EDITOR PANEL / CONSOLE
-                jsEditorTextArea = new TextEditorPane();
-                jsEditorTextArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT);
-                jsEditorTextArea.setCodeFoldingEnabled(false);   
-                RTextScrollPane sp = new RTextScrollPane(jsEditorTextArea);
-                jsEditorTextArea.setFocusable(true);                
-                // **** END JS EDITOR PANEL / CONSOLE    
-                
-                // 	*** TREE WITH CLASSES AND METHODS
-                
-                JPanel treeSearchPanel = new JPanel();
-                treeSearchPanel.setLayout(new BorderLayout());  
-                                
-                JPanel treePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-                JScrollPane scrollTreeJPanel = new JScrollPane(treePanel);
-                scrollTreeJPanel.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-                
-                DefaultMutableTreeNode top = new DefaultMutableTreeNode("Binary");
-                
-                tree = new JTree(top);
-                
-                // Add mouse listener
-                tree.addMouseListener(BurpExtender.this);
-                
-                treePanel.add(tree);
-                                
-                JPanel searchPanelBar = new JPanel();
-                searchPanelBar.setLayout(new BoxLayout(searchPanelBar, BoxLayout.X_AXIS));
-                                
-                JLabel findLabel = new JLabel("Search:");
-                //findTextField = new JTextField(60);       
-                findTextField = new JTextField();
-                JButton searchButton = new JButton("Search");
-                searchButton.setActionCommand("searchAnalysis");
-                searchButton.addActionListener(BurpExtender.this); 
-                
-                searchPanelBar.add(findLabel);
-                searchPanelBar.add(findTextField);
-                searchPanelBar.add(searchButton);
-             
-                treeSearchPanel.add(scrollTreeJPanel);
-                treeSearchPanel.add(searchPanelBar,BorderLayout.SOUTH);
-                
-                // *** TREE WITH CLASSES AND METHODS                
-                
-            	// **** STUB GENERATION     
-                                
-                stubTextEditor = callbacks.createTextEditor();                
-                stubTextEditor.setEditable(false);
-                
-            	// **** END STUB GENERATION  
-                
-                // **** EXECUTE METHOD TAB
-                
-                // Execute method
-                JPanel executeMethodPanel = new JPanel();
-                executeMethodPanel.setLayout(new BoxLayout(executeMethodPanel, BoxLayout.Y_AXIS));
-                
-                JPanel executeMethodNamePanel = new JPanel();
-                executeMethodNamePanel.setLayout(new BoxLayout(executeMethodNamePanel, BoxLayout.X_AXIS));
-                executeMethodNamePanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelExecuteMethodName = new JLabel("Method name: ");
-                executeMethodName = new JTextField(200);                
-                if(callbacks.loadExtensionSetting("executeMethodName") != null)
-                	executeMethodName.setText(callbacks.loadExtensionSetting("executeMethodName"));
-                executeMethodName.setMaximumSize( executeMethodName.getPreferredSize() );
-                executeMethodNamePanel.add(labelExecuteMethodName);
-                executeMethodNamePanel.add(executeMethodName);
-
-                JPanel executeMethodArgumentPanel = new JPanel();
-                executeMethodArgumentPanel.setLayout(new BoxLayout(executeMethodArgumentPanel, BoxLayout.X_AXIS));
-                executeMethodArgumentPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelExecuteMethodArgument = new JLabel("Argument: ");
-                executeMethodArgument = new JTextField(200);                
-                executeMethodArgument.setMaximumSize( executeMethodArgument.getPreferredSize() );
-                JButton addExecuteMethodArgument = new JButton("Add");
-                addExecuteMethodArgument.setActionCommand("addExecuteMethodArgument");
-                addExecuteMethodArgument.addActionListener(BurpExtender.this);
-                executeMethodArgumentPanel.add(labelExecuteMethodArgument);
-                executeMethodArgumentPanel.add(executeMethodArgument);
-                executeMethodArgumentPanel.add(addExecuteMethodArgument);
-                            
-                executeMethodInsertedArgumentList = new DefaultListModel();                
-                JPanel executeMethodInsertedArgumentPanel = new JPanel();
-                executeMethodInsertedArgumentPanel.setLayout(new BoxLayout(executeMethodInsertedArgumentPanel, BoxLayout.X_AXIS));
-                executeMethodInsertedArgumentPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel labelExecuteMethodInsertedArgument = new JLabel("Argument list: ");
-                executeMethodInsertedArgument = new JList(executeMethodInsertedArgumentList);    
-                JScrollPane executeMethodInsertedArgumentScrollPane = new JScrollPane(executeMethodInsertedArgument);
-                executeMethodInsertedArgumentScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-                executeMethodInsertedArgumentScrollPane.setBorder(new LineBorder(Color.BLACK));
-                executeMethodInsertedArgumentScrollPane.setMaximumSize( executeMethodInsertedArgumentScrollPane.getPreferredSize() ); 
-                if(callbacks.loadExtensionSetting("executeMethodSizeArguments") != null) {
-                	int sizeArguments = Integer.parseInt(callbacks.loadExtensionSetting("executeMethodSizeArguments"));
-                	for(int i=0;i<sizeArguments;i++) {
-                		executeMethodInsertedArgumentList.addElement(callbacks.loadExtensionSetting("executeMethodArgument" + i));
-                	}
-                }
-                               
-                JPanel executeMethodInsertedArgumentButtonPanel = new JPanel();
-                executeMethodInsertedArgumentButtonPanel.setLayout(new BoxLayout(executeMethodInsertedArgumentButtonPanel, BoxLayout.Y_AXIS));
-                JButton removeExecuteMethodArgument = new JButton("Remove");
-                removeExecuteMethodArgument.setActionCommand("removeExecuteMethodArgument");
-                removeExecuteMethodArgument.addActionListener(BurpExtender.this);
-                JButton modifyExecuteMethodArgument = new JButton("Modify");
-                modifyExecuteMethodArgument.setActionCommand("modifyExecuteMethodArgument");
-                modifyExecuteMethodArgument.addActionListener(BurpExtender.this);
-                executeMethodInsertedArgumentButtonPanel.add(removeExecuteMethodArgument);
-                executeMethodInsertedArgumentButtonPanel.add(modifyExecuteMethodArgument);                
-                executeMethodInsertedArgumentPanel.add(labelExecuteMethodInsertedArgument);
-                executeMethodInsertedArgumentPanel.add(executeMethodInsertedArgumentScrollPane);
-                executeMethodInsertedArgumentPanel.add(executeMethodInsertedArgumentButtonPanel);
-                
-                executeMethodPanel.add(executeMethodNamePanel);
-                executeMethodPanel.add(executeMethodArgumentPanel);
-                executeMethodPanel.add(executeMethodInsertedArgumentPanel);
-                
-                // **** END EXECUTE METHOD TAB
-                
-                // **** BEGIN TRAPPING TAB
-                
-                trapTable = new JTable(new TrapTableModel());
-                TableCellRenderer trapTableRendererButton = trapTable.getDefaultRenderer(JButton.class);
-                trapTable.setDefaultRenderer(JButton.class, new JTableButtonRenderer(trapTableRendererButton));
-                TableCellRenderer trapTableRendererString = trapTable.getDefaultRenderer(String.class);
-                trapTable.setDefaultRenderer(String.class, new JTableButtonRenderer(trapTableRendererString));
-                JScrollPane trapTableScrollPane = new JScrollPane(trapTable);
-                trapTableScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-                trapTableScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-                trapTable.setAutoCreateRowSorter(true);
-                
-                // Center header
-                ((DefaultTableCellRenderer)trapTable.getTableHeader().getDefaultRenderer()).setHorizontalAlignment(JLabel.CENTER);
-                
-                // Center columns 4 and 5
-                DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-                centerRenderer.setHorizontalAlignment( JLabel.CENTER );
-                trapTable.getColumnModel().getColumn(5).setCellRenderer( centerRenderer );
-                trapTable.getColumnModel().getColumn(6).setCellRenderer( centerRenderer );
-                
-                // Handle buttons action in the table
-                trapTable.addMouseListener(new MouseAdapter() {
-                	@Override
-                	public void mouseClicked(MouseEvent evt) {
-                		int row = trapTable.convertRowIndexToModel(trapTable.rowAtPoint(evt.getPoint()));
-                		int col = trapTable.columnAtPoint(evt.getPoint());
-                		if (row >= 0 && col >= 0) {
-                			List<TrapTableItem> trapTableItems = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
-                			TrapTableItem currentTrapItem = trapTableItems.get(row);
-                			DefaultHook currentDefaultHook = currentTrapItem.getDefaultHook();
-                			switch(col) {
-                				// Enable/disable
-                				case 7:                        			
-                					if(currentDefaultHook.isEnabled()) {
-                						if(!applicationSpawned) {
-                							currentDefaultHook.setEnabled(false);
-                						} else {
-                							JOptionPane.showMessageDialog(null, "It is not possible to disable single hooks while application is running", "Warning", JOptionPane.WARNING_MESSAGE);
-                						}
-                					} else {
-                						currentDefaultHook.setEnabled(true);
-                						if(applicationSpawned) {
-	                						try {					
-	                							executePyroCall(pyroBridaService, "callexportfunction",new Object[] {currentDefaultHook.getFridaExportName(),currentDefaultHook.getParameters()});					
-	                						} catch (Exception e) {						
-	                							 printException(e,"Exception running starting tree hook " + currentDefaultHook.getName());						
-	                						}	
-                						}
-                						
-                					}
-                					((TrapTableModel)(trapTable.getModel())).fireTableCellUpdated(row, col);
-                					((TrapTableModel)(trapTable.getModel())).fireTableCellUpdated(row, 0);
-                					break;
-                				// Remove
-                				case 8:
-                					
-                					if(!applicationSpawned) {
-                						
-                						// Ask user confirmation
-                						JFrame parentDialogResult = new JFrame();
-                						int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "Are you sure to want to remove \"" + currentDefaultHook.getName()  + "\" hook?","Warning",JOptionPane.YES_NO_OPTION);
-                						if(dialogResult != JOptionPane.YES_OPTION){
-                							return;
-                						}	
-                						
-                						treeHooks.remove(currentDefaultHook);
-                						
-                						synchronized(trapTableItems) {                		
-                							int trapTableIndex = trapTableItems.indexOf(currentTrapItem);
-                							trapTableItems.remove(currentTrapItem);
-                							((TrapTableModel)(trapTable.getModel())).fireTableRowsDeleted(trapTableIndex, trapTableIndex);
-                						}
-                						
-                						
-                					} else {
-                						JOptionPane.showMessageDialog(null, "It is not possible to remove single hooks while application is running", "Warning", JOptionPane.WARNING_MESSAGE);
-                					}
-                					
-                				default:
-                					break;
-                			}
-                			
-                		}
-                	}
-                });   
-                
-                // **** END TRAPPING TAB
-                
-                
-                // **** FRIDA DEFAULT HOOKS TAB
-                final JTabbedPane tabbedPanelHooks = new JTabbedPane();
-                
-                androidHooksPanel = new JPanel();
-                androidHooksPanel.setLayout(new BoxLayout(androidHooksPanel, BoxLayout.Y_AXIS));
-                
-                iOSHooksPanel = new JPanel();
-                iOSHooksPanel.setLayout(new BoxLayout(iOSHooksPanel, BoxLayout.Y_AXIS));                
-                
-                genericHooksPanel = new JPanel();
-                genericHooksPanel.setLayout(new BoxLayout(genericHooksPanel, BoxLayout.Y_AXIS));  
-                
-                // Initialize default hooks
-                initializeDefaultHooks();
-                
-                // Add tips to iOS hooks tab
-                JPanel iosTipsJPanel = new JPanel();
-                iosTipsJPanel.setLayout(new BoxLayout(iosTipsJPanel, BoxLayout.Y_AXIS));
-                JLabel iosTip1Label = new JLabel("* TIP: If SSL pinning escape does not work try \"SSL Kill Switch 2\" application!");
-                JLabel iosTip2Label = new JLabel("** TIP: If Jailbreak escape does not work try \"TS Protector\" or \"Liberty Lite\" applications!");
-                Font fontJLabel = iosTip1Label.getFont();
-                iosTip1Label.setFont(fontJLabel.deriveFont(fontJLabel.getStyle() | Font.BOLD));
-                iosTip2Label.setFont(fontJLabel.deriveFont(fontJLabel.getStyle() | Font.BOLD));
-                iosTipsJPanel.add(iosTip1Label);
-                iosTipsJPanel.add(iosTip2Label);                
-                JPanel iOSHooksPanelWithTips = new JPanel();
-                iOSHooksPanelWithTips.setLayout(new BorderLayout());
-                iOSHooksPanelWithTips.add(iOSHooksPanel);
-                iOSHooksPanelWithTips.add(iosTipsJPanel,BorderLayout.SOUTH);
-               
-                tabbedPanelHooks.add("Android",androidHooksPanel);
-                tabbedPanelHooks.add("iOS",iOSHooksPanelWithTips);
-                tabbedPanelHooks.add("Other",genericHooksPanel);
-                // **** END FRIDA DEFAULT HOOKS TAB    
-                
-                
-                // **** BEGIN CUSTOM PLUGINS
-                JPanel customPluginPanel = new JPanel();
-                customPluginPanel.setLayout(new BoxLayout(customPluginPanel, BoxLayout.Y_AXIS));
-                
-                JPanel customPluginNamePanel = new JPanel();
-                customPluginNamePanel.setLayout(new BoxLayout(customPluginNamePanel, BoxLayout.X_AXIS));
-                customPluginNamePanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel customPluginNameLabel = new JLabel("Plugin name: ");
-                customPluginNameText = new JTextField(200);                
-                customPluginNameText.setMaximumSize( customPluginNameText.getPreferredSize() );
-                customPluginNamePanel.add(customPluginNameLabel);
-                customPluginNamePanel.add(customPluginNameText);
-                
-                JPanel customPluginTypePluginPanel = new JPanel();
-                customPluginTypePluginPanel.setLayout(new BoxLayout(customPluginTypePluginPanel, BoxLayout.X_AXIS));
-                customPluginTypePluginPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginTypePluginLabel = new JLabel("Plugin Type ");                
-                String[] customPluginTypePluginComboOptions = new String[] {"IHttpListener", "IMessageEditorTab","IContextMenu","JButton"};
-                customPluginTypePluginOptions = new JComboBox<String>(customPluginTypePluginComboOptions);
-                customPluginTypePluginOptions.setSelectedIndex(0);
-                customPluginTypePluginOptions.setMaximumSize( customPluginTypePluginOptions.getPreferredSize() );  
-                customPluginTypePluginOptions.addActionListener (new ActionListener () {
-                    public void actionPerformed(ActionEvent e) {
-                    	changeCustomPluginOptions(customPluginTypePluginOptions.getSelectedItem().toString());
-                    }
-                });
-                customPluginTypePluginDescription = new JLabel("Plugin that dynamically process each requests and responses");                 
-                customPluginTypePluginDescription.setMaximumSize(new Dimension(Integer.MAX_VALUE, customPluginTypePluginDescription.getMinimumSize().height));
-                customPluginTypePluginPanel.add(customPluginTypePluginLabel);
-                customPluginTypePluginPanel.add(customPluginTypePluginOptions);
-                customPluginTypePluginPanel.add(customPluginTypePluginDescription);
-                
-                JPanel customPluginExportNamePanel = new JPanel();
-                customPluginExportNamePanel.setLayout(new BoxLayout(customPluginExportNamePanel, BoxLayout.X_AXIS));
-                customPluginExportNamePanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel customPluginExportNameLabel = new JLabel("Name of the Frida exported function: ");
-                customPluginExportNameText = new JTextField(200);                
-                customPluginExportNameText.setMaximumSize( customPluginExportNameText.getPreferredSize() );
-                customPluginExportNamePanel.add(customPluginExportNameLabel);
-                customPluginExportNamePanel.add(customPluginExportNameText);
-                
-                JPanel customPluginExecuteOnPanel = new JPanel();
-                customPluginExecuteOnPanel.setLayout(new BoxLayout(customPluginExecuteOnPanel, BoxLayout.X_AXIS));
-                customPluginExecuteOnPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginExecuteOnLabel = new JLabel("Execute on: ");                
-                customPluginExecuteOnRadioRequest = new JRadioButton("Requests");
-                customPluginExecuteOnRadioResponse = new JRadioButton("Responses");
-                customPluginExecuteOnRadioAll = new JRadioButton("All");
-                customPluginExecuteOnRadioContext = new JRadioButton("Context menu option named: ");
-                customPluginExecuteOnRadioContext.setVisible(false);
-                customPluginExecuteOnRadioButton = new JRadioButton("Button named: ");
-                customPluginExecuteOnRadioButton.setVisible(false);
-                customPluginExecuteOnRadioRequest.setSelected(true);     
-                customPluginExecuteOnStringParameter = new JTextField(200);    
-                customPluginExecuteOnStringParameter.setMaximumSize( customPluginExecuteOnStringParameter.getPreferredSize() );
-                customPluginExecuteOnStringParameter.setVisible(false);
-                customPluginExecuteOnRadioButtonGroup = new ButtonGroup();
-                customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioRequest);
-                customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioResponse);
-                customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioAll);
-                customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioContext);
-                customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioButton);
-                customPluginExecuteOnPanel.add(customPluginExecuteOnLabel);
-                customPluginExecuteOnPanel.add(customPluginExecuteOnRadioRequest);
-                customPluginExecuteOnPanel.add(customPluginExecuteOnRadioResponse);
-                customPluginExecuteOnPanel.add(customPluginExecuteOnRadioAll);
-                customPluginExecuteOnPanel.add(customPluginExecuteOnRadioContext);
-                customPluginExecuteOnPanel.add(customPluginExecuteOnRadioButton);
-                customPluginExecuteOnPanel.add(customPluginExecuteOnStringParameter);
-                
-                customPluginButtonPlatformPanel = new JPanel();
-                customPluginButtonPlatformPanel.setLayout(new BoxLayout(customPluginButtonPlatformPanel, BoxLayout.X_AXIS));
-                customPluginButtonPlatformPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginButtonPlatformLabel = new JLabel("Platform: ");                
-                customPluginButtonTypeRadioIos = new JRadioButton("iOS");
-                customPluginButtonTypeRadioAndroid = new JRadioButton("Android");
-                customPluginButtonTypeRadioGeneric = new JRadioButton("Other");
-                customPluginButtonTypeRadioIos.setSelected(true);     
-                customPluginButtonPlatformRadioButtonGroup = new ButtonGroup();
-                customPluginButtonPlatformRadioButtonGroup.add(customPluginButtonTypeRadioIos);
-                customPluginButtonPlatformRadioButtonGroup.add(customPluginButtonTypeRadioAndroid);
-                customPluginButtonPlatformRadioButtonGroup.add(customPluginButtonTypeRadioGeneric);
-                customPluginButtonPlatformPanel.add(customPluginButtonPlatformLabel);
-                customPluginButtonPlatformPanel.add(customPluginButtonTypeRadioIos);
-                customPluginButtonPlatformPanel.add(customPluginButtonTypeRadioAndroid);
-                customPluginButtonPlatformPanel.add(customPluginButtonTypeRadioGeneric);
-                customPluginButtonPlatformPanel.setVisible(false);
-                
-                customPluginButtonTypePanel = new JPanel();
-                customPluginButtonTypePanel.setLayout(new BoxLayout(customPluginButtonTypePanel, BoxLayout.X_AXIS));
-                customPluginButtonTypePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginButtonTypeLabel = new JLabel("Button type: ");                
-                customPluginButtonTypeRadioFunction = new JRadioButton("Function");
-                customPluginButtonTypeRadioHook = new JRadioButton("Hook");
-                customPluginButtonTypeRadioFunction.setSelected(true);     
-                customPluginButtonTypeRadioButtonGroup = new ButtonGroup();
-                customPluginButtonTypeRadioButtonGroup.add(customPluginButtonTypeRadioFunction);
-                customPluginButtonTypeRadioButtonGroup.add(customPluginButtonTypeRadioHook);
-                customPluginButtonTypeRadioFunction.addActionListener(new ActionListener() {
-                	@Override
-                    public void actionPerformed(ActionEvent e) {
-                		SwingUtilities.invokeLater(new Runnable() {                			
-                            @Override
-                            public void run() {
-		                		customPluginParametersPanel.setVisible(true);
-		                		customPluginParameterEncodingPanel.setVisible(true);
+                            if(System.getProperty("os.name").startsWith("Windows")) {
+                                pythonPathVenv.setText("C:\\python27\\python");
+                            } else {
+                                pythonPathVenv.setText("/usr/bin/python");
                             }
-                		});
-                	}
-                });
-                customPluginButtonTypeRadioHook.addActionListener(new ActionListener() {
-                	@Override
-                    public void actionPerformed(ActionEvent e) {
-                		SwingUtilities.invokeLater(new Runnable() {                			
-                            @Override
-                            public void run() {
-		                		customPluginParametersPanel.setVisible(false);
-		                		customPluginParameterEncodingPanel.setVisible(false);
-                            }
-                		});
-                	}
-                });
-                customPluginButtonTypePanel.add(customPluginButtonTypeLabel);
-                customPluginButtonTypePanel.add(customPluginButtonTypeRadioFunction);
-                customPluginButtonTypePanel.add(customPluginButtonTypeRadioHook);
-                customPluginButtonTypePanel.setVisible(false);
-                
-                customPluginToolsPanel = new JPanel();
-                customPluginToolsPanel.setLayout(new BoxLayout(customPluginToolsPanel, BoxLayout.X_AXIS));
-                customPluginToolsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginToolsLabel = new JLabel("Burp Suite Tools: ");                
-                customPluginToolsRepeater = new JCheckBox("Repeater",true);
-                customPluginToolsProxy = new JCheckBox("Proxy",false);
-                customPluginToolsScanner = new JCheckBox("Scanner",false);
-                customPluginToolsIntruder = new JCheckBox("Intruder",false);
-                customPluginToolsExtender = new JCheckBox("Extender",false);
-                customPluginToolsSequencer = new JCheckBox("Sequencer",false);
-                customPluginToolsSpider = new JCheckBox("Spider",false);
-                customPluginToolsPanel.add(customPluginToolsLabel);
-                customPluginToolsPanel.add(customPluginToolsRepeater);
-                customPluginToolsPanel.add(customPluginToolsProxy);
-                customPluginToolsPanel.add(customPluginToolsScanner);
-                customPluginToolsPanel.add(customPluginToolsIntruder);
-                customPluginToolsPanel.add(customPluginToolsExtender);
-                customPluginToolsPanel.add(customPluginToolsSequencer);
-                customPluginToolsPanel.add(customPluginToolsSpider);
-                
-                customPluginScopePanel = new JPanel();
-                customPluginScopePanel.setLayout(new BoxLayout(customPluginScopePanel, BoxLayout.X_AXIS));
-                customPluginScopePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginScopeLabel = new JLabel("Process only in-scope requests/responses: ");                
-                customPluginScopeCheckBox = new JCheckBox();
-                customPluginScopePanel.add(customPluginScopeLabel);
-                customPluginScopePanel.add(customPluginScopeCheckBox);
-                                
-                customPluginExecuteWhenPanel = new JPanel();
-                customPluginExecuteWhenPanel.setLayout(new BoxLayout(customPluginExecuteWhenPanel, BoxLayout.X_AXIS));
-                customPluginExecuteWhenPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginExecuteWhenLabel = new JLabel("Execute ");                
-                String[] customPluginExecuteJComboOptions = new String[] {"always", "when request/response contains plaintext","when request/response contains regex"};
-                customPluginExecuteWhenOptions = new JComboBox<String>(customPluginExecuteJComboOptions);
-                customPluginExecuteWhenOptions.setSelectedIndex(0);
-                customPluginExecuteWhenOptions.setMaximumSize( customPluginExecuteWhenOptions.getPreferredSize() );
-                customPluginExecuteWhenText = new JTextField(200);                
-                customPluginExecuteWhenText.setMaximumSize( customPluginExecuteWhenText.getPreferredSize() );
-                customPluginExecuteWhenPanel.add(customPluginExecuteWhenLabel);
-                customPluginExecuteWhenPanel.add(customPluginExecuteWhenOptions);
-                customPluginExecuteWhenPanel.add(customPluginExecuteWhenText);
-                
-                customPluginParametersPanel = new JPanel();
-                customPluginParametersPanel.setLayout(new BoxLayout(customPluginParametersPanel, BoxLayout.X_AXIS));
-                customPluginParametersPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginParametersLabel = new JLabel("Parameters: ");                
-                String[] customPluginParametersComboOptions = CustomPlugin.functionParametersIHttpListener.stream().map(CustomPluginParameterValues::toString).toArray(String[]::new);                
-                customPluginParametersOptions = new JComboBox<String>(customPluginParametersComboOptions);
-                customPluginParametersOptions.setSelectedIndex(0);
-                customPluginParametersOptions.setMaximumSize( customPluginParametersOptions.getPreferredSize() );
-                customPluginParametersText = new JTextField(200);                
-                customPluginParametersText.setMaximumSize( customPluginParametersText.getPreferredSize() );
-                customPluginParametersPanel.add(customPluginParametersLabel);
-                customPluginParametersPanel.add(customPluginParametersOptions);
-                customPluginParametersPanel.add(customPluginParametersText);
-                
-                customPluginParameterEncodingPanel = new JPanel();
-                customPluginParameterEncodingPanel.setLayout(new BoxLayout(customPluginParameterEncodingPanel, BoxLayout.X_AXIS));
-                customPluginParameterEncodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginParameterEncodinglabel = new JLabel("Encode function parameters: ");  
-                JButton customPluginParameterEncodingButton = new JButton("Choose encoding");
-                customPluginParameterEncodingButton.setActionCommand("customPluginParameterEncodingButton");
-                customPluginParameterEncodingButton.addActionListener(BurpExtender.this); 
-                customPluginParameterEncodingText = new JTextField(200);                
-                customPluginParameterEncodingText.setMaximumSize( customPluginParameterEncodingText.getPreferredSize() );
-                customPluginParameterEncodingText.setEditable(false);
-                customPluginParameterEncodingPanel.add(customPluginParameterEncodinglabel);
-                customPluginParameterEncodingPanel.add(customPluginParameterEncodingButton);
-                customPluginParameterEncodingPanel.add(customPluginParameterEncodingText);
-                
-                customPluginOutputDecodingPanel = new JPanel();
-                customPluginOutputDecodingPanel.setLayout(new BoxLayout(customPluginOutputDecodingPanel, BoxLayout.X_AXIS));
-                customPluginOutputDecodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginOutputDecodingLabel = new JLabel("Decode function output: ");  
-                JButton customPluginOutputDecodingButton = new JButton("Choose decoding");
-                customPluginOutputDecodingButton.setActionCommand("customPluginOutputDecodingButton");
-                customPluginOutputDecodingButton.addActionListener(BurpExtender.this); 
-                customPluginOutputDecodingText = new JTextField(200);                
-                customPluginOutputDecodingText.setMaximumSize( customPluginOutputDecodingText.getPreferredSize() );
-                customPluginOutputDecodingText.setEditable(false);
-                customPluginOutputDecodingPanel.add(customPluginOutputDecodingLabel);
-                customPluginOutputDecodingPanel.add(customPluginOutputDecodingButton);
-                customPluginOutputDecodingPanel.add(customPluginOutputDecodingText);
-                
-                JPanel customPluginOutputPanel = new JPanel();
-                customPluginOutputPanel.setLayout(new BoxLayout(customPluginOutputPanel, BoxLayout.X_AXIS));
-                customPluginOutputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginOutputLabel = new JLabel("Plugin output: ");                
-                String[] customPluginOutputComboOptions = CustomPlugin.functionOutputValuesIHttpListener.stream().map(CustomPluginFunctionOutputValues::toString).toArray(String[]::new);
-                                
-                customPluginOutputOptions = new JComboBox<String>(customPluginOutputComboOptions);
-                customPluginOutputOptions.setSelectedIndex(0);
-                customPluginOutputOptions.setMaximumSize( customPluginOutputOptions.getPreferredSize() );
-                customPluginOutputText = new JTextField(200);                
-                customPluginOutputText.setMaximumSize( customPluginOutputText.getPreferredSize() );
-                customPluginOutputPanel.add(customPluginOutputLabel);
-                customPluginOutputPanel.add(customPluginOutputOptions);
-                customPluginOutputPanel.add(customPluginOutputText);
-                
-                customPluginOutputEncodingPanel = new JPanel();
-                customPluginOutputEncodingPanel.setLayout(new BoxLayout(customPluginOutputEncodingPanel, BoxLayout.X_AXIS));
-                customPluginOutputEncodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginOutputEncodingLabel = new JLabel("Plugin output encoding: ");
-                JButton customPluginOutputEncodingButton = new JButton("Choose encoding");
-                customPluginOutputEncodingButton.setActionCommand("customPluginOutputEncodingButton");
-                customPluginOutputEncodingButton.addActionListener(BurpExtender.this); 
-                customPluginOutputEncodingText = new JTextField(200);                
-                customPluginOutputEncodingText.setMaximumSize( customPluginOutputEncodingText.getPreferredSize() );
-                customPluginOutputEncodingText.setEditable(false);
-                customPluginOutputEncodingPanel.add(customPluginOutputEncodingLabel);
-                customPluginOutputEncodingPanel.add(customPluginOutputEncodingButton);
-                customPluginOutputEncodingPanel.add(customPluginOutputEncodingText);
-                
-                customPluginMessageEditorModifiedFridaFunctioPanel = new JPanel();
-                customPluginMessageEditorModifiedFridaFunctioPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedFridaFunctioPanel, BoxLayout.X_AXIS));
-                customPluginMessageEditorModifiedFridaFunctioPanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
-                JLabel customPluginMessageEditorModifiedFridaExportNameLabel = new JLabel("Name of the Frida exported function for the edited content: ");
-                customPluginMessageEditorModifiedFridaExportNameText = new JTextField(200);                
-                customPluginMessageEditorModifiedFridaExportNameText.setMaximumSize( customPluginMessageEditorModifiedFridaExportNameText.getPreferredSize() );
-                customPluginMessageEditorModifiedFridaFunctioPanel.add(customPluginMessageEditorModifiedFridaExportNameLabel);
-                customPluginMessageEditorModifiedFridaFunctioPanel.add(customPluginMessageEditorModifiedFridaExportNameText);
-                customPluginMessageEditorModifiedFridaFunctioPanel.setVisible(false);
-                
-                customPluginMessageEditorModifiedEncodeInputPanel = new JPanel();
-                customPluginMessageEditorModifiedEncodeInputPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedEncodeInputPanel, BoxLayout.X_AXIS));
-                customPluginMessageEditorModifiedEncodeInputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginMessageEditorModifiedEncodeInputLabel = new JLabel("Encode input passed to Frida function executed on edited content: ");   
-                JButton customPluginMessageEditorModifiedEncodeInputButton = new JButton("Choose encoding");
-                customPluginMessageEditorModifiedEncodeInputButton.setActionCommand("customPluginMessageEditorModifiedEncodeInputButton");
-                customPluginMessageEditorModifiedEncodeInputButton.addActionListener(BurpExtender.this); 
-                customPluginMessageEditorModifiedEncodeInputText = new JTextField(200);                
-                customPluginMessageEditorModifiedEncodeInputText.setMaximumSize( customPluginMessageEditorModifiedEncodeInputText.getPreferredSize() );
-                customPluginMessageEditorModifiedEncodeInputText.setEditable(false);
-                customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodeInputLabel);
-                customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodeInputButton);
-                customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodeInputText);
-                customPluginMessageEditorModifiedEncodeInputPanel.setVisible(false);
-                
-                customPluginMessageEditorModifiedDecodingOutputPanel = new JPanel();
-                customPluginMessageEditorModifiedDecodingOutputPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedDecodingOutputPanel, BoxLayout.X_AXIS));
-                customPluginMessageEditorModifiedDecodingOutputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginMessageEditorModifiedDecodingOutputLabel = new JLabel("Decode output of Frida function executed on edited content: ");                 
-                JButton customPluginMessageEditorModifiedDecodingOutputButton = new JButton("Choose decoding");
-                customPluginMessageEditorModifiedDecodingOutputButton.setActionCommand("customPluginMessageEditorModifiedDecodingOutputButton");
-                customPluginMessageEditorModifiedDecodingOutputButton.addActionListener(BurpExtender.this); 
-                customPluginMessageEditorModifiedDecodingOutputText = new JTextField(200);                
-                customPluginMessageEditorModifiedDecodingOutputText.setMaximumSize( customPluginMessageEditorModifiedDecodingOutputText.getPreferredSize() );
-                customPluginMessageEditorModifiedDecodingOutputText.setEditable(false);
-                customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginMessageEditorModifiedDecodingOutputLabel);
-                customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginMessageEditorModifiedDecodingOutputButton);
-                customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginMessageEditorModifiedDecodingOutputText);
-                customPluginMessageEditorModifiedDecodingOutputPanel.setVisible(false);
-                
-                customPluginMessageEditorModifiedOutputLocationPanel = new JPanel();
-                customPluginMessageEditorModifiedOutputLocationPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedOutputLocationPanel, BoxLayout.X_AXIS));
-                customPluginMessageEditorModifiedOutputLocationPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginMessageEditorModifiedOutputLocationLabel = new JLabel("Edited content location: ");                
-                String[] customPluginMessageEditorModifiedOutputLocationComboOptions = Stream.of(BridaMessageEditorPluginOutputLocation.values()).map(BridaMessageEditorPluginOutputLocation::toString).toArray(String[]::new);
-                customPluginMessageEditorModifiedOutputLocationOptions = new JComboBox<String>(customPluginMessageEditorModifiedOutputLocationComboOptions);
-                customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(0);
-                customPluginMessageEditorModifiedOutputLocationOptions.setMaximumSize( customPluginMessageEditorModifiedOutputLocationOptions.getPreferredSize() );
-                customPluginMessageEditorModifiedOutputLocationText = new JTextField(200);                
-                customPluginMessageEditorModifiedOutputLocationText.setMaximumSize( customPluginMessageEditorModifiedOutputLocationText.getPreferredSize() );
-                customPluginMessageEditorModifiedOutputLocationPanel.add(customPluginMessageEditorModifiedOutputLocationLabel);
-                customPluginMessageEditorModifiedOutputLocationPanel.add(customPluginMessageEditorModifiedOutputLocationOptions);
-                customPluginMessageEditorModifiedOutputLocationPanel.add(customPluginMessageEditorModifiedOutputLocationText);
-                customPluginMessageEditorModifiedOutputLocationPanel.setVisible(false);
-                
-                customPluginMessageEditorModifiedOutputEncodingPanel = new JPanel();
-                customPluginMessageEditorModifiedOutputEncodingPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedOutputEncodingPanel, BoxLayout.X_AXIS));
-                customPluginMessageEditorModifiedOutputEncodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                JLabel customPluginMessageEditorModifiedOutputEncodingLabel = new JLabel("Encode output of edited content function: ");  
-                
-                JButton customPluginMessageEditorModifiedOutputEncodingButton = new JButton("Choose encoding");
-                customPluginMessageEditorModifiedOutputEncodingButton.setActionCommand("customPluginMessageEditorModifiedOutputEncodingButton");
-                customPluginMessageEditorModifiedOutputEncodingButton.addActionListener(BurpExtender.this); 
-                customPluginMessageEditorModifiedOutputEncodingText = new JTextField(200);                
-                customPluginMessageEditorModifiedOutputEncodingText.setMaximumSize( customPluginMessageEditorModifiedOutputEncodingText.getPreferredSize() );
-                customPluginMessageEditorModifiedOutputEncodingText.setEditable(false);
-                customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingLabel);
-                customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingButton);
-                customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingText); 
-                customPluginMessageEditorModifiedOutputEncodingPanel.setVisible(false);
-                
-                customPluginPanel.add(customPluginNamePanel);
-                customPluginPanel.add(customPluginTypePluginPanel);
-                customPluginPanel.add(customPluginExportNamePanel);
-                customPluginPanel.add(customPluginExecuteOnPanel);
-                customPluginPanel.add(customPluginButtonPlatformPanel);
-                customPluginPanel.add(customPluginButtonTypePanel);
-                customPluginPanel.add(customPluginToolsPanel);
-                customPluginPanel.add(customPluginScopePanel);
-                customPluginPanel.add(customPluginExecuteWhenPanel);
-                customPluginPanel.add(customPluginParametersPanel);
-                customPluginPanel.add(customPluginParameterEncodingPanel);
-                customPluginPanel.add(customPluginOutputDecodingPanel);
-                customPluginPanel.add(customPluginOutputPanel);
-                customPluginPanel.add(customPluginOutputEncodingPanel);
-                customPluginPanel.add(customPluginMessageEditorModifiedFridaFunctioPanel);
-                customPluginPanel.add(customPluginMessageEditorModifiedEncodeInputPanel);
-                customPluginPanel.add(customPluginMessageEditorModifiedDecodingOutputPanel);
-                customPluginPanel.add(customPluginMessageEditorModifiedOutputLocationPanel);
-                customPluginPanel.add(customPluginMessageEditorModifiedOutputEncodingPanel);
-
-                customPluginsTable = new JTable(new CustomPluginsTableModel());
-                TableCellRenderer tableRendererButton = customPluginsTable.getDefaultRenderer(JButton.class);
-                customPluginsTable.setDefaultRenderer(JButton.class, new JTableButtonRenderer(tableRendererButton));
-                TableCellRenderer tableRendererString = customPluginsTable.getDefaultRenderer(String.class);
-                customPluginsTable.setDefaultRenderer(String.class, new JTableButtonRenderer(tableRendererString));
-                JScrollPane customPluginsTableScrollPane = new JScrollPane(customPluginsTable);
-                customPluginsTableScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-                customPluginsTableScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-                customPluginsTable.setAutoCreateRowSorter(true);
-     
-                // Handle buttons action in the table
-                customPluginsTable.addMouseListener(new MouseAdapter() {
-                    @Override
-                    public void mouseClicked(MouseEvent evt) {
-                        int row = customPluginsTable.convertRowIndexToModel(customPluginsTable.rowAtPoint(evt.getPoint()));
-                        int col = customPluginsTable.columnAtPoint(evt.getPoint());
-                        if (row >= 0 && col >= 0) {
-                        	List<CustomPlugin> customPlugins = ((CustomPluginsTableModel)(customPluginsTable.getModel())).getCustomPlugins();
-                			CustomPlugin currentPlugin = customPlugins.get(row);
-                        	switch(col) {
-                        		// Enable/disable
-                        		case 4:                        			
-                        			if(currentPlugin.isOn()) {
-                        				currentPlugin.disable(); 
-                        			} else {
-                        				currentPlugin.enable(); 
-                        			}
-                        			((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableCellUpdated(row, col);
-                        			((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableCellUpdated(row, 0);
-                        			break;
-                        		// Debug
-                        		case 5:
-                        			if(currentPlugin.getType() != CustomPlugin.CustomPluginType.JBUTTON) {
-                        				currentPlugin.enableDebugToExternalFrame();
-                        			}
-                        			break;
-                        		// Edit
-                        		case 6:
-                        			// If plugin is enabled, disable first
-                            		if(currentPlugin.isOn()) {
-                            			
-                            			// Ask user confirmation
-                            			JFrame parentDialogResult = new JFrame();
-            			        		int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "The plugin is currently enabled and must be disabled before it can be edited. Would you like to disable it and proceed?","Warning",JOptionPane.YES_NO_OPTION);
-            			        		if(dialogResult != JOptionPane.YES_OPTION){
-            			        			return;
-            			        		}	  
-                            			
-                            			currentPlugin.disable();
-                            			
-                            		}
-                            		// Double check because unload button hooks may fail if the application is running
-                            		if(!currentPlugin.isOn()) {
-                            			
-                            			editCustomPlugin(currentPlugin);
-                            			
-                            			// Remove plugin from the table
-            	                		synchronized(customPlugins) {                		
-            	                			int currentPluginIndex = customPlugins.indexOf(currentPlugin);
-            	                			customPlugins.remove(currentPlugin);
-            	                			((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsDeleted(currentPluginIndex, currentPluginIndex);
-            	                		}
-                            		}
-                        			break;
-                        		// Remove
-                        		case 7:
-                        			// If plugin is enabled, disable first
-                            		if(currentPlugin.isOn()) {
-                            			
-                            			// Ask user confirmation
-                            			JFrame parentDialogResult = new JFrame();
-            			        		int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "The plugin is currently enabled and must be disabled before it can be removed. Would you like to disable it and proceed?","Warning",JOptionPane.YES_NO_OPTION);
-            			        		if(dialogResult != JOptionPane.YES_OPTION){
-            			        			return;
-            			        		}	 
-                            			
-                            			currentPlugin.disable();
-                            			
-                            		} else {
-                            			
-                            			// Ask user confirmation
-                            			JFrame parentDialogResult = new JFrame();
-            			        		int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "Are you sure that you want to remove the plugin?","Warning",JOptionPane.YES_NO_OPTION);
-            			        		if(dialogResult != JOptionPane.YES_OPTION){
-            			        			return;
-            			        		}
-                            			
-                            		}
-                            		
-                            		// Double check because unload button hooks may fail if the application is running
-                            		if(!currentPlugin.isOn()) {
-            	                		synchronized(customPlugins) {                		
-            	                			int currentPluginIndex = customPlugins.indexOf(currentPlugin);
-            	                			customPlugins.remove(currentPlugin);
-            	                			((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsDeleted(currentPluginIndex, currentPluginIndex);
-            	                		}
-                            		}
-                        			break;
-                        		default:
-                        			break;
-                        	}
-                        	
                         }
                     }
-                });                
-                
-                // Center header
-                ((DefaultTableCellRenderer)customPluginsTable.getTableHeader().getDefaultRenderer()).setHorizontalAlignment(JLabel.CENTER);
-                
-                JSplitPane customPluginsplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
-                customPluginsplitPane.setTopComponent(customPluginPanel);
-                customPluginsplitPane.setBottomComponent(customPluginsTableScrollPane);                
-                customPluginsplitPane.setResizeWeight(.7d);
-                
-                
-                // **** END CUSTOM PLUGINS
-                
-            	tabbedPanel.add("Configurations",configurationConfPanel);
-            	tabbedPanel.add("JS Editor",sp);
-            	tabbedPanel.add("Hooks and functions",tabbedPanelHooks);
-            	tabbedPanel.add("Graphical analysis",treeSearchPanel);
-            	tabbedPanel.add("Graphical hooks",trapTableScrollPane);
-            	tabbedPanel.add("Custom plugins",customPluginsplitPane);
-            	tabbedPanel.add("Generate stubs",stubTextEditor.getComponent());
-            	tabbedPanel.add("Debug export",executeMethodPanel);
-            	            	
-            	// *** CONSOLE            	
-            	pluginConsoleTextArea = new JEditorPane("text/html", "<font color=\"green\"><b>*** Brida Console ***</b></font><br/><br/>");
-                JScrollPane scrollPluginConsoleTextArea = new JScrollPane(pluginConsoleTextArea);
-                scrollPluginConsoleTextArea.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-                pluginConsoleTextArea.setEditable(false);
-                                
-                consoleTabbedSplitPane.setTopComponent(tabbedPanel);
-                consoleTabbedSplitPane.setBottomComponent(scrollPluginConsoleTextArea);
-                consoleTabbedSplitPane.setResizeWeight(.7d);
-                            	
-                // *** RIGHT - BUTTONS
-            	
-            	// RIGHT
-                JPanel rightSplitPane = new JPanel();
-                rightSplitPane.setLayout(new GridBagLayout());
-                GridBagConstraints gbc = new GridBagConstraints();
-                gbc.gridwidth = GridBagConstraints.REMAINDER;
-                gbc.fill = GridBagConstraints.HORIZONTAL;
-                
-                documentServerStatusButtons = new DefaultStyledDocument();
-                serverStatusButtons = new JTextPane(documentServerStatusButtons);                
-                try {
-                	documentServerStatusButtons.insertString(0, "Server stopped", redStyle);
-				} catch (BadLocationException e) {
-					printException(e,"Error setting labels");
-				}
-                serverStatusButtons.setMaximumSize( serverStatusButtons.getPreferredSize() );
-                
-                documentApplicationStatusButtons = new DefaultStyledDocument();
-                applicationStatusButtons = new JTextPane(documentApplicationStatusButtons);                
-                try {
-                	documentApplicationStatusButtons.insertString(0, "App not hooked", redStyle);
-				} catch (BadLocationException e) {
-					printException(e,"Error setting labels");
-				}
-                applicationStatusButtons.setMaximumSize( applicationStatusButtons.getPreferredSize() );
-                                
-            	JButton startServer = new JButton("Start server");
-                startServer.setActionCommand("startServer");
-                startServer.addActionListener(BurpExtender.this); 
-                
-                JButton killServer = new JButton("Kill server");
-                killServer.setActionCommand("killServer");
-                killServer.addActionListener(BurpExtender.this); 
-            	
-            	JButton spawnApplication = new JButton("Spawn application");
-                spawnApplication.setActionCommand("spawnApplication");
-                spawnApplication.addActionListener(BurpExtender.this);   
-                
-                JButton compileSpawnApplication = new JButton("Compile & Spawn");
-                compileSpawnApplication.setActionCommand("compileSpawnApplication");
-                compileSpawnApplication.addActionListener(BurpExtender.this);  
-                
-                JButton attachApplication = new JButton("Attach application");
-                attachApplication.setActionCommand("attachApplication");
-                attachApplication.addActionListener(BurpExtender.this);   
-                
-                JButton compileAttachApplication = new JButton("Compile & Attach");
-                compileAttachApplication.setActionCommand("compileAttachApplication");
-                compileAttachApplication.addActionListener(BurpExtender.this); 
-                
-                JButton killApplication = new JButton("Kill application");
-                killApplication.setActionCommand("killApplication");
-                killApplication.addActionListener(BurpExtender.this);
-                
-                JButton detachApplication = new JButton("Detach application");
-                detachApplication.setActionCommand("detachApplication");
-                detachApplication.addActionListener(BurpExtender.this);
-                
-                JButton reloadScript = new JButton("Reload JS");
-                reloadScript.setActionCommand("reloadScript");
-                reloadScript.addActionListener(BurpExtender.this); 
-                
-                JButton compileReloadScript = new JButton("Compile & reload JS");
-                compileReloadScript.setActionCommand("compileReloadScript");
-                compileReloadScript.addActionListener(BurpExtender.this); 
-                
-                JButton detachAllHooks = new JButton("Detach all hooks");
-                detachAllHooks.setActionCommand("detachAll");
-                detachAllHooks.addActionListener(BurpExtender.this); 
-                
-                clearConsoleButton = new JButton("Clear console");
-                clearConsoleButton.setActionCommand("clearConsole");
-                clearConsoleButton.addActionListener(BurpExtender.this);
-                                
-                executeMethodButton = new JButton("Run export");
-                executeMethodButton.setActionCommand("executeMethod");
-                executeMethodButton.addActionListener(BurpExtender.this); 
-                
-                generateJavaStubButton = new JButton("Java Stub");
-                generateJavaStubButton.setActionCommand("generateJavaStub");
-                generateJavaStubButton.addActionListener(BurpExtender.this);    
-                
-                generatePythonStubButton = new JButton("Python Stub");
-                generatePythonStubButton.setActionCommand("generatePythonStub");
-                generatePythonStubButton.addActionListener(BurpExtender.this);
-                
-                saveSettingsToFileButton = new JButton("Save settings to file");
-                saveSettingsToFileButton.setActionCommand("saveSettingsToFile");
-                saveSettingsToFileButton.addActionListener(BurpExtender.this);  
-                
-                loadSettingsFromFileButton = new JButton("Load settings from file");
-                loadSettingsFromFileButton.setActionCommand("loadSettingsFromFile");
-                loadSettingsFromFileButton.addActionListener(BurpExtender.this);
-                
-                loadJSFileButton = new JButton("Load JS file");
-                loadJSFileButton.setActionCommand("loadJsFile");
-                loadJSFileButton.addActionListener(BurpExtender.this);  
-                
-                saveJSFileButton = new JButton("Save JS file");
-                saveJSFileButton.setActionCommand("saveJsFile");
-                saveJSFileButton.addActionListener(BurpExtender.this); 
-                
-                loadTreeButton = new JButton("Load tree");
-                loadTreeButton.setActionCommand("loadTree");
-                loadTreeButton.addActionListener(BurpExtender.this);
-                                
-                removeAllGraphicalHooksButton = new JButton("Remove all");
-                removeAllGraphicalHooksButton.setActionCommand("removeAllGraphicalHooks");
-                removeAllGraphicalHooksButton.addActionListener(BurpExtender.this); 
-                
-                enableCustomPluginButton = new JButton("Add plugin");
-                enableCustomPluginButton.setActionCommand("enablePlugin");
-                enableCustomPluginButton.addActionListener(BurpExtender.this); 
-                
-                exportCustomPluginsButton = new JButton("Export plugins");
-                exportCustomPluginsButton.setActionCommand("exportPlugins");
-                exportCustomPluginsButton.addActionListener(BurpExtender.this);
-                
-                importCustomPluginsButton = new JButton("Import plugins");
-                importCustomPluginsButton.setActionCommand("importPlugins");
-                importCustomPluginsButton.addActionListener(BurpExtender.this);
-                           
-                JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
-                separator.setBorder(BorderFactory.createMatteBorder(3, 0, 3, 0, Color.ORANGE));
+                    pythonPathVenv.setMaximumSize( pythonPathVenv.getPreferredSize() );
+                    JButton pythonPathVenvButton = new JButton("Select file");
+                    pythonPathVenvButton.setActionCommand("pythonPathSelectFile");
+                    pythonPathVenvButton.addActionListener(BurpExtender.this);
+                    pythonPathVenvPanel.add(labelPythonPathVenv);
+                    pythonPathVenvPanel.add(pythonPathVenv);
+                    pythonPathVenvPanel.add(pythonPathVenvButton);
 
-                rightSplitPane.add(serverStatusButtons,gbc);
-                rightSplitPane.add(applicationStatusButtons,gbc);
-                rightSplitPane.add(startServer,gbc);
-                rightSplitPane.add(killServer,gbc);
-                rightSplitPane.add(spawnApplication,gbc);
-                rightSplitPane.add(compileSpawnApplication,gbc);
-                rightSplitPane.add(attachApplication,gbc);
-                rightSplitPane.add(compileAttachApplication,gbc);                
-                rightSplitPane.add(killApplication,gbc);
-                rightSplitPane.add(detachApplication,gbc);                
-                rightSplitPane.add(reloadScript,gbc);
-                rightSplitPane.add(compileReloadScript,gbc);  
-                rightSplitPane.add(detachAllHooks,gbc);                
-                rightSplitPane.add(clearConsoleButton,gbc);
+                    JPanel pyroHostPanel = new JPanel();
+                    pyroHostPanel.setLayout(new BoxLayout(pyroHostPanel, BoxLayout.X_AXIS));
+                    pyroHostPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel labelPyroHost = new JLabel("Pyro host: ");
+                    pyroHost = new JTextField(200);
+                    if(callbacks.loadExtensionSetting("pyroHost") != null)
+                        pyroHost.setText(callbacks.loadExtensionSetting("pyroHost"));
+                    else
+                        pyroHost.setText("localhost");
+                    pyroHost.setMaximumSize( pyroHost.getPreferredSize() );
+                    pyroHostPanel.add(labelPyroHost);
+                    pyroHostPanel.add(pyroHost);
 
-                rightSplitPane.add(separator,gbc);
-                
-                // TAB CONFIGURATIONS
-                rightSplitPane.add(saveSettingsToFileButton,gbc);
-                rightSplitPane.add(loadSettingsFromFileButton,gbc);
-                
-                // TAB JS EDITOR
-                rightSplitPane.add(loadJSFileButton,gbc);
-                rightSplitPane.add(saveJSFileButton,gbc);
-                
-                // TAB EXECUTE METHOD
-                rightSplitPane.add(executeMethodButton,gbc);
-                
-                // TAB GENERATE STUBS
-                rightSplitPane.add(generateJavaStubButton,gbc);
-                rightSplitPane.add(generatePythonStubButton,gbc);
-                
-                // TREE ANALYSIS                
-                rightSplitPane.add(loadTreeButton,gbc);     
-                
-                // TRAP METHODS
-                rightSplitPane.add(removeAllGraphicalHooksButton,gbc);
-                
-                // CUSTOM PLUGINS
-                rightSplitPane.add(enableCustomPluginButton,gbc);
-                rightSplitPane.add(exportCustomPluginsButton,gbc);
-                rightSplitPane.add(importCustomPluginsButton,gbc);
-                
-                splitPane.setLeftComponent(consoleTabbedSplitPane);
-                splitPane.setRightComponent(rightSplitPane);
-                
-                splitPane.setResizeWeight(.9d);
+                    JPanel pyroPortPanel = new JPanel();
+                    pyroPortPanel.setLayout(new BoxLayout(pyroPortPanel, BoxLayout.X_AXIS));
+                    pyroPortPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel labelPyroPort = new JLabel("Pyro port: ");
+                    pyroPort = new JTextField(200);
+                    if(callbacks.loadExtensionSetting("pyroPort") != null)
+                        pyroPort.setText(callbacks.loadExtensionSetting("pyroPort"));
+                    else
+                        pyroPort.setText("9999");
+                    pyroPort.setMaximumSize( pyroPort.getPreferredSize() );
+                    pyroPortPanel.add(labelPyroPort);
+                    pyroPortPanel.add(pyroPort);
 
-                mainPanel.add(splitPane);
-                
-                callbacks.customizeUiComponent(mainPanel);
-                
-                callbacks.addSuiteTab(BurpExtender.this);
-                
-            }
-            
-        });
-		
-	}
+                    JPanel fridaPathPanel = new JPanel();
+                    fridaPathPanel.setLayout(new BoxLayout(fridaPathPanel, BoxLayout.X_AXIS));
+                    fridaPathPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel labelFridaPath = new JLabel("Frida JS files folder: ");
+                    fridaPath = new JTextField(200);
+                    if(callbacks.loadExtensionSetting("fridaPath") != null) {
+                        String savedFridaPath = callbacks.loadExtensionSetting("fridaPath");
+                        fridaPath.setText(savedFridaPath);
+                        // Autoload brida.js if it exists
+                        loadJSFile(new File(savedFridaPath+"brida.js"));
+                    } else {
+                        if(System.getProperty("os.name").startsWith("Windows")) {
+                            fridaPath.setText("C:\\burp\\brida\\");
+                        } else {
+                            fridaPath.setText("/opt/burp/brida/");
+                        }
+                    }
+                    fridaPath.setMaximumSize( fridaPath.getPreferredSize() );
+                    JButton fridaPathButton = new JButton("Select folder");
+                    fridaPathButton.setActionCommand("fridaPathSelectFile");
+                    fridaPathButton.addActionListener(BurpExtender.this);
+                    JButton fridaDefaultPathButton = new JButton("Create default JS files");
+                    fridaDefaultPathButton.setActionCommand("fridaPathSelectDefaultFile");
+                    fridaDefaultPathButton.addActionListener(BurpExtender.this);
+                    fridaPathPanel.add(labelFridaPath);
+                    fridaPathPanel.add(fridaPath);
+                    fridaPathPanel.add(fridaPathButton);
+                    fridaPathPanel.add(fridaDefaultPathButton);
+
+                    applicationIdPanel = new JPanel();
+                    applicationIdPanel.setLayout(new BoxLayout(applicationIdPanel, BoxLayout.X_AXIS));
+                    applicationIdPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel labelApplicationId = new JLabel("Application ID (spawn) / PID (attach): ");
+                    applicationId = new JTextField(200);
+                    if(callbacks.loadExtensionSetting("applicationId") != null)
+                        applicationId.setText(callbacks.loadExtensionSetting("applicationId"));
+                    else
+                        applicationId.setText("org.test.application");
+                    applicationId.setMaximumSize( applicationId.getPreferredSize() );
+                    applicationIdPanel.add(labelApplicationId);
+                    applicationIdPanel.add(applicationId);
+
+                    JPanel hostPortDevicePanel = new JPanel();
+                    hostPortDevicePanel.setLayout(new BoxLayout(hostPortDevicePanel, BoxLayout.X_AXIS));
+                    hostPortDevicePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel labelHostPortDevice = new JLabel("Host:port (Frida Host) / Device ID (Frida Device): ");
+                    hostPortDevice = new JTextField(200);
+                    if(callbacks.loadExtensionSetting("hostPortDevice") != null)
+                        hostPortDevice.setText(callbacks.loadExtensionSetting("hostPortDevice"));
+                    else
+                        hostPortDevice.setText("");
+                    hostPortDevice.setMaximumSize( hostPortDevice.getPreferredSize() );
+                    hostPortDevicePanel.add(labelHostPortDevice);
+                    hostPortDevicePanel.add(hostPortDevice);
+
+                    JPanel localRemotePanel = new JPanel();
+                    localRemotePanel.setLayout(new BoxLayout(localRemotePanel, BoxLayout.X_AXIS));
+                    localRemotePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    remoteRadioButton = new JRadioButton("Frida Remote");
+                    usbRadioButton =  new JRadioButton("Frida USB");
+                    localRadioButton = new JRadioButton("Frida Local");
+                    // process = frida.get_device_manager().add_remote_device("192.168.1.12:2703").attach("package name")
+                    hostRadioButton = new JRadioButton("Frida Host");
+                    deviceRadioButton = new JRadioButton("Frida Device");
+
+                    if(callbacks.loadExtensionSetting("device") != null) {
+                        if(callbacks.loadExtensionSetting("device").equals("remote"))
+                            remoteRadioButton.setSelected(true);
+                        else if(callbacks.loadExtensionSetting("device").equals("usb"))
+                            usbRadioButton.setSelected(true);
+                        else if(callbacks.loadExtensionSetting("device").equals("local"))
+                            localRadioButton.setSelected(true);
+                        else if(callbacks.loadExtensionSetting("device").equals("host"))
+                            hostRadioButton.setSelected(true);
+                        else
+                            deviceRadioButton.setSelected(true);
+                    } else {
+                        remoteRadioButton.setSelected(true);
+                    }
+                    ButtonGroup localRemoteButtonGroup = new ButtonGroup();
+                    localRemoteButtonGroup.add(remoteRadioButton);
+                    localRemoteButtonGroup.add(usbRadioButton);
+                    localRemoteButtonGroup.add(localRadioButton);
+                    localRemoteButtonGroup.add(hostRadioButton);
+                    localRemoteButtonGroup.add(deviceRadioButton);
+                    localRemotePanel.add(remoteRadioButton);
+                    localRemotePanel.add(usbRadioButton);
+                    localRemotePanel.add(localRadioButton);
+                    localRemotePanel.add(hostRadioButton);
+                    localRemotePanel.add(deviceRadioButton);
+
+                    configurationConfPanel.add(serverStatusPanel);
+                    configurationConfPanel.add(applicationStatusPanel);
+                    configurationConfPanel.add(virtualEnvPanel);
+                    configurationConfPanel.add(pythonPathVenvPanel);
+                    configurationConfPanel.add(pyroHostPanel);
+                    configurationConfPanel.add(pyroPortPanel);
+                    configurationConfPanel.add(fridaPathPanel);
+                    configurationConfPanel.add(applicationIdPanel);
+                    configurationConfPanel.add(localRemotePanel);
+                    configurationConfPanel.add(hostPortDevicePanel);
+
+                    // **** END CONFIGURATION PANEL
+
+                    // **** JS EDITOR PANEL / CONSOLE
+                    jsEditorTextArea = new TextEditorPane();
+                    jsEditorTextArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT);
+                    jsEditorTextArea.setCodeFoldingEnabled(false);
+                    RTextScrollPane sp = new RTextScrollPane(jsEditorTextArea);
+                    jsEditorTextArea.setFocusable(true);
+                    // **** END JS EDITOR PANEL / CONSOLE
+
+                    // 	*** TREE WITH CLASSES AND METHODS
+
+                    JPanel treeSearchPanel = new JPanel();
+                    treeSearchPanel.setLayout(new BorderLayout());
+
+                    JPanel treePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                    JScrollPane scrollTreeJPanel = new JScrollPane(treePanel);
+                    scrollTreeJPanel.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+
+                    DefaultMutableTreeNode top = new DefaultMutableTreeNode("Binary");
+
+                    tree = new JTree(top);
+
+                    // Add mouse listener
+                    tree.addMouseListener(BurpExtender.this);
+
+                    treePanel.add(tree);
+
+                    JPanel searchPanelBar = new JPanel();
+                    searchPanelBar.setLayout(new BoxLayout(searchPanelBar, BoxLayout.X_AXIS));
+
+                    JLabel findLabel = new JLabel("Search:");
+                    //findTextField = new JTextField(60);
+                    findTextField = new JTextField();
+                    JButton searchButton = new JButton("Search");
+                    searchButton.setActionCommand("searchAnalysis");
+                    searchButton.addActionListener(BurpExtender.this);
+
+                    searchPanelBar.add(findLabel);
+                    searchPanelBar.add(findTextField);
+                    searchPanelBar.add(searchButton);
+
+                    treeSearchPanel.add(scrollTreeJPanel);
+                    treeSearchPanel.add(searchPanelBar,BorderLayout.SOUTH);
+
+                    // *** TREE WITH CLASSES AND METHODS
+
+                    // **** STUB GENERATION
+
+                    stubTextEditor = callbacks.createTextEditor();
+                    stubTextEditor.setEditable(false);
+
+                    // **** END STUB GENERATION
+
+                    // **** EXECUTE METHOD TAB
+
+                    // Execute method
+                    JPanel executeMethodPanel = new JPanel();
+                    executeMethodPanel.setLayout(new BoxLayout(executeMethodPanel, BoxLayout.Y_AXIS));
+
+                    JPanel executeMethodNamePanel = new JPanel();
+                    executeMethodNamePanel.setLayout(new BoxLayout(executeMethodNamePanel, BoxLayout.X_AXIS));
+                    executeMethodNamePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel labelExecuteMethodName = new JLabel("Method name: ");
+                    executeMethodName = new JTextField(200);
+                    if(callbacks.loadExtensionSetting("executeMethodName") != null)
+                        executeMethodName.setText(callbacks.loadExtensionSetting("executeMethodName"));
+                    executeMethodName.setMaximumSize( executeMethodName.getPreferredSize() );
+                    executeMethodNamePanel.add(labelExecuteMethodName);
+                    executeMethodNamePanel.add(executeMethodName);
+
+                    JPanel executeMethodArgumentPanel = new JPanel();
+                    executeMethodArgumentPanel.setLayout(new BoxLayout(executeMethodArgumentPanel, BoxLayout.X_AXIS));
+                    executeMethodArgumentPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel labelExecuteMethodArgument = new JLabel("Argument: ");
+                    executeMethodArgument = new JTextField(200);
+                    executeMethodArgument.setMaximumSize( executeMethodArgument.getPreferredSize() );
+                    JButton addExecuteMethodArgument = new JButton("Add");
+                    addExecuteMethodArgument.setActionCommand("addExecuteMethodArgument");
+                    addExecuteMethodArgument.addActionListener(BurpExtender.this);
+                    executeMethodArgumentPanel.add(labelExecuteMethodArgument);
+                    executeMethodArgumentPanel.add(executeMethodArgument);
+                    executeMethodArgumentPanel.add(addExecuteMethodArgument);
+
+                    executeMethodInsertedArgumentList = new DefaultListModel();
+                    JPanel executeMethodInsertedArgumentPanel = new JPanel();
+                    executeMethodInsertedArgumentPanel.setLayout(new BoxLayout(executeMethodInsertedArgumentPanel, BoxLayout.X_AXIS));
+                    executeMethodInsertedArgumentPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel labelExecuteMethodInsertedArgument = new JLabel("Argument list: ");
+                    executeMethodInsertedArgument = new JList(executeMethodInsertedArgumentList);
+                    JScrollPane executeMethodInsertedArgumentScrollPane = new JScrollPane(executeMethodInsertedArgument);
+                    executeMethodInsertedArgumentScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+                    executeMethodInsertedArgumentScrollPane.setBorder(new LineBorder(Color.BLACK));
+                    executeMethodInsertedArgumentScrollPane.setMaximumSize( executeMethodInsertedArgumentScrollPane.getPreferredSize() );
+                    if(callbacks.loadExtensionSetting("executeMethodSizeArguments") != null) {
+                        int sizeArguments = Integer.parseInt(callbacks.loadExtensionSetting("executeMethodSizeArguments"));
+                        for(int i=0;i<sizeArguments;i++) {
+                            executeMethodInsertedArgumentList.addElement(callbacks.loadExtensionSetting("executeMethodArgument" + i));
+                        }
+                    }
+
+                    JPanel executeMethodInsertedArgumentButtonPanel = new JPanel();
+                    executeMethodInsertedArgumentButtonPanel.setLayout(new BoxLayout(executeMethodInsertedArgumentButtonPanel, BoxLayout.Y_AXIS));
+                    JButton removeExecuteMethodArgument = new JButton("Remove");
+                    removeExecuteMethodArgument.setActionCommand("removeExecuteMethodArgument");
+                    removeExecuteMethodArgument.addActionListener(BurpExtender.this);
+                    JButton modifyExecuteMethodArgument = new JButton("Modify");
+                    modifyExecuteMethodArgument.setActionCommand("modifyExecuteMethodArgument");
+                    modifyExecuteMethodArgument.addActionListener(BurpExtender.this);
+                    executeMethodInsertedArgumentButtonPanel.add(removeExecuteMethodArgument);
+                    executeMethodInsertedArgumentButtonPanel.add(modifyExecuteMethodArgument);
+                    executeMethodInsertedArgumentPanel.add(labelExecuteMethodInsertedArgument);
+                    executeMethodInsertedArgumentPanel.add(executeMethodInsertedArgumentScrollPane);
+                    executeMethodInsertedArgumentPanel.add(executeMethodInsertedArgumentButtonPanel);
+
+                    executeMethodPanel.add(executeMethodNamePanel);
+                    executeMethodPanel.add(executeMethodArgumentPanel);
+                    executeMethodPanel.add(executeMethodInsertedArgumentPanel);
+
+                    // **** END EXECUTE METHOD TAB
+
+                    // **** BEGIN TRAPPING TAB
+
+                    trapTable = new JTable(new TrapTableModel());
+                    TableCellRenderer trapTableRendererButton = trapTable.getDefaultRenderer(JButton.class);
+                    trapTable.setDefaultRenderer(JButton.class, new JTableButtonRenderer(trapTableRendererButton));
+                    TableCellRenderer trapTableRendererString = trapTable.getDefaultRenderer(String.class);
+                    trapTable.setDefaultRenderer(String.class, new JTableButtonRenderer(trapTableRendererString));
+                    JScrollPane trapTableScrollPane = new JScrollPane(trapTable);
+                    trapTableScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+                    trapTableScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+                    trapTable.setAutoCreateRowSorter(true);
+
+                    // Center header
+                    ((DefaultTableCellRenderer)trapTable.getTableHeader().getDefaultRenderer()).setHorizontalAlignment(JLabel.CENTER);
+
+                    // Center columns 4 and 5
+                    DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+                    centerRenderer.setHorizontalAlignment( JLabel.CENTER );
+                    trapTable.getColumnModel().getColumn(5).setCellRenderer( centerRenderer );
+                    trapTable.getColumnModel().getColumn(6).setCellRenderer( centerRenderer );
+
+                    // Handle buttons action in the table
+                    trapTable.addMouseListener(new MouseAdapter() {
+                        @Override
+                        public void mouseClicked(MouseEvent evt) {
+                            int row = trapTable.convertRowIndexToModel(trapTable.rowAtPoint(evt.getPoint()));
+                            int col = trapTable.columnAtPoint(evt.getPoint());
+                            if (row >= 0 && col >= 0) {
+                                List<TrapTableItem> trapTableItems = ((TrapTableModel)(trapTable.getModel())).getTrappedMethods();
+                                TrapTableItem currentTrapItem = trapTableItems.get(row);
+                                DefaultHook currentDefaultHook = currentTrapItem.getDefaultHook();
+                                switch(col) {
+                                    // Enable/disable
+                                    case 7:
+                                        if(currentDefaultHook.isEnabled()) {
+                                            if(!applicationSpawned) {
+                                                currentDefaultHook.setEnabled(false);
+                                            } else {
+                                                JOptionPane.showMessageDialog(null, "It is not possible to disable single hooks while application is running", "Warning", JOptionPane.WARNING_MESSAGE);
+                                            }
+                                        } else {
+                                            currentDefaultHook.setEnabled(true);
+                                            if(applicationSpawned) {
+                                                try {
+                                                    executePyroCall(pyroBridaService, "callexportfunction",new Object[] {currentDefaultHook.getFridaExportName(),currentDefaultHook.getParameters()});
+                                                } catch (Exception e) {
+                                                     printException(e,"Exception running starting tree hook " + currentDefaultHook.getName());
+                                                }
+                                            }
+
+                                        }
+                                        ((TrapTableModel)(trapTable.getModel())).fireTableCellUpdated(row, col);
+                                        ((TrapTableModel)(trapTable.getModel())).fireTableCellUpdated(row, 0);
+                                        break;
+                                    // Remove
+                                    case 8:
+
+                                        if(!applicationSpawned) {
+
+                                            // Ask user confirmation
+                                            JFrame parentDialogResult = new JFrame();
+                                            int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "Are you sure to want to remove \"" + currentDefaultHook.getName()  + "\" hook?","Warning",JOptionPane.YES_NO_OPTION);
+                                            if(dialogResult != JOptionPane.YES_OPTION){
+                                                return;
+                                            }
+
+                                            treeHooks.remove(currentDefaultHook);
+
+                                            synchronized(trapTableItems) {
+                                                int trapTableIndex = trapTableItems.indexOf(currentTrapItem);
+                                                trapTableItems.remove(currentTrapItem);
+                                                ((TrapTableModel)(trapTable.getModel())).fireTableRowsDeleted(trapTableIndex, trapTableIndex);
+                                            }
+
+
+                                        } else {
+                                            JOptionPane.showMessageDialog(null, "It is not possible to remove single hooks while application is running", "Warning", JOptionPane.WARNING_MESSAGE);
+                                        }
+
+                                    default:
+                                        break;
+                                }
+
+                            }
+                        }
+                    });
+
+                    // **** END TRAPPING TAB
+
+
+                    // **** FRIDA DEFAULT HOOKS TAB
+                    final JTabbedPane tabbedPanelHooks = new JTabbedPane();
+
+                    androidHooksPanel = new JPanel();
+                    androidHooksPanel.setLayout(new BoxLayout(androidHooksPanel, BoxLayout.Y_AXIS));
+
+                    iOSHooksPanel = new JPanel();
+                    iOSHooksPanel.setLayout(new BoxLayout(iOSHooksPanel, BoxLayout.Y_AXIS));
+
+                    genericHooksPanel = new JPanel();
+                    genericHooksPanel.setLayout(new BoxLayout(genericHooksPanel, BoxLayout.Y_AXIS));
+
+                    // Initialize default hooks -> moved to Montoya initialize()
+                    //initializeDefaultHooks();
+
+                    // Add tips to iOS hooks tab
+                    JPanel iosTipsJPanel = new JPanel();
+                    iosTipsJPanel.setLayout(new BoxLayout(iosTipsJPanel, BoxLayout.Y_AXIS));
+                    JLabel iosTip1Label = new JLabel("* TIP: If SSL pinning escape does not work try \"SSL Kill Switch 2\" application!");
+                    JLabel iosTip2Label = new JLabel("** TIP: If Jailbreak escape does not work try \"TS Protector\" or \"Liberty Lite\" applications!");
+                    Font fontJLabel = iosTip1Label.getFont();
+                    iosTip1Label.setFont(fontJLabel.deriveFont(fontJLabel.getStyle() | Font.BOLD));
+                    iosTip2Label.setFont(fontJLabel.deriveFont(fontJLabel.getStyle() | Font.BOLD));
+                    iosTipsJPanel.add(iosTip1Label);
+                    iosTipsJPanel.add(iosTip2Label);
+                    JPanel iOSHooksPanelWithTips = new JPanel();
+                    iOSHooksPanelWithTips.setLayout(new BorderLayout());
+                    iOSHooksPanelWithTips.add(iOSHooksPanel);
+                    iOSHooksPanelWithTips.add(iosTipsJPanel,BorderLayout.SOUTH);
+
+                    tabbedPanelHooks.add("Android",androidHooksPanel);
+                    tabbedPanelHooks.add("iOS",iOSHooksPanelWithTips);
+                    tabbedPanelHooks.add("Other",genericHooksPanel);
+                    // **** END FRIDA DEFAULT HOOKS TAB
+
+
+                    // **** BEGIN CUSTOM PLUGINS
+                    JPanel customPluginPanel = new JPanel();
+                    customPluginPanel.setLayout(new BoxLayout(customPluginPanel, BoxLayout.Y_AXIS));
+
+                    JPanel customPluginNamePanel = new JPanel();
+                    customPluginNamePanel.setLayout(new BoxLayout(customPluginNamePanel, BoxLayout.X_AXIS));
+                    customPluginNamePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginNameLabel = new JLabel("Plugin name: ");
+                    customPluginNameText = new JTextField(200);
+                    customPluginNameText.setMaximumSize( customPluginNameText.getPreferredSize() );
+                    customPluginNamePanel.add(customPluginNameLabel);
+                    customPluginNamePanel.add(customPluginNameText);
+
+                    JPanel customPluginTypePluginPanel = new JPanel();
+                    customPluginTypePluginPanel.setLayout(new BoxLayout(customPluginTypePluginPanel, BoxLayout.X_AXIS));
+                    customPluginTypePluginPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginTypePluginLabel = new JLabel("Plugin Type ");
+                    String[] customPluginTypePluginComboOptions = new String[] {"IHttpListener", "IMessageEditorTab","IContextMenu","JButton"};
+                    customPluginTypePluginOptions = new JComboBox<String>(customPluginTypePluginComboOptions);
+                    customPluginTypePluginOptions.setSelectedIndex(0);
+                    customPluginTypePluginOptions.setMaximumSize( customPluginTypePluginOptions.getPreferredSize() );
+                    customPluginTypePluginOptions.addActionListener (new ActionListener () {
+                        public void actionPerformed(ActionEvent e) {
+                            changeCustomPluginOptions(customPluginTypePluginOptions.getSelectedItem().toString());
+                        }
+                    });
+                    customPluginTypePluginDescription = new JLabel("Plugin that dynamically process each requests and responses");
+                    customPluginTypePluginDescription.setMaximumSize(new Dimension(Integer.MAX_VALUE, customPluginTypePluginDescription.getMinimumSize().height));
+                    customPluginTypePluginPanel.add(customPluginTypePluginLabel);
+                    customPluginTypePluginPanel.add(customPluginTypePluginOptions);
+                    customPluginTypePluginPanel.add(customPluginTypePluginDescription);
+
+                    JPanel customPluginExportNamePanel = new JPanel();
+                    customPluginExportNamePanel.setLayout(new BoxLayout(customPluginExportNamePanel, BoxLayout.X_AXIS));
+                    customPluginExportNamePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginExportNameLabel = new JLabel("Name of the Frida exported function: ");
+                    customPluginExportNameText = new JTextField(200);
+                    customPluginExportNameText.setMaximumSize( customPluginExportNameText.getPreferredSize() );
+                    customPluginExportNamePanel.add(customPluginExportNameLabel);
+                    customPluginExportNamePanel.add(customPluginExportNameText);
+
+                    JPanel customPluginExecuteOnPanel = new JPanel();
+                    customPluginExecuteOnPanel.setLayout(new BoxLayout(customPluginExecuteOnPanel, BoxLayout.X_AXIS));
+                    customPluginExecuteOnPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginExecuteOnLabel = new JLabel("Execute on: ");
+                    customPluginExecuteOnRadioRequest = new JRadioButton("Requests");
+                    customPluginExecuteOnRadioResponse = new JRadioButton("Responses");
+                    customPluginExecuteOnRadioAll = new JRadioButton("All");
+                    customPluginExecuteOnRadioContext = new JRadioButton("Context menu option named: ");
+                    customPluginExecuteOnRadioContext.setVisible(false);
+                    customPluginExecuteOnRadioButton = new JRadioButton("Button named: ");
+                    customPluginExecuteOnRadioButton.setVisible(false);
+                    customPluginExecuteOnRadioRequest.setSelected(true);
+                    customPluginExecuteOnStringParameter = new JTextField(200);
+                    customPluginExecuteOnStringParameter.setMaximumSize( customPluginExecuteOnStringParameter.getPreferredSize() );
+                    customPluginExecuteOnStringParameter.setVisible(false);
+                    customPluginExecuteOnRadioButtonGroup = new ButtonGroup();
+                    customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioRequest);
+                    customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioResponse);
+                    customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioAll);
+                    customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioContext);
+                    customPluginExecuteOnRadioButtonGroup.add(customPluginExecuteOnRadioButton);
+                    customPluginExecuteOnPanel.add(customPluginExecuteOnLabel);
+                    customPluginExecuteOnPanel.add(customPluginExecuteOnRadioRequest);
+                    customPluginExecuteOnPanel.add(customPluginExecuteOnRadioResponse);
+                    customPluginExecuteOnPanel.add(customPluginExecuteOnRadioAll);
+                    customPluginExecuteOnPanel.add(customPluginExecuteOnRadioContext);
+                    customPluginExecuteOnPanel.add(customPluginExecuteOnRadioButton);
+                    customPluginExecuteOnPanel.add(customPluginExecuteOnStringParameter);
+
+                    customPluginButtonPlatformPanel = new JPanel();
+                    customPluginButtonPlatformPanel.setLayout(new BoxLayout(customPluginButtonPlatformPanel, BoxLayout.X_AXIS));
+                    customPluginButtonPlatformPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginButtonPlatformLabel = new JLabel("Platform: ");
+                    customPluginButtonTypeRadioIos = new JRadioButton("iOS");
+                    customPluginButtonTypeRadioAndroid = new JRadioButton("Android");
+                    customPluginButtonTypeRadioGeneric = new JRadioButton("Other");
+                    customPluginButtonTypeRadioIos.setSelected(true);
+                    customPluginButtonPlatformRadioButtonGroup = new ButtonGroup();
+                    customPluginButtonPlatformRadioButtonGroup.add(customPluginButtonTypeRadioIos);
+                    customPluginButtonPlatformRadioButtonGroup.add(customPluginButtonTypeRadioAndroid);
+                    customPluginButtonPlatformRadioButtonGroup.add(customPluginButtonTypeRadioGeneric);
+                    customPluginButtonPlatformPanel.add(customPluginButtonPlatformLabel);
+                    customPluginButtonPlatformPanel.add(customPluginButtonTypeRadioIos);
+                    customPluginButtonPlatformPanel.add(customPluginButtonTypeRadioAndroid);
+                    customPluginButtonPlatformPanel.add(customPluginButtonTypeRadioGeneric);
+                    customPluginButtonPlatformPanel.setVisible(false);
+
+                    customPluginButtonTypePanel = new JPanel();
+                    customPluginButtonTypePanel.setLayout(new BoxLayout(customPluginButtonTypePanel, BoxLayout.X_AXIS));
+                    customPluginButtonTypePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginButtonTypeLabel = new JLabel("Button type: ");
+                    customPluginButtonTypeRadioFunction = new JRadioButton("Function");
+                    customPluginButtonTypeRadioHook = new JRadioButton("Hook");
+                    customPluginButtonTypeRadioFunction.setSelected(true);
+                    customPluginButtonTypeRadioButtonGroup = new ButtonGroup();
+                    customPluginButtonTypeRadioButtonGroup.add(customPluginButtonTypeRadioFunction);
+                    customPluginButtonTypeRadioButtonGroup.add(customPluginButtonTypeRadioHook);
+                    customPluginButtonTypeRadioFunction.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            SwingUtilities.invokeLater(new Runnable() {
+                                @Override
+                                public void run() {
+                                    customPluginParametersPanel.setVisible(true);
+                                    customPluginParameterEncodingPanel.setVisible(true);
+                                }
+                            });
+                        }
+                    });
+                    customPluginButtonTypeRadioHook.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            SwingUtilities.invokeLater(new Runnable() {
+                                @Override
+                                public void run() {
+                                    customPluginParametersPanel.setVisible(false);
+                                    customPluginParameterEncodingPanel.setVisible(false);
+                                }
+                            });
+                        }
+                    });
+                    customPluginButtonTypePanel.add(customPluginButtonTypeLabel);
+                    customPluginButtonTypePanel.add(customPluginButtonTypeRadioFunction);
+                    customPluginButtonTypePanel.add(customPluginButtonTypeRadioHook);
+                    customPluginButtonTypePanel.setVisible(false);
+
+                    customPluginToolsPanel = new JPanel();
+                    customPluginToolsPanel.setLayout(new BoxLayout(customPluginToolsPanel, BoxLayout.X_AXIS));
+                    customPluginToolsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginToolsLabel = new JLabel("Burp Suite Tools: ");
+                    customPluginToolsRepeater = new JCheckBox("Repeater",true);
+                    customPluginToolsProxy = new JCheckBox("Proxy",false);
+                    customPluginToolsScanner = new JCheckBox("Scanner",false);
+                    customPluginToolsIntruder = new JCheckBox("Intruder",false);
+                    customPluginToolsExtender = new JCheckBox("Extender",false);
+                    customPluginToolsSequencer = new JCheckBox("Sequencer",false);
+                    customPluginToolsSpider = new JCheckBox("Spider",false);
+                    customPluginToolsPanel.add(customPluginToolsLabel);
+                    customPluginToolsPanel.add(customPluginToolsRepeater);
+                    customPluginToolsPanel.add(customPluginToolsProxy);
+                    customPluginToolsPanel.add(customPluginToolsScanner);
+                    customPluginToolsPanel.add(customPluginToolsIntruder);
+                    customPluginToolsPanel.add(customPluginToolsExtender);
+                    customPluginToolsPanel.add(customPluginToolsSequencer);
+                    customPluginToolsPanel.add(customPluginToolsSpider);
+
+                    customPluginScopePanel = new JPanel();
+                    customPluginScopePanel.setLayout(new BoxLayout(customPluginScopePanel, BoxLayout.X_AXIS));
+                    customPluginScopePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginScopeLabel = new JLabel("Process only in-scope requests/responses: ");
+                    customPluginScopeCheckBox = new JCheckBox();
+                    customPluginScopePanel.add(customPluginScopeLabel);
+                    customPluginScopePanel.add(customPluginScopeCheckBox);
+
+                    customPluginExecuteWhenPanel = new JPanel();
+                    customPluginExecuteWhenPanel.setLayout(new BoxLayout(customPluginExecuteWhenPanel, BoxLayout.X_AXIS));
+                    customPluginExecuteWhenPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginExecuteWhenLabel = new JLabel("Execute ");
+                    String[] customPluginExecuteJComboOptions = new String[] {"always", "when request/response contains plaintext","when request/response contains regex"};
+                    customPluginExecuteWhenOptions = new JComboBox<String>(customPluginExecuteJComboOptions);
+                    customPluginExecuteWhenOptions.setSelectedIndex(0);
+                    customPluginExecuteWhenOptions.setMaximumSize( customPluginExecuteWhenOptions.getPreferredSize() );
+                    customPluginExecuteWhenText = new JTextField(200);
+                    customPluginExecuteWhenText.setMaximumSize( customPluginExecuteWhenText.getPreferredSize() );
+                    customPluginExecuteWhenPanel.add(customPluginExecuteWhenLabel);
+                    customPluginExecuteWhenPanel.add(customPluginExecuteWhenOptions);
+                    customPluginExecuteWhenPanel.add(customPluginExecuteWhenText);
+
+                    customPluginParametersPanel = new JPanel();
+                    customPluginParametersPanel.setLayout(new BoxLayout(customPluginParametersPanel, BoxLayout.X_AXIS));
+                    customPluginParametersPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginParametersLabel = new JLabel("Parameters: ");
+                    String[] customPluginParametersComboOptions = CustomPlugin.functionParametersIHttpListener.stream().map(CustomPluginParameterValues::toString).toArray(String[]::new);
+                    customPluginParametersOptions = new JComboBox<String>(customPluginParametersComboOptions);
+                    customPluginParametersOptions.setSelectedIndex(0);
+                    customPluginParametersOptions.setMaximumSize( customPluginParametersOptions.getPreferredSize() );
+                    customPluginParametersText = new JTextField(200);
+                    customPluginParametersText.setMaximumSize( customPluginParametersText.getPreferredSize() );
+                    customPluginParametersPanel.add(customPluginParametersLabel);
+                    customPluginParametersPanel.add(customPluginParametersOptions);
+                    customPluginParametersPanel.add(customPluginParametersText);
+
+                    customPluginParameterEncodingPanel = new JPanel();
+                    customPluginParameterEncodingPanel.setLayout(new BoxLayout(customPluginParameterEncodingPanel, BoxLayout.X_AXIS));
+                    customPluginParameterEncodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginParameterEncodinglabel = new JLabel("Encode function parameters: ");
+                    JButton customPluginParameterEncodingButton = new JButton("Choose encoding");
+                    customPluginParameterEncodingButton.setActionCommand("customPluginParameterEncodingButton");
+                    customPluginParameterEncodingButton.addActionListener(BurpExtender.this);
+                    customPluginParameterEncodingText = new JTextField(200);
+                    customPluginParameterEncodingText.setMaximumSize( customPluginParameterEncodingText.getPreferredSize() );
+                    customPluginParameterEncodingText.setEditable(false);
+                    customPluginParameterEncodingPanel.add(customPluginParameterEncodinglabel);
+                    customPluginParameterEncodingPanel.add(customPluginParameterEncodingButton);
+                    customPluginParameterEncodingPanel.add(customPluginParameterEncodingText);
+
+                    customPluginOutputDecodingPanel = new JPanel();
+                    customPluginOutputDecodingPanel.setLayout(new BoxLayout(customPluginOutputDecodingPanel, BoxLayout.X_AXIS));
+                    customPluginOutputDecodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginOutputDecodingLabel = new JLabel("Decode function output: ");
+                    JButton customPluginOutputDecodingButton = new JButton("Choose decoding");
+                    customPluginOutputDecodingButton.setActionCommand("customPluginOutputDecodingButton");
+                    customPluginOutputDecodingButton.addActionListener(BurpExtender.this);
+                    customPluginOutputDecodingText = new JTextField(200);
+                    customPluginOutputDecodingText.setMaximumSize( customPluginOutputDecodingText.getPreferredSize() );
+                    customPluginOutputDecodingText.setEditable(false);
+                    customPluginOutputDecodingPanel.add(customPluginOutputDecodingLabel);
+                    customPluginOutputDecodingPanel.add(customPluginOutputDecodingButton);
+                    customPluginOutputDecodingPanel.add(customPluginOutputDecodingText);
+
+                    JPanel customPluginOutputPanel = new JPanel();
+                    customPluginOutputPanel.setLayout(new BoxLayout(customPluginOutputPanel, BoxLayout.X_AXIS));
+                    customPluginOutputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginOutputLabel = new JLabel("Plugin output: ");
+                    String[] customPluginOutputComboOptions = CustomPlugin.functionOutputValuesIHttpListener.stream().map(CustomPluginFunctionOutputValues::toString).toArray(String[]::new);
+
+                    customPluginOutputOptions = new JComboBox<String>(customPluginOutputComboOptions);
+                    customPluginOutputOptions.setSelectedIndex(0);
+                    customPluginOutputOptions.setMaximumSize( customPluginOutputOptions.getPreferredSize() );
+                    customPluginOutputText = new JTextField(200);
+                    customPluginOutputText.setMaximumSize( customPluginOutputText.getPreferredSize() );
+                    customPluginOutputPanel.add(customPluginOutputLabel);
+                    customPluginOutputPanel.add(customPluginOutputOptions);
+                    customPluginOutputPanel.add(customPluginOutputText);
+
+                    customPluginOutputEncodingPanel = new JPanel();
+                    customPluginOutputEncodingPanel.setLayout(new BoxLayout(customPluginOutputEncodingPanel, BoxLayout.X_AXIS));
+                    customPluginOutputEncodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginOutputEncodingLabel = new JLabel("Plugin output encoding: ");
+                    JButton customPluginOutputEncodingButton = new JButton("Choose encoding");
+                    customPluginOutputEncodingButton.setActionCommand("customPluginOutputEncodingButton");
+                    customPluginOutputEncodingButton.addActionListener(BurpExtender.this);
+                    customPluginOutputEncodingText = new JTextField(200);
+                    customPluginOutputEncodingText.setMaximumSize( customPluginOutputEncodingText.getPreferredSize() );
+                    customPluginOutputEncodingText.setEditable(false);
+                    customPluginOutputEncodingPanel.add(customPluginOutputEncodingLabel);
+                    customPluginOutputEncodingPanel.add(customPluginOutputEncodingButton);
+                    customPluginOutputEncodingPanel.add(customPluginOutputEncodingText);
+
+                    customPluginMessageEditorModifiedFridaFunctioPanel = new JPanel();
+                    customPluginMessageEditorModifiedFridaFunctioPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedFridaFunctioPanel, BoxLayout.X_AXIS));
+                    customPluginMessageEditorModifiedFridaFunctioPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginMessageEditorModifiedFridaExportNameLabel = new JLabel("Name of the Frida exported function for the edited content: ");
+                    customPluginMessageEditorModifiedFridaExportNameText = new JTextField(200);
+                    customPluginMessageEditorModifiedFridaExportNameText.setMaximumSize( customPluginMessageEditorModifiedFridaExportNameText.getPreferredSize() );
+                    customPluginMessageEditorModifiedFridaFunctioPanel.add(customPluginMessageEditorModifiedFridaExportNameLabel);
+                    customPluginMessageEditorModifiedFridaFunctioPanel.add(customPluginMessageEditorModifiedFridaExportNameText);
+                    customPluginMessageEditorModifiedFridaFunctioPanel.setVisible(false);
+
+                    customPluginMessageEditorModifiedEncodeInputPanel = new JPanel();
+                    customPluginMessageEditorModifiedEncodeInputPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedEncodeInputPanel, BoxLayout.X_AXIS));
+                    customPluginMessageEditorModifiedEncodeInputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginMessageEditorModifiedEncodeInputLabel = new JLabel("Encode input passed to Frida function executed on edited content: ");
+                    JButton customPluginMessageEditorModifiedEncodeInputButton = new JButton("Choose encoding");
+                    customPluginMessageEditorModifiedEncodeInputButton.setActionCommand("customPluginMessageEditorModifiedEncodeInputButton");
+                    customPluginMessageEditorModifiedEncodeInputButton.addActionListener(BurpExtender.this);
+                    customPluginMessageEditorModifiedEncodeInputText = new JTextField(200);
+                    customPluginMessageEditorModifiedEncodeInputText.setMaximumSize( customPluginMessageEditorModifiedEncodeInputText.getPreferredSize() );
+                    customPluginMessageEditorModifiedEncodeInputText.setEditable(false);
+                    customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodeInputLabel);
+                    customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodeInputButton);
+                    customPluginMessageEditorModifiedEncodeInputPanel.add(customPluginMessageEditorModifiedEncodeInputText);
+                    customPluginMessageEditorModifiedEncodeInputPanel.setVisible(false);
+
+                    customPluginMessageEditorModifiedDecodingOutputPanel = new JPanel();
+                    customPluginMessageEditorModifiedDecodingOutputPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedDecodingOutputPanel, BoxLayout.X_AXIS));
+                    customPluginMessageEditorModifiedDecodingOutputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginMessageEditorModifiedDecodingOutputLabel = new JLabel("Decode output of Frida function executed on edited content: ");
+                    JButton customPluginMessageEditorModifiedDecodingOutputButton = new JButton("Choose decoding");
+                    customPluginMessageEditorModifiedDecodingOutputButton.setActionCommand("customPluginMessageEditorModifiedDecodingOutputButton");
+                    customPluginMessageEditorModifiedDecodingOutputButton.addActionListener(BurpExtender.this);
+                    customPluginMessageEditorModifiedDecodingOutputText = new JTextField(200);
+                    customPluginMessageEditorModifiedDecodingOutputText.setMaximumSize( customPluginMessageEditorModifiedDecodingOutputText.getPreferredSize() );
+                    customPluginMessageEditorModifiedDecodingOutputText.setEditable(false);
+                    customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginMessageEditorModifiedDecodingOutputLabel);
+                    customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginMessageEditorModifiedDecodingOutputButton);
+                    customPluginMessageEditorModifiedDecodingOutputPanel.add(customPluginMessageEditorModifiedDecodingOutputText);
+                    customPluginMessageEditorModifiedDecodingOutputPanel.setVisible(false);
+
+                    customPluginMessageEditorModifiedOutputLocationPanel = new JPanel();
+                    customPluginMessageEditorModifiedOutputLocationPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedOutputLocationPanel, BoxLayout.X_AXIS));
+                    customPluginMessageEditorModifiedOutputLocationPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginMessageEditorModifiedOutputLocationLabel = new JLabel("Edited content location: ");
+                    String[] customPluginMessageEditorModifiedOutputLocationComboOptions = Stream.of(BridaMessageEditorPluginOutputLocation.values()).map(BridaMessageEditorPluginOutputLocation::toString).toArray(String[]::new);
+                    customPluginMessageEditorModifiedOutputLocationOptions = new JComboBox<String>(customPluginMessageEditorModifiedOutputLocationComboOptions);
+                    customPluginMessageEditorModifiedOutputLocationOptions.setSelectedIndex(0);
+                    customPluginMessageEditorModifiedOutputLocationOptions.setMaximumSize( customPluginMessageEditorModifiedOutputLocationOptions.getPreferredSize() );
+                    customPluginMessageEditorModifiedOutputLocationText = new JTextField(200);
+                    customPluginMessageEditorModifiedOutputLocationText.setMaximumSize( customPluginMessageEditorModifiedOutputLocationText.getPreferredSize() );
+                    customPluginMessageEditorModifiedOutputLocationPanel.add(customPluginMessageEditorModifiedOutputLocationLabel);
+                    customPluginMessageEditorModifiedOutputLocationPanel.add(customPluginMessageEditorModifiedOutputLocationOptions);
+                    customPluginMessageEditorModifiedOutputLocationPanel.add(customPluginMessageEditorModifiedOutputLocationText);
+                    customPluginMessageEditorModifiedOutputLocationPanel.setVisible(false);
+
+                    customPluginMessageEditorModifiedOutputEncodingPanel = new JPanel();
+                    customPluginMessageEditorModifiedOutputEncodingPanel.setLayout(new BoxLayout(customPluginMessageEditorModifiedOutputEncodingPanel, BoxLayout.X_AXIS));
+                    customPluginMessageEditorModifiedOutputEncodingPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    JLabel customPluginMessageEditorModifiedOutputEncodingLabel = new JLabel("Encode output of edited content function: ");
+
+                    JButton customPluginMessageEditorModifiedOutputEncodingButton = new JButton("Choose encoding");
+                    customPluginMessageEditorModifiedOutputEncodingButton.setActionCommand("customPluginMessageEditorModifiedOutputEncodingButton");
+                    customPluginMessageEditorModifiedOutputEncodingButton.addActionListener(BurpExtender.this);
+                    customPluginMessageEditorModifiedOutputEncodingText = new JTextField(200);
+                    customPluginMessageEditorModifiedOutputEncodingText.setMaximumSize( customPluginMessageEditorModifiedOutputEncodingText.getPreferredSize() );
+                    customPluginMessageEditorModifiedOutputEncodingText.setEditable(false);
+                    customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingLabel);
+                    customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingButton);
+                    customPluginMessageEditorModifiedOutputEncodingPanel.add(customPluginMessageEditorModifiedOutputEncodingText);
+                    customPluginMessageEditorModifiedOutputEncodingPanel.setVisible(false);
+
+                    customPluginPanel.add(customPluginNamePanel);
+                    customPluginPanel.add(customPluginTypePluginPanel);
+                    customPluginPanel.add(customPluginExportNamePanel);
+                    customPluginPanel.add(customPluginExecuteOnPanel);
+                    customPluginPanel.add(customPluginButtonPlatformPanel);
+                    customPluginPanel.add(customPluginButtonTypePanel);
+                    customPluginPanel.add(customPluginToolsPanel);
+                    customPluginPanel.add(customPluginScopePanel);
+                    customPluginPanel.add(customPluginExecuteWhenPanel);
+                    customPluginPanel.add(customPluginParametersPanel);
+                    customPluginPanel.add(customPluginParameterEncodingPanel);
+                    customPluginPanel.add(customPluginOutputDecodingPanel);
+                    customPluginPanel.add(customPluginOutputPanel);
+                    customPluginPanel.add(customPluginOutputEncodingPanel);
+                    customPluginPanel.add(customPluginMessageEditorModifiedFridaFunctioPanel);
+                    customPluginPanel.add(customPluginMessageEditorModifiedEncodeInputPanel);
+                    customPluginPanel.add(customPluginMessageEditorModifiedDecodingOutputPanel);
+                    customPluginPanel.add(customPluginMessageEditorModifiedOutputLocationPanel);
+                    customPluginPanel.add(customPluginMessageEditorModifiedOutputEncodingPanel);
+
+                    customPluginsTable = new JTable(new CustomPluginsTableModel());
+                    //(BurpExtender()customPluginsTable = customPluginsTable;
+                    TableCellRenderer tableRendererButton = customPluginsTable.getDefaultRenderer(JButton.class);
+                    customPluginsTable.setDefaultRenderer(JButton.class, new JTableButtonRenderer(tableRendererButton));
+                    TableCellRenderer tableRendererString = customPluginsTable.getDefaultRenderer(String.class);
+                    customPluginsTable.setDefaultRenderer(String.class, new JTableButtonRenderer(tableRendererString));
+                    JScrollPane customPluginsTableScrollPane = new JScrollPane(customPluginsTable);
+                    customPluginsTableScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+                    customPluginsTableScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+                    customPluginsTable.setAutoCreateRowSorter(true);
+
+                    // Handle buttons action in the table
+                    customPluginsTable.addMouseListener(new MouseAdapter() {
+                        @Override
+                        public void mouseClicked(MouseEvent evt) {
+                            int row = customPluginsTable.convertRowIndexToModel(customPluginsTable.rowAtPoint(evt.getPoint()));
+                            int col = customPluginsTable.columnAtPoint(evt.getPoint());
+                            if (row >= 0 && col >= 0) {
+                                List<CustomPlugin> customPlugins = ((CustomPluginsTableModel)(customPluginsTable.getModel())).getCustomPlugins();
+                                CustomPlugin currentPlugin = customPlugins.get(row);
+                                switch(col) {
+                                    // Enable/disable
+                                    case 4:
+                                        if(currentPlugin.isOn()) {
+                                            currentPlugin.disable();
+                                        } else {
+                                            currentPlugin.enable();
+                                        }
+                                        ((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableCellUpdated(row, col);
+                                        ((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableCellUpdated(row, 0);
+                                        break;
+                                    // Debug
+                                    case 5:
+                                        if(currentPlugin.getType() != CustomPlugin.CustomPluginType.JBUTTON) {
+                                            currentPlugin.enableDebugToExternalFrame();
+                                        }
+                                        break;
+                                    // Edit
+                                    case 6:
+                                        // If plugin is enabled, disable first
+                                        if(currentPlugin.isOn()) {
+
+                                            // Ask user confirmation
+                                            JFrame parentDialogResult = new JFrame();
+                                            int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "The plugin is currently enabled and must be disabled before it can be edited. Would you like to disable it and proceed?","Warning",JOptionPane.YES_NO_OPTION);
+                                            if(dialogResult != JOptionPane.YES_OPTION){
+                                                return;
+                                            }
+
+                                            currentPlugin.disable();
+
+                                        }
+                                        // Double check because unload button hooks may fail if the application is running
+                                        if(!currentPlugin.isOn()) {
+
+                                            editCustomPlugin(currentPlugin);
+
+                                            // Remove plugin from the table
+                                            synchronized(customPlugins) {
+                                                int currentPluginIndex = customPlugins.indexOf(currentPlugin);
+                                                customPlugins.remove(currentPlugin);
+                                                ((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsDeleted(currentPluginIndex, currentPluginIndex);
+                                            }
+                                        }
+                                        break;
+                                    // Remove
+                                    case 7:
+                                        // If plugin is enabled, disable first
+                                        if(currentPlugin.isOn()) {
+
+                                            // Ask user confirmation
+                                            JFrame parentDialogResult = new JFrame();
+                                            int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "The plugin is currently enabled and must be disabled before it can be removed. Would you like to disable it and proceed?","Warning",JOptionPane.YES_NO_OPTION);
+                                            if(dialogResult != JOptionPane.YES_OPTION){
+                                                return;
+                                            }
+
+                                            currentPlugin.disable();
+
+                                        } else {
+
+                                            // Ask user confirmation
+                                            JFrame parentDialogResult = new JFrame();
+                                            int dialogResult = JOptionPane.showConfirmDialog(parentDialogResult, "Are you sure that you want to remove the plugin?","Warning",JOptionPane.YES_NO_OPTION);
+                                            if(dialogResult != JOptionPane.YES_OPTION){
+                                                return;
+                                            }
+
+                                        }
+
+                                        // Double check because unload button hooks may fail if the application is running
+                                        if(!currentPlugin.isOn()) {
+                                            synchronized(customPlugins) {
+                                                int currentPluginIndex = customPlugins.indexOf(currentPlugin);
+                                                customPlugins.remove(currentPlugin);
+                                                ((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsDeleted(currentPluginIndex, currentPluginIndex);
+                                            }
+                                        }
+                                        break;
+                                    default:
+                                        break;
+                                }
+
+                            }
+                        }
+                    });
+
+                    // Center header
+                    ((DefaultTableCellRenderer)customPluginsTable.getTableHeader().getDefaultRenderer()).setHorizontalAlignment(JLabel.CENTER);
+
+                    JSplitPane customPluginsplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+                    customPluginsplitPane.setTopComponent(customPluginPanel);
+                    customPluginsplitPane.setBottomComponent(customPluginsTableScrollPane);
+                    customPluginsplitPane.setResizeWeight(.7d);
+
+
+                    // **** END CUSTOM PLUGINS
+
+                    tabbedPanel.add("Configurations",configurationConfPanel);
+                    tabbedPanel.add("JS Editor",sp);
+                    tabbedPanel.add("Hooks and functions",tabbedPanelHooks);
+                    tabbedPanel.add("Graphical analysis",treeSearchPanel);
+                    tabbedPanel.add("Graphical hooks",trapTableScrollPane);
+                    tabbedPanel.add("Custom plugins",customPluginsplitPane);
+                    tabbedPanel.add("Generate stubs",stubTextEditor.getComponent());
+                    tabbedPanel.add("Debug export",executeMethodPanel);
+
+                    // *** CONSOLE
+                    pluginConsoleTextArea = new JEditorPane("text/html", "<font color=\"green\"><b>*** Brida Console ***</b></font><br/><br/>");
+                    JScrollPane scrollPluginConsoleTextArea = new JScrollPane(pluginConsoleTextArea);
+                    scrollPluginConsoleTextArea.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+                    pluginConsoleTextArea.setEditable(false);
+
+                    consoleTabbedSplitPane.setTopComponent(tabbedPanel);
+                    consoleTabbedSplitPane.setBottomComponent(scrollPluginConsoleTextArea);
+                    consoleTabbedSplitPane.setResizeWeight(.7d);
+
+                    // *** RIGHT - BUTTONS
+
+                    // RIGHT
+                    JPanel rightSplitPane = new JPanel();
+                    rightSplitPane.setLayout(new GridBagLayout());
+                    GridBagConstraints gbc = new GridBagConstraints();
+                    gbc.gridwidth = GridBagConstraints.REMAINDER;
+                    gbc.fill = GridBagConstraints.HORIZONTAL;
+
+                    documentServerStatusButtons = new DefaultStyledDocument();
+                    serverStatusButtons = new JTextPane(documentServerStatusButtons);
+                    try {
+                        documentServerStatusButtons.insertString(0, "Server stopped", redStyle);
+                    } catch (BadLocationException e) {
+                        printException(e,"Error setting labels");
+                    }
+                    serverStatusButtons.setMaximumSize( serverStatusButtons.getPreferredSize() );
+
+                    documentApplicationStatusButtons = new DefaultStyledDocument();
+                    applicationStatusButtons = new JTextPane(documentApplicationStatusButtons);
+                    try {
+                        documentApplicationStatusButtons.insertString(0, "App not hooked", redStyle);
+                    } catch (BadLocationException e) {
+                        printException(e,"Error setting labels");
+                    }
+                    applicationStatusButtons.setMaximumSize( applicationStatusButtons.getPreferredSize() );
+
+                    JButton startServer = new JButton("Start server");
+                    startServer.setActionCommand("startServer");
+                    startServer.addActionListener(BurpExtender.this);
+
+                    JButton killServer = new JButton("Kill server");
+                    killServer.setActionCommand("killServer");
+                    killServer.addActionListener(BurpExtender.this);
+
+                    JButton spawnApplication = new JButton("Spawn application");
+                    spawnApplication.setActionCommand("spawnApplication");
+                    spawnApplication.addActionListener(BurpExtender.this);
+
+                    JButton compileSpawnApplication = new JButton("Compile & Spawn");
+                    compileSpawnApplication.setActionCommand("compileSpawnApplication");
+                    compileSpawnApplication.addActionListener(BurpExtender.this);
+
+                    JButton attachApplication = new JButton("Attach application");
+                    attachApplication.setActionCommand("attachApplication");
+                    attachApplication.addActionListener(BurpExtender.this);
+
+                    JButton compileAttachApplication = new JButton("Compile & Attach");
+                    compileAttachApplication.setActionCommand("compileAttachApplication");
+                    compileAttachApplication.addActionListener(BurpExtender.this);
+
+                    JButton killApplication = new JButton("Kill application");
+                    killApplication.setActionCommand("killApplication");
+                    killApplication.addActionListener(BurpExtender.this);
+
+                    JButton detachApplication = new JButton("Detach application");
+                    detachApplication.setActionCommand("detachApplication");
+                    detachApplication.addActionListener(BurpExtender.this);
+
+                    JButton reloadScript = new JButton("Reload JS");
+                    reloadScript.setActionCommand("reloadScript");
+                    reloadScript.addActionListener(BurpExtender.this);
+
+                    JButton compileReloadScript = new JButton("Compile & reload JS");
+                    compileReloadScript.setActionCommand("compileReloadScript");
+                    compileReloadScript.addActionListener(BurpExtender.this);
+
+                    JButton detachAllHooks = new JButton("Detach all hooks");
+                    detachAllHooks.setActionCommand("detachAll");
+                    detachAllHooks.addActionListener(BurpExtender.this);
+
+                    clearConsoleButton = new JButton("Clear console");
+                    clearConsoleButton.setActionCommand("clearConsole");
+                    clearConsoleButton.addActionListener(BurpExtender.this);
+
+                    executeMethodButton = new JButton("Run export");
+                    executeMethodButton.setActionCommand("executeMethod");
+                    executeMethodButton.addActionListener(BurpExtender.this);
+
+                    generateJavaStubButton = new JButton("Java Stub");
+                    generateJavaStubButton.setActionCommand("generateJavaStub");
+                    generateJavaStubButton.addActionListener(BurpExtender.this);
+
+                    generatePythonStubButton = new JButton("Python Stub");
+                    generatePythonStubButton.setActionCommand("generatePythonStub");
+                    generatePythonStubButton.addActionListener(BurpExtender.this);
+
+                    saveSettingsToFileButton = new JButton("Save settings to file");
+                    saveSettingsToFileButton.setActionCommand("saveSettingsToFile");
+                    saveSettingsToFileButton.addActionListener(BurpExtender.this);
+
+                    loadSettingsFromFileButton = new JButton("Load settings from file");
+                    loadSettingsFromFileButton.setActionCommand("loadSettingsFromFile");
+                    loadSettingsFromFileButton.addActionListener(BurpExtender.this);
+
+                    loadJSFileButton = new JButton("Load JS file");
+                    loadJSFileButton.setActionCommand("loadJsFile");
+                    loadJSFileButton.addActionListener(BurpExtender.this);
+
+                    saveJSFileButton = new JButton("Save JS file");
+                    saveJSFileButton.setActionCommand("saveJsFile");
+                    saveJSFileButton.addActionListener(BurpExtender.this);
+
+                    loadTreeButton = new JButton("Load tree");
+                    loadTreeButton.setActionCommand("loadTree");
+                    loadTreeButton.addActionListener(BurpExtender.this);
+
+                    removeAllGraphicalHooksButton = new JButton("Remove all");
+                    removeAllGraphicalHooksButton.setActionCommand("removeAllGraphicalHooks");
+                    removeAllGraphicalHooksButton.addActionListener(BurpExtender.this);
+
+                    enableCustomPluginButton = new JButton("Add plugin");
+                    enableCustomPluginButton.setActionCommand("enablePlugin");
+                    enableCustomPluginButton.addActionListener(BurpExtender.this);
+
+                    exportCustomPluginsButton = new JButton("Export plugins");
+                    exportCustomPluginsButton.setActionCommand("exportPlugins");
+                    exportCustomPluginsButton.addActionListener(BurpExtender.this);
+
+                    importCustomPluginsButton = new JButton("Import plugins");
+                    importCustomPluginsButton.setActionCommand("importPlugins");
+                    importCustomPluginsButton.addActionListener(BurpExtender.this);
+
+                    JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
+                    separator.setBorder(BorderFactory.createMatteBorder(3, 0, 3, 0, Color.ORANGE));
+
+                    rightSplitPane.add(serverStatusButtons,gbc);
+                    rightSplitPane.add(applicationStatusButtons,gbc);
+                    rightSplitPane.add(startServer,gbc);
+                    rightSplitPane.add(killServer,gbc);
+                    rightSplitPane.add(spawnApplication,gbc);
+                    rightSplitPane.add(compileSpawnApplication,gbc);
+                    rightSplitPane.add(attachApplication,gbc);
+                    rightSplitPane.add(compileAttachApplication,gbc);
+                    rightSplitPane.add(killApplication,gbc);
+                    rightSplitPane.add(detachApplication,gbc);
+                    rightSplitPane.add(reloadScript,gbc);
+                    rightSplitPane.add(compileReloadScript,gbc);
+                    rightSplitPane.add(detachAllHooks,gbc);
+                    rightSplitPane.add(clearConsoleButton,gbc);
+
+                    rightSplitPane.add(separator,gbc);
+
+                    // TAB CONFIGURATIONS
+                    rightSplitPane.add(saveSettingsToFileButton,gbc);
+                    rightSplitPane.add(loadSettingsFromFileButton,gbc);
+
+                    // TAB JS EDITOR
+                    rightSplitPane.add(loadJSFileButton,gbc);
+                    rightSplitPane.add(saveJSFileButton,gbc);
+
+                    // TAB EXECUTE METHOD
+                    rightSplitPane.add(executeMethodButton,gbc);
+
+                    // TAB GENERATE STUBS
+                    rightSplitPane.add(generateJavaStubButton,gbc);
+                    rightSplitPane.add(generatePythonStubButton,gbc);
+
+                    // TREE ANALYSIS
+                    rightSplitPane.add(loadTreeButton,gbc);
+
+                    // TRAP METHODS
+                    rightSplitPane.add(removeAllGraphicalHooksButton,gbc);
+
+                    // CUSTOM PLUGINS
+                    rightSplitPane.add(enableCustomPluginButton,gbc);
+                    rightSplitPane.add(exportCustomPluginsButton,gbc);
+                    rightSplitPane.add(importCustomPluginsButton,gbc);
+
+                    splitPane.setLeftComponent(consoleTabbedSplitPane);
+                    splitPane.setRightComponent(rightSplitPane);
+
+                    splitPane.setResizeWeight(.9d);
+
+                    mainPanel.add(splitPane);
+
+                    callbacks.customizeUiComponent(mainPanel);
+
+                    callbacks.addSuiteTab(BurpExtender.this);
+
+                }
+
+            });
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
 	
 	public void editCustomPlugin(CustomPlugin currentPlugin) {
 			
@@ -2602,13 +2665,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	}
 	
 	private void savePersistentSettings() {
-		
 		callbacks.saveExtensionSetting("useVirtualEnvCheckBox",(useVirtualEnvCheckBox.isSelected() ? "true" : "false"));
 		callbacks.saveExtensionSetting("pythonPath",pythonPathVenv.getText().trim());
 		callbacks.saveExtensionSetting("pyroHost",pyroHost.getText().trim());
 		callbacks.saveExtensionSetting("pyroPort",pyroPort.getText().trim());
 		callbacks.saveExtensionSetting("fridaPath",fridaPath.getText().trim());
-		callbacks.saveExtensionSetting("applicationId",applicationId.getText().trim());			
+		// save applicationId as a project setting using Montoya rather than extension setting
+        myExtensionData.setString("applicationId", applicationId.getText().trim());
+        // device-related settings can continue to be settings at the extension level
 		if(remoteRadioButton.isSelected()) { 
 			callbacks.saveExtensionSetting("device","remote");
 		} else if(usbRadioButton.isSelected()) { 
@@ -2627,6 +2691,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		for(int i=0; i< sizeArguments; i++) {			
 			callbacks.saveExtensionSetting("executeMethodArgument" + i,(String)executeMethodInsertedArgumentList.getElementAt(i));			
 		}
+
+        // Save enabled Plugins and Hooks
+        myExtensionData.setString("Plugins Export", exportPlugins());
+        myExtensionData.setStringList("Enabled Hooks", enabledHooks);
 
 	}
 	
@@ -3340,25 +3408,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	        
 	        if (userSelectionLoadJsFile == JFileChooser.APPROVE_OPTION) {
 			
-				File jsFile = fileChooserLoadJsFile.getSelectedFile();			
-				
-				final FileLocation fl = FileLocation.create(jsFile);
-				
-				SwingUtilities.invokeLater(new Runnable() {
-					
-		            @Override
-		            public void run() {
-		            			            	
-		            	try {
-							jsEditorTextArea.load(fl,null);
-						} catch (IOException e) {
-							printException(e,"Exception loading JS file");
-						}
-	
-		            }
-				});
-				
-	        }
+				File jsFile = fileChooserLoadJsFile.getSelectedFile();
+                loadJSFile(jsFile);
+
+            }
 						
 		} else if(command.equals("saveJsFile")) {
 			
@@ -3812,8 +3865,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	            }
 			
 			});
-			
-		} else if(command.startsWith("enablePlugin")) {
+
+        } else if(command.startsWith("enablePlugin")) {
 			
 			// Plugin type
 			CustomPlugin.CustomPluginType pluginType = null;
@@ -3966,6 +4019,11 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 						customPluginOutputText.getText(),
 						customPluginOutputEncoding,
 						customPluginOutputDecoding);
+
+                // Enable the Hook by default once the custom Plugin is added
+                if(hookOrFunction) {
+                    newPlugin.enableHook();
+                }
 				
 				newCustomPlugin = newPlugin;
 								
@@ -4001,7 +4059,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 				int customPluginsOldSize = customPlugins.size();
 				customPlugins.add(newCustomPlugin);
 				((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsInserted(customPluginsOldSize, customPlugins.size() - 1);
-			}			
+			}
+
+            // Enable the custom Plugin by default once added
+            newCustomPlugin.enable();
 						
 		} else if(command.startsWith("exportPlugins")) {
 			
@@ -4023,12 +4084,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 	        			return;
 	        		}	        		
 	        	}
-	        	
-				List<CustomPlugin> customPlugins = ((CustomPluginsTableModel)(customPluginsTable.getModel())).getCustomPlugins();
-				String result = "";
-				for(int i=0;i<customPlugins.size();i++) {
-					result = result + customPlugins.get(i).exportPlugin() + "\n";
-				}			
+
+                String result = exportPlugins();
 				
 				FileWriter csvWriter;
 				try {
@@ -4066,125 +4123,14 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 					List<CustomPlugin> customPlugins = ((CustomPluginsTableModel)(customPluginsTable.getModel())).getCustomPlugins();
 					
 					while ((row = csvReader.readLine()) != null) {
-						
-	        		    String[] data = row.split(";");
-	        		    currentRow++;
-	        		    
-	        		    if(data.length > 0) {
-	        		    		        		    	
-	        		    	if(CustomPlugin.CustomPluginType.values()[Integer.parseInt(data[0])] == CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB && data.length >= 20) {
-	        		    		
-	        		    		BridaMessageEditorPlugin importedPlugin = new BridaMessageEditorPlugin(BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.values()[Integer.parseInt(data[1])],
-	        		    				new String(Base64.decodeBase64(data[2])),
-	        		    				importTransformations(data[3]),
-	        		    				importTransformations(data[4]),
-	        		    				new String(Base64.decodeBase64(data[5])),
-	        		    				importTransformations(data[6]),
-	        							this,
-	        							new String(Base64.decodeBase64(data[7])),
-	        							new String(Base64.decodeBase64(data[8])),
-	        							CustomPlugin.CustomPluginExecuteOnValues.values()[Integer.parseInt(data[9])],
-	        							new String(Base64.decodeBase64(data[10])),
-	        							CustomPlugin.CustomPluginExecuteValues.values()[Integer.parseInt(data[11])],
-	        							new String(Base64.decodeBase64(data[12])),
-	        							CustomPlugin.CustomPluginParameterValues.values()[Integer.parseInt(data[13])],
-	        							new String(Base64.decodeBase64(data[14])),
-	        							importTransformations(data[15]),
-	        							CustomPlugin.CustomPluginFunctionOutputValues.values()[Integer.parseInt(data[16])],
-	        							new String(Base64.decodeBase64(data[17])),
-	        							importTransformations(data[18]),
-										importTransformations(data[19]));
-	        		    		
-	        		    		synchronized(customPlugins) {
-	        						int customPluginsOldSize = customPlugins.size();
-	        						customPlugins.add(importedPlugin);
-	        						((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsInserted(customPluginsOldSize, customPlugins.size() - 1);
-	        					}	
-	        		    		
-	        		    		
-	        		    	} else if(CustomPlugin.CustomPluginType.values()[Integer.parseInt(data[0])] == CustomPlugin.CustomPluginType.JBUTTON && data.length >= 14) {
-	        		    		
-	        		    		BridaButtonPlugin importedPlugin = new BridaButtonPlugin(Integer.parseInt(data[1]),
-	        							(data[2].equals("true") ? true : false),
-	        							this,
-	        							new String(Base64.decodeBase64(data[3])),
-		    							new String(Base64.decodeBase64(data[4])),
-		    							CustomPlugin.CustomPluginExecuteOnValues.values()[Integer.parseInt(data[5])],
-		    							new String(Base64.decodeBase64(data[6])),
-		    							CustomPlugin.CustomPluginParameterValues.values()[Integer.parseInt(data[7])],
-		    							new String(Base64.decodeBase64(data[8])),
-		    							importTransformations(data[9]),
-		    							CustomPlugin.CustomPluginFunctionOutputValues.values()[Integer.parseInt(data[10])],
-		    							new String(Base64.decodeBase64(data[11])),
-		    							importTransformations(data[12]),
-		    							importTransformations(data[13]));
-	        		    		
-	        		    		synchronized(customPlugins) {
-	        						int customPluginsOldSize = customPlugins.size();
-	        						customPlugins.add(importedPlugin);
-	        						((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsInserted(customPluginsOldSize, customPlugins.size() - 1);
-	        					}	
-	        		    		
-	        		    	} else if(CustomPlugin.CustomPluginType.values()[Integer.parseInt(data[0])] == CustomPlugin.CustomPluginType.IHTTPLISTENER && data.length >= 16) {
-	        		    		
-	        		    		String[] importedPluginTools = data[1].split(",");
-	        		    		ArrayList<Integer> importedPluginToolsList = new ArrayList<Integer>();
-	        		    		for(int i=0;i<importedPluginTools.length;i++) {
-	        		    			importedPluginToolsList.add(Integer.parseInt(importedPluginTools[i]));
-	        		    		}
-	        		    		
-	        		    		BridaHttpListenerPlugin importedPlugin = new BridaHttpListenerPlugin(importedPluginToolsList,
-	        		    				(data[2].equals("true") ? true : false),
-	        							this,
-	        							new String(Base64.decodeBase64(data[3])),
-	        							new String(Base64.decodeBase64(data[4])),
-	        							CustomPlugin.CustomPluginExecuteOnValues.values()[Integer.parseInt(data[5])],
-	        							new String(Base64.decodeBase64(data[6])),
-	        							CustomPlugin.CustomPluginExecuteValues.values()[Integer.parseInt(data[7])],
-	        							new String(Base64.decodeBase64(data[8])),
-	        							CustomPlugin.CustomPluginParameterValues.values()[Integer.parseInt(data[9])],
-	        							new String(Base64.decodeBase64(data[10])),
-	        							importTransformations(data[11]),
-	        							CustomPlugin.CustomPluginFunctionOutputValues.values()[Integer.parseInt(data[12])],
-	        							new String(Base64.decodeBase64(data[13])),
-	        							importTransformations(data[14]),
-	        							importTransformations(data[15]));
-	        		    		
-	        		    		synchronized(customPlugins) {
-	        						int customPluginsOldSize = customPlugins.size();
-	        						customPlugins.add(importedPlugin);
-	        						((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsInserted(customPluginsOldSize, customPlugins.size() - 1);
-	        					}	
-	        		    		
-	        		    	} else if(CustomPlugin.CustomPluginType.values()[Integer.parseInt(data[0])] == CustomPlugin.CustomPluginType.ICONTEXTMENU && data.length >= 12) {
-	        		    		
-	        		    		BridaContextMenuPlugin importedPlugin = new BridaContextMenuPlugin(this,
-	        		    				new String(Base64.decodeBase64(data[1])),
-		    							new String(Base64.decodeBase64(data[2])),
-		    							CustomPlugin.CustomPluginExecuteOnValues.values()[Integer.parseInt(data[3])],
-		    							new String(Base64.decodeBase64(data[4])),
-		    							CustomPlugin.CustomPluginParameterValues.values()[Integer.parseInt(data[5])],
-		    							new String(Base64.decodeBase64(data[6])),
-		    							importTransformations(data[7]),
-		    							CustomPlugin.CustomPluginFunctionOutputValues.values()[Integer.parseInt(data[8])],
-		    							new String(Base64.decodeBase64(data[9])),
-		    							importTransformations(data[10]),
-		    							importTransformations(data[11]));
-	        		    		
-	        		    		synchronized(customPlugins) {
-	        						int customPluginsOldSize = customPlugins.size();
-	        						customPlugins.add(importedPlugin);
-	        						((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsInserted(customPluginsOldSize, customPlugins.size() - 1);
-	        					}	
-	        		    		
-	        		    	} else {
-	        		    		
-	        		    		printException(null,"Skipping row " + currentRow + ": invalid type of custom plugin or number of arguments");
-	        		    		
-	        		    	}
-	        		    	
-	        		    }
-	        		    	        		    
+                        currentRow++;
+
+                        boolean result = importPlugin(row);
+
+                        if (!result) {
+                            printException(null,"Skipping row " + currentRow + ": invalid type of custom plugin or number of arguments");
+                        }
+
 	        		}
 	        		csvReader.close();
 				} catch (FileNotFoundException e) {
@@ -4198,7 +4144,172 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 		}
 				
 	}
-		
+
+    private void loadJSFile(File jsFile) {
+        final FileLocation fl = FileLocation.create(jsFile);
+
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                        jsEditorTextArea.load(fl,null);
+                } catch (IOException e) {
+                        printException(e,"Exception loading JS file");
+                }
+            }
+        });
+    }
+
+    public String exportPlugins() {
+        List<CustomPlugin> customPlugins = ((CustomPluginsTableModel)(customPluginsTable.getModel())).getCustomPlugins();
+        String result = "";
+        for(int i=0;i<customPlugins.size();i++) {
+            result = result + customPlugins.get(i).exportPlugin() + "\n";
+        }
+
+        return result;
+    }
+
+    public boolean importPlugin(String row) {
+        List<CustomPlugin> customPlugins = ((CustomPluginsTableModel)(customPluginsTable.getModel())).getCustomPlugins();
+        String[] data = row.split(";");
+
+        if(data.length > 0) {
+
+            if(CustomPlugin.CustomPluginType.values()[Integer.parseInt(data[0])] == CustomPlugin.CustomPluginType.IMESSAGEEDITORTAB && data.length >= 20) {
+
+                BridaMessageEditorPlugin importedPlugin = new BridaMessageEditorPlugin(BridaMessageEditorPlugin.BridaMessageEditorPluginOutputLocation.values()[Integer.parseInt(data[1])],
+                        new String(Base64.decodeBase64(data[2])),
+                        importTransformations(data[3]),
+                        importTransformations(data[4]),
+                        new String(Base64.decodeBase64(data[5])),
+                        importTransformations(data[6]),
+                        this,
+                        new String(Base64.decodeBase64(data[7])),
+                        new String(Base64.decodeBase64(data[8])),
+                        CustomPlugin.CustomPluginExecuteOnValues.values()[Integer.parseInt(data[9])],
+                        new String(Base64.decodeBase64(data[10])),
+                        CustomPlugin.CustomPluginExecuteValues.values()[Integer.parseInt(data[11])],
+                        new String(Base64.decodeBase64(data[12])),
+                        CustomPlugin.CustomPluginParameterValues.values()[Integer.parseInt(data[13])],
+                        new String(Base64.decodeBase64(data[14])),
+                        importTransformations(data[15]),
+                        CustomPlugin.CustomPluginFunctionOutputValues.values()[Integer.parseInt(data[16])],
+                        new String(Base64.decodeBase64(data[17])),
+                        importTransformations(data[18]),
+                        importTransformations(data[19]));
+
+                synchronized(customPlugins) {
+                    int customPluginsOldSize = customPlugins.size();
+                    customPlugins.add(importedPlugin);
+                    ((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsInserted(customPluginsOldSize, customPlugins.size() - 1);
+                }
+                if (data[20].equals("true")) {
+                    importedPlugin.enable();
+                }
+
+
+            } else if(CustomPlugin.CustomPluginType.values()[Integer.parseInt(data[0])] == CustomPlugin.CustomPluginType.JBUTTON && data.length >= 14) {
+
+                BridaButtonPlugin importedPlugin = new BridaButtonPlugin(Integer.parseInt(data[1]),
+                        (data[2].equals("true") ? true : false),
+                        this,
+                        new String(Base64.decodeBase64(data[3])),
+                        new String(Base64.decodeBase64(data[4])),
+                        CustomPlugin.CustomPluginExecuteOnValues.values()[Integer.parseInt(data[5])],
+                        new String(Base64.decodeBase64(data[6])),
+                        CustomPlugin.CustomPluginParameterValues.values()[Integer.parseInt(data[7])],
+                        new String(Base64.decodeBase64(data[8])),
+                        importTransformations(data[9]),
+                        CustomPlugin.CustomPluginFunctionOutputValues.values()[Integer.parseInt(data[10])],
+                        new String(Base64.decodeBase64(data[11])),
+                        importTransformations(data[12]),
+                        importTransformations(data[13]));
+
+                synchronized(customPlugins) {
+                    int customPluginsOldSize = customPlugins.size();
+                    customPlugins.add(importedPlugin);
+                    ((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsInserted(customPluginsOldSize, customPlugins.size() - 1);
+                }
+
+                if (data[2].equals("true") && data[14].equals("true")) {
+                    importedPlugin.enableHook();
+                }
+
+                if (data[15].equals("true")) {
+                    importedPlugin.enable();
+                }
+
+            } else if(CustomPlugin.CustomPluginType.values()[Integer.parseInt(data[0])] == CustomPlugin.CustomPluginType.IHTTPLISTENER && data.length >= 16) {
+
+                String[] importedPluginTools = data[1].split(",");
+                ArrayList<Integer> importedPluginToolsList = new ArrayList<Integer>();
+                for(int i=0;i<importedPluginTools.length;i++) {
+                    importedPluginToolsList.add(Integer.parseInt(importedPluginTools[i]));
+                }
+
+                BridaHttpListenerPlugin importedPlugin = new BridaHttpListenerPlugin(importedPluginToolsList,
+                        (data[2].equals("true") ? true : false),
+                        this,
+                        new String(Base64.decodeBase64(data[3])),
+                        new String(Base64.decodeBase64(data[4])),
+                        CustomPlugin.CustomPluginExecuteOnValues.values()[Integer.parseInt(data[5])],
+                        new String(Base64.decodeBase64(data[6])),
+                        CustomPlugin.CustomPluginExecuteValues.values()[Integer.parseInt(data[7])],
+                        new String(Base64.decodeBase64(data[8])),
+                        CustomPlugin.CustomPluginParameterValues.values()[Integer.parseInt(data[9])],
+                        new String(Base64.decodeBase64(data[10])),
+                        importTransformations(data[11]),
+                        CustomPlugin.CustomPluginFunctionOutputValues.values()[Integer.parseInt(data[12])],
+                        new String(Base64.decodeBase64(data[13])),
+                        importTransformations(data[14]),
+                        importTransformations(data[15]));
+
+                synchronized(customPlugins) {
+                    int customPluginsOldSize = customPlugins.size();
+                    customPlugins.add(importedPlugin);
+                    ((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsInserted(customPluginsOldSize, customPlugins.size() - 1);
+                }
+
+                if (data[16].equals("true")) {
+                    importedPlugin.enable();
+                }
+
+            } else if(CustomPlugin.CustomPluginType.values()[Integer.parseInt(data[0])] == CustomPlugin.CustomPluginType.ICONTEXTMENU && data.length >= 12) {
+
+                BridaContextMenuPlugin importedPlugin = new BridaContextMenuPlugin(this,
+                        new String(Base64.decodeBase64(data[1])),
+                        new String(Base64.decodeBase64(data[2])),
+                        CustomPlugin.CustomPluginExecuteOnValues.values()[Integer.parseInt(data[3])],
+                        new String(Base64.decodeBase64(data[4])),
+                        CustomPlugin.CustomPluginParameterValues.values()[Integer.parseInt(data[5])],
+                        new String(Base64.decodeBase64(data[6])),
+                        importTransformations(data[7]),
+                        CustomPlugin.CustomPluginFunctionOutputValues.values()[Integer.parseInt(data[8])],
+                        new String(Base64.decodeBase64(data[9])),
+                        importTransformations(data[10]),
+                        importTransformations(data[11]));
+
+                synchronized(customPlugins) {
+                    int customPluginsOldSize = customPlugins.size();
+                    customPlugins.add(importedPlugin);
+                    ((CustomPluginsTableModel)(customPluginsTable.getModel())).fireTableRowsInserted(customPluginsOldSize, customPlugins.size() - 1);
+                }
+
+                if (data[12].equals("true")) {
+                    importedPlugin.enable();
+                }
+
+            } else {
+                return false;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
 	public static List<Transformation> importTransformations(String encoding) {
 		List<Transformation> output = new ArrayList<Transformation>();
 		String toTokenize = encoding.replaceAll("\\[", "").replaceAll("\\]", "").replaceAll(" ","");
@@ -5014,7 +5125,9 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
 			}
 			
 		}
-		
+
+        // save Persistent settings upon Project / Application closure
+        savePersistentSettings();
 	}
 	
 	public boolean removeButtonFromHooksAndFunctions(JPanel buttonPanelToRemove, DefaultHook dh) {
@@ -5072,8 +5185,10 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
         lineJPanel.setAlignmentX(Component.LEFT_ALIGNMENT);     
         
         if(dh.isInterceptorHook()) {
-        
-            final JToggleButton tempHookToggleButton = new JToggleButton("Enable",false);
+            if (enabledHooks != null && enabledHooks.contains(dh.getName())) {
+                dh.setEnabled(true);
+            }
+            final JToggleButton tempHookToggleButton = new JToggleButton("Enable", dh.isEnabled() ? true : false);
             tempHookToggleButton.addActionListener(new ActionListener() {
             	public void actionPerformed(ActionEvent actionEvent) {
             		
@@ -5088,6 +5203,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
             					executePyroCall(pyroBridaService, "callexportfunction",new Object[] {dh.getFridaExportName(),new String[0]});
                 				printSuccessMessage("Hook " + dh.getName() + " ENABLED");
                 				dh.setEnabled(true);
+                                // Keep track of enabled hooks for Persistence
+                                enabledHooks.add(dh.getName());
 							} catch (Exception e) {
 								printException(e,"Error while enabling hook " + dh.getName());
 							} 
@@ -5096,7 +5213,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
             				
             				printSuccessMessage("Hook " + dh.getName() + " ENABLED");
             				dh.setEnabled(true);
-            				
+                            // Keep track of enabled hooks for Persistence
+                            enabledHooks.add(dh.getName());
             			}
             		
             		// Disabling hook	
@@ -5111,7 +5229,8 @@ public class BurpExtender implements IBurpExtender, ITab, ActionListener, MouseL
             				
                 			printSuccessMessage("Hook " + dh.getName() + " DISABLED");
                 			dh.setEnabled(false);
-            				
+                            // Remove Persistence of disabled Hooks
+                            enabledHooks.remove(dh.getName());
             			}
                 			
             		}

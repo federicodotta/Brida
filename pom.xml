@@ -4,7 +4,7 @@
 
   <groupId>org.fd</groupId>
   <artifactId>Brida</artifactId>
-  <version>0.5</version>
+  <version>0.7</version>
   <packaging>jar</packaging>
 
   <name>Brida</name>
@@ -13,7 +13,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>    
+    <maven.compiler.target>17</maven.compiler.target>
   </properties>
 
   <build>
@@ -71,6 +71,12 @@
 		<artifactId>burp-extender-api</artifactId>
 		<version>1.7.22</version>
 	</dependency>
+
+    <dependency>
+        <groupId>net.portswigger.burp.extensions</groupId>
+        <artifactId>montoya-api</artifactId>
+        <version>2025.11</version>
+    </dependency>
 	
 	<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
 	<dependency>

@@ -56,8 +56,10 @@ public class BridaButtonPlugin extends CustomPlugin {
 		result = result + getCustomPluginFunctionOutput().ordinal() + ";";
 		result = result + Base64.getEncoder().encodeToString(getCustomPluginFunctionOutputString().getBytes()) + ";";
 		result = result + getCustomPluginOutputEncoding().toString() + ";";
-		result = result + getCustomPluginOutputDecoding().toString();
-				
+        result = result + getCustomPluginOutputDecoding().toString()  + ";";
+        result = result + hookOrFunction.isEnabled()  + ";";
+		result = result + isOn();
+
 		return result;
 		
 	}
@@ -78,6 +80,12 @@ public class BridaButtonPlugin extends CustomPlugin {
 			}
 		}
 	}
+
+    public void enableHook() {
+        if(hookOrFunction.isInterceptorHook()) {
+            hookOrFunction.setEnabled(true);
+        } 
+    }
 
 	public DefaultHook getHookOrFunction() {
 		return hookOrFunction;

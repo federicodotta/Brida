@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'org.fd.brida'
-version = '0.6'
+version = '0.7'
 
 repositories {
     mavenCentral()
@@ -11,6 +11,7 @@ repositories {
 
 dependencies {
     implementation 'net.portswigger.burp.extender:burp-extender-api:+'
+    implementation "net.portswigger.burp.extensions:montoya-api:2025.11"
     implementation 'org.apache.commons:commons-lang3:3.7'
     implementation 'commons-codec:commons-codec:1.14'
     implementation 'org.json:json:20171018'
@@ -19,7 +20,9 @@ dependencies {
     implementation files('libs/rsyntaxtextarea-2.6.1.edited.jar')
 }
 
-
+tasks.withType(JavaCompile) {
+    options.compilerArgs << "-Xlint:unchecked"
+}
 
 jar {
     from {

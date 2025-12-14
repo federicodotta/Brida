@@ -651,7 +651,5 @@ public abstract class CustomPlugin {
 	public void setCustomPluginName(String customPluginName) {
 		this.customPluginName = customPluginName;
 	}
-	
-	
 		
 }
