@@ -108,7 +108,8 @@ public class BridaMessageEditorPlugin extends CustomPlugin implements IMessageEd
 		result = result + getCustomPluginFunctionOutput().ordinal() + ";";
 		result = result + Base64.getEncoder().encodeToString(getCustomPluginFunctionOutputString().getBytes()) + ";";
 		result = result + getCustomPluginOutputEncoding().toString() + ";";
-		result = result + getCustomPluginOutputDecoding().toString();
+		result = result + getCustomPluginOutputDecoding().toString() + ";";
+        result = result + isOn();
 				
 		return result;
 		
